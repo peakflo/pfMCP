@@ -43,7 +43,7 @@ logger = logging.getLogger(SERVICE_NAME)
 async def create_drive_service(user_id, api_key=None):
     """Create a new Drive service instance for this request"""
     credentials = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
-    return build("drive", "v3", credentials=credentials)
+    return build("drive", "v3", credentials=credentials, cache_discovery=False)
 
 
 def create_server(user_id, api_key=None):
@@ -195,6 +195,8 @@ def create_server(user_id, api_key=None):
                 )
                 .execute()
             )
+            logger.info(f"[search] formatted_query: {formatted_query}")
+            logger.info(f"[search] results: {results}")
 
             files = results.get("files", [])
             file_list = "\n".join(

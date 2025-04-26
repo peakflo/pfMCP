@@ -17,6 +17,7 @@ def create_auth_client(
 
     Args:
         client_type: Optional specific client class to instantiate
+        api_key: Optional API key for authentication
 
     Returns:
         An instance of the appropriate BaseAuthClient implementation
@@ -32,6 +33,15 @@ def create_auth_client(
         from .clients.GumloopAuthClient import GumloopAuthClient
 
         return GumloopAuthClient(api_key=api_key)
+        
+    if environment == "nango":
+        from .clients.NangoAuthClient import NangoAuthClient
+        
+        # Get Nango-specific configuration
+        secret_key = os.environ.get("NANGO_SECRET_KEY")
+        host = os.environ.get("NANGO_HOST")
+        
+        return NangoAuthClient(secret_key=secret_key, host=host)
 
     # Default to local file auth client
     from .clients.LocalAuthClient import LocalAuthClient
