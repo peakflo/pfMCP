@@ -1,12 +1,14 @@
 import os
 import logging
 from typing import Optional, TypeVar, Type
-
+from dotenv import load_dotenv
 from .clients.BaseAuthClient import BaseAuthClient
 
 logger = logging.getLogger("auth-factory")
 
 T = TypeVar("T", bound=BaseAuthClient)
+
+load_dotenv()
 
 
 def create_auth_client(

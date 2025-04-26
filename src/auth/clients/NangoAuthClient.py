@@ -119,14 +119,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         return SERVICE_NAME_MAP.get(service_name, service_name)
 
     def get_user_credentials(
-        self, service_name: str, user_id: str
+        self, service_name: str, connection_id: str
     ) -> Optional[CredentialsT]:
         """
         Get user credentials from Nango API
         
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
-            user_id: Identifier for the user
+            connection_id: Identifier for the connection
             
         Returns:
             Credentials object if found, None otherwise
@@ -140,19 +140,19 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             nango_service_name = self._map_service_name(service_name)
             
             # Use the Nango API to get connection credentials
-            url = f"{self.api_base_url}/connection/{user_id}?provider_config_key={nango_service_name}"
+            url = f"{self.api_base_url}/connection/{connection_id}?provider_config_key={nango_service_name}"
             logger.info(f"[get_user_credentials] url: {url}")
             headers = {"Authorization": f"Bearer {self.secret_key}"}
             
             response = requests.get(url, headers=headers)
             
             if response.status_code == 404:
-                logger.info(f"No credentials found for {service_name} user {user_id}")
+                logger.info(f"No credentials found for {service_name} connection {connection_id}")
                 return None
                 
             if response.status_code != 200:
                 logger.error(
-                    f"Failed to get credentials for {service_name} user {user_id}: {response.text}"
+                    f"Failed to get credentials for {service_name} connection {connection_id}: {response.text}"
                 )
                 return None
 
@@ -161,7 +161,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             return response.json().get("credentials")
         except Exception as e:
             logger.error(
-                f"Error retrieving credentials for {service_name} user {user_id}: {str(e)}"
+                f"Error retrieving credentials for {service_name} connection {connection_id}: {str(e)}"
             )
             return None
             
@@ -211,14 +211,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             raise
             
     def save_user_credentials(
-        self, service_name: str, user_id: str, credentials: CredentialsT
+        self, service_name: str, connection_id: str, credentials: CredentialsT
     ) -> None:
         """
         Saves user credentials to Nango
         
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
-            user_id: Identifier for the user
+            connection_id: Identifier for the connection
             credentials: Credentials object to save
         """
         if not self.secret_key:
@@ -230,7 +230,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             nango_service_name = self._map_service_name(service_name)
             
             # Use the Nango API to update connection credentials
-            url = f"{self.api_base_url}/connection/{nango_service_name}/{user_id}"
+            url = f"{self.api_base_url}/connection/{nango_service_name}/{connection_id}"
             logger.info(f"[save_user_credentials] url: {url}")
             headers = {
                 "Authorization": f"Bearer {self.secret_key}",
@@ -250,12 +250,12 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             
             if response.status_code != 200:
                 logger.error(
-                    f"Failed to save credentials for {service_name} user {user_id}: {response.text}"
+                    f"Failed to save credentials for {service_name} connection {connection_id}: {response.text}"
                 )
                 return
                 
-            logger.info(f"Successfully saved credentials for {service_name} user {user_id}")
+            logger.info(f"Successfully saved credentials for {service_name} connection {connection_id}")
         except Exception as e:
             logger.error(
-                f"Error saving credentials for {service_name} user {user_id}: {str(e)}"
+                f"Error saving credentials for {service_name} connection {connection_id}: {str(e)}"
             ) 
