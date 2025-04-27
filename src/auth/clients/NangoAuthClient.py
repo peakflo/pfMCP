@@ -11,70 +11,13 @@ logger = logging.getLogger("nango-auth-client")
 # This maps the service names used in MCP to their equivalents in Nango
 SERVICE_NAME_MAP = {
     # Google services
-    # "google_sheets": "google_sheets",
-    # "gmail": "gmail",
-    # "google_docs": "google_docs",
+    "gsheets": "google-sheet",
+    "gmail": "google-mail",
+    "gdocs": "google-docs",
     "gdrive": "google-drive",
-    # "google_calendar": "google_calendar",
-    # "google_maps": "google_maps",
-    # "google_meet": "google_meet",
-    # "youtube": "youtube",
-    
-    # # Communication tools
-    # "slack": "slack",
-    # "outlook": "outlook",
-    # "discourse": "discourse",
-    # "twitter": "twitter",
-    # "reddit": "reddit",
-    # "intercom": "intercom",
-    # "zoom": "zoom",
-    # "twilio": "twilio",
-    
-    # # Productivity tools
-    # "airtable": "airtable",
-    # "excel": "excel",
-    # "linear": "linear",
-    # "attio": "attio",
-    # "notion": "notion",
-    # "webflow": "webflow",
-    # "clickup": "clickup",
-    # "dropbox": "dropbox",
-    # "onedrive": "onedrive",
-    # "sharepoint": "sharepoint",
-    # "jira": "jira",
-    # "calendly": "calendly",
-    # "cal_com": "cal_com",
-    # "canva": "canva",
-    
-    # # Business tools
-    # "apollo": "apollo",
-    # "hubspot": "hubspot",
-    # "hunter_io": "hunter_io",
-    # "sendgrid": "sendgrid",
-    # "quickbooks": "quickbooks",
-    # "typeform": "typeform",
-    # "stripe": "stripe",
-    # "instacart": "instacart",
-    # "pagerduty": "pagerduty",
-    # "shopify": "shopify",
-    # "docusign": "docusign",
-    # "patreon": "patreon",
-    # "posthog": "posthog",
-    # "salesforce": "salesforce",
-    
-    # # Search tools
-    # "perplexity": "perplexity",
-    # "ahrefs": "ahrefs",
-    # "firecrawl": "firecrawl",
-    # "serpapi": "serpapi",
-    # "hackernews": "hackernews",
-    # "reducto": "reducto",
-    
-    # # Development tools
-    # "figma": "figma",
-    # "github": "github",
-    # "browserbase": "browserbase",
-    # "snowflake": "snowflake",
+    "gcalendar": "google-calendar",
+    "gmaps": "google",
+    "gmeet": "google",
     
     # # Add more mappings as needed
 }
