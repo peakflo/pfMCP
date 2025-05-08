@@ -8,7 +8,7 @@ def get_test_id(test_config):
 
 
 @pytest.mark.asyncio
-async def run_tool_test(client, context, test_config):
+async def run_tool_test(client, context: dict, test_config: dict) -> dict:
     """
     Common test function for running tool tests across different servers.
 
@@ -16,6 +16,9 @@ async def run_tool_test(client, context, test_config):
         client: The client fixture
         context: Module-scoped context dictionary to store test values
         test_config: Configuration for the specific test to run
+
+    Returns:
+        Updated context dictionary with test results
     """
     if test_config.get("skip", False):
         pytest.skip(f"Test {test_config['name']} marked to skip")
@@ -41,7 +44,6 @@ async def run_tool_test(client, context, test_config):
     expected_keywords = test_config["expected_keywords"]
     description = test_config["description"]
 
-    # Use args if available, otherwise try to format args_template
     if "args" in test_config:
         args = test_config["args"]
     elif "args_template" in test_config:
@@ -67,7 +69,6 @@ async def run_tool_test(client, context, test_config):
 
     response = await client.process_query(prompt)
 
-    # Handle common empty result patterns
     if (
         "empty" in response.lower()
         or "[]" in response
@@ -82,12 +83,10 @@ async def run_tool_test(client, context, test_config):
         pytest.skip(f"Empty result from API for {tool_name}")
         return
 
-    # Handle API errors
     if "error_message" in response.lower() and "error_message" not in expected_keywords:
         pytest.fail(f"API error for {tool_name}: {response}")
         return
 
-    # Check for expected keywords
     missing_keywords = []
     for keyword in expected_keywords:
         if keyword != "error_message" and keyword.lower() not in response.lower():
@@ -97,7 +96,6 @@ async def run_tool_test(client, context, test_config):
         pytest.skip(f"Keywords not found: {', '.join(missing_keywords)}")
         return
 
-    # Extract values using regex
     if "regex_extractors" in test_config:
         for key, pattern in test_config["regex_extractors"].items():
             match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
@@ -105,3 +103,33 @@ async def run_tool_test(client, context, test_config):
                 context[key] = match.group(1).strip()
 
     return context
+
+
+@pytest.mark.asyncio
+async def run_resources_test(client):
+    """
+    Generic test function for list_resources and read_resource handlers.
+    """
+    # List resources
+    response = await client.list_resources()
+    assert (
+        response
+        and hasattr(response, "resources")
+        and isinstance(response.resources, list)
+    ), f"Invalid list_resources response: {response}"
+    if not response.resources:
+        pytest.skip("No resources found")
+
+    # Test only the first resource
+    resource = response.resources[0]
+    assert (
+        isinstance(resource.name, str) and resource.name
+    ), f"Invalid resource name for URI {resource.uri}"
+
+    contents = await client.read_resource(resource.uri)
+    assert hasattr(contents, "contents") and isinstance(
+        contents.contents, list
+    ), f"Invalid read_resource response for {resource.uri}"
+    assert contents.contents, f"No content returned for {resource.uri}"
+
+    return response

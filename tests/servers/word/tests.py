@@ -1,8 +1,6 @@
 import pytest
-import re
 import random
-import string
-from tests.utils.test_tools import get_test_id, run_tool_test
+from tests.utils.test_tools import get_test_id, run_tool_test, run_resources_test
 
 
 TOOL_TESTS = [
@@ -79,46 +77,7 @@ async def test_word_tool(client, context, test_config):
 
 
 @pytest.mark.asyncio
-async def test_read_resource(client):
-    """Test reading a Word document resource"""
-    # First list resources to get a valid Word file
-    response = await client.list_resources()
-
-    # Skip test if no resources were returned
-    if not (response and hasattr(response, "resources") and len(response.resources)):
-        pytest.skip("No Word resources found to test read_resource functionality")
-        return
-
-    # Find the first Word file resource
-    word_resource = next(
-        (r for r in response.resources if str(r.uri).startswith("word://file/")),
-        None,
-    )
-
-    if not word_resource:
-        pytest.skip("No Word resources found to test read_resource functionality")
-        return
-
-    # Read Word file details
-    response = await client.read_resource(word_resource.uri)
-    assert response.contents, "Response should contain Word document data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
-
-    # Parse and verify JSON content
-    import json
-
-    content_data = json.loads(response.contents[0].text)
-
-    # Check if there was an error response
-    if "error" in content_data:
-        pytest.fail(f"Error reading document: {content_data.get('error')}")
-
-    # Verify basic document data
-    assert "id" in content_data, "Response should include document ID"
-    assert "name" in content_data, "Response should include document name"
-    assert "webUrl" in content_data, "Response should include webUrl"
-
-    print("Word document data read:")
-    print(f"  - Document name: {content_data.get('name')}")
-    print(f"  - Document size: {content_data.get('size')} bytes")
-    print("✅ Successfully read Word document data")
+async def test_resources(client, context):
+    response = await run_resources_test(client)
+    context["first_resource_uri"] = response.resources[0].uri
+    return response
