@@ -1,0 +1,6 @@
+ENVIRONMENT=nango
+ANTHROPIC_API_KEY=sk-ant-.....
+
+
+NANGO_SECRET_KEY=87efac76-1e42-4d73-8f73-c8ed9ccbff1e
+NANGO_HOST=http://localhost:3003

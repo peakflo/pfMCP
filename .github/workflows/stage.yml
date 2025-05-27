@@ -1,0 +1,53 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Cloud functions deploy
+
+# Controls when the action will run. Triggers the workflow on push
+# events but only for the master branch
+on:
+  push:
+    branches: [feat/gcp-function-deploy]
+
+env:
+  SERVICE_ACCOUNT: upload-functions-stage@appspot.gserviceaccount.com
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  deploy_cloud_function:
+    name: Deploy Cloud Function
+    runs-on: buildjet-2vcpu-ubuntu-2204
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout Repo
+        uses: actions/checkout@v4.1.1
+        with:
+          persist-credentials: false
+
+      # - name: Setup Python
+      #   uses: actions/setup-python@v5
+      #   with:
+      #     python-version: '3.13'
+      #     cache: 'pip'
+
+      # - run: git config --global url."https://${{ secrets.INT_SCHEMA_GIT_TOKEN }}@github.com/".insteadOf ssh://git@github.com/
+
+      # - name: Install dependencies
+      #   run: |
+      #     pip install -r requirements.txt
+
+      - name: GCP Auth
+        uses: google-github-actions/auth@v2.1.2
+        with:
+          credentials_json: ${{ secrets.INT_GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.INT_GCP_PROJECT_ID }}
+
+      - name: Deploy to GCP
+        run: |
+          gcloud functions deploy pfMCP --gen2 --source . --run-service-account=${{ env.SERVICE_ACCOUNT }} --memory=512MiB --cpu=1 --env-vars-file .envstage.yaml --region=us-central1 --trigger-http --project absolute-test-project --min-instances=0
