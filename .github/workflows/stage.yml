@@ -48,4 +48,4 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy --source . --env-vars-file .envstage.yaml --region=us-central1 --project absolute-test-project
+          gcloud run deploy --service pfMCP --source . --env-vars-file .envstage.yaml --region=us-central1 --project absolute-test-project
