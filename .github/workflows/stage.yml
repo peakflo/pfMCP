@@ -48,4 +48,4 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud functions deploy pfMCP --gen2 --source . --memory=512MiB --cpu=1 --env-vars-file .envstage.yaml --region=us-central1 --trigger-http --project absolute-test-project --min-instances=0
+          gcloud run deploy --source . --env-vars-file .envstage.yaml --region=us-central1 --project absolute-test-project
