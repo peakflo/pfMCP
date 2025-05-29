@@ -8,8 +8,6 @@ on:
   push:
     branches: [feat/gcp-function-deploy]
 
-env:
-  SERVICE_ACCOUNT: upload-functions-stage@appspot.gserviceaccount.com
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   deploy_cloud_function:
@@ -46,8 +44,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.INT_GCP_PROJECT_ID }}
+          project_id: ${{ vars.INT_GCP_PROJECT_ID }}
 
       - name: Deploy to GCP
         run: |
-          gcloud functions deploy pfMCP --gen2 --source . --run-service-account=${{ env.SERVICE_ACCOUNT }} --memory=512MiB --cpu=1 --env-vars-file .envstage.yaml --region=us-central1 --trigger-http --project absolute-test-project --min-instances=0
+          gcloud functions deploy pfMCP --gen2 --source . --memory=512MiB --cpu=1 --env-vars-file .envstage.yaml --region=us-central1 --trigger-http --project absolute-test-project --min-instances=0
