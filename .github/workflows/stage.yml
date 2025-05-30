@@ -6,7 +6,7 @@ name: Cloud functions deploy
 # events but only for the master branch
 on:
   push:
-    branches: [deploy-fix-2]
+    branches: [main]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -28,8 +28,6 @@ jobs:
         run: |
           echo "ANTHROPIC_API_KEY: ${{ secrets.INT_ANTHROPIC_API_KEY }}" >> .envstage.yaml
           echo "NANGO_SECRET_KEY: ${{ secrets.INT_NANGO_SECRET_KEY }}" >> .envstage.yaml
-          echo "PROJECT_ID: ${{ vars.INT_GCP_PROJECT_ID }}" >> .envstage.yaml
-          cat .envstage.yaml
 
       - name: GCP Auth
         uses: google-github-actions/auth@v2.1.2
