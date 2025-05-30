@@ -1,7 +1,11 @@
 import os
+import time
 import logging
 import requests
-from typing import Optional, Dict, Any, TypeVar, Generic
+import jwt
+from typing import Optional, Dict, Any, TypeVar, Generic, TypedDict
+
+from auth.factory import get_auth_type
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
 
@@ -9,18 +13,55 @@ logger = logging.getLogger("nango-auth-client")
 
 # Service name mapping from MCP to Nango
 # This maps the service names used in MCP to their equivalents in Nango
+AUTH_TYPE_OAUTH2 = "oauth2"
+AUTH_TYPE_UNAUTHENTICATED = "unauthenticated"
+
 SERVICE_NAME_MAP = {
     # Google services
-    "gsheets": "google-sheet",
-    "gmail": "google-mail",
-    "gdocs": "google-docs",
-    "gdrive": "google-drive",
-    "gcalendar": "google-calendar",
-    "gmaps": "google",
-    "gmeet": "google",
-    
+    "gsheets": {
+        "nango_service_name": "google-sheet",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "gmail": {
+        "nango_service_name": "google-mail",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "gdocs": {
+        "nango_service_name": "google-docs",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "gdrive": {
+        "nango_service_name": "google-drive",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "gmaps": {
+        "nango_service_name": "google",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "gmeet": {
+        "nango_service_name": "google",
+        "auth_type": AUTH_TYPE_OAUTH2
+    },
+    "peakflo": {
+        "nango_service_name": "peakflo",
+        "auth_type": AUTH_TYPE_UNAUTHENTICATED
+    },
     # # Add more mappings as needed
 }
+
+class JWTTokenResponse(TypedDict):
+    access_token: str
+    expires_at: float
+
+class NangoUnauthenticatedConnectionMetadata(TypedDict):
+    tenantId: str
+    privateKey: str
+    accessToken: str
+
+class NangoStandardConnectionCredentials(TypedDict):
+    access_token: str
+    expires_at: float
+    refresh_token: Optional[str]
 
 class NangoAuthClient(BaseAuthClient[CredentialsT]):
     """
@@ -59,7 +100,31 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         """
         # If the service name is in our mapping, use the mapped value
         # Otherwise, use the original service name as is
-        return SERVICE_NAME_MAP.get(service_name, service_name)
+        return SERVICE_NAME_MAP.get(service_name, {}).get("nango_service_name", service_name)
+    
+
+    def _get_jwt_token(self, service_name: str, tenant_id: str, private_key: str, access_token: str) -> JWTTokenResponse:
+        """
+        Get JWT token from Nango API
+        """
+        # Generate JWT token
+        expires_at = time.time() + 3600
+        jwt_token = jwt.encode(
+            {
+                "iss": service_name,
+                "aud": service_name,
+                "acc": access_token,
+                "sub": tenant_id,
+                "iat": time.time(),
+                "exp": expires_at
+            },
+            private_key,
+            algorithm="RS256"
+        )
+        return {
+            "access_token": jwt_token,
+            "expires_at": expires_at
+        }
 
     def get_user_credentials(
         self, service_name: str, connection_id: str
@@ -81,27 +146,40 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         try:
             # Map the service name to Nango's service name
             nango_service_name = self._map_service_name(service_name)
-            
-            # Use the Nango API to get connection credentials
+            auth_type = get_auth_type(service_name)
+            # Use the Nango API to get connection details
             url = f"{self.api_base_url}/connection/{connection_id}?provider_config_key={nango_service_name}"
             logger.info(f"[get_user_credentials] url: {url}")
             headers = {"Authorization": f"Bearer {self.secret_key}"}
             
-            response = requests.get(url, headers=headers)
-            
+            response = requests.get(url, headers=headers)      
             if response.status_code == 404:
-                logger.info(f"No credentials found for {service_name} connection {connection_id}")
+                logger.info(f"No connection found for {service_name} connection {connection_id}")
                 return None
                 
             if response.status_code != 200:
                 logger.error(
-                    f"Failed to get credentials for {service_name} connection {connection_id}: {response.text}"
+                    f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
                 )
                 return None
 
-            # Return the credentials data as a dictionary
-            # The caller is responsible for converting to the appropriate credentials type
-            return response.json().get("credentials")
+            if auth_type == AUTH_TYPE_OAUTH2:
+                # Return the credentials data as a dictionary
+                # The caller is responsible for converting to the appropriate credentials type
+                credentials: NangoStandardConnectionCredentials = response.json().get("credentials")
+                return credentials
+            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
+                # Return the JWT token data
+                connection_data = response.json()
+                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get("metadata")
+                jwt_token_data = self._get_jwt_token(
+                    service_name, 
+                    metadata.get("tenantId"),
+                    metadata.get("privateKey"),
+                    metadata.get("accessToken"),
+                )
+                return jwt_token_data
+                
         except Exception as e:
             logger.error(
                 f"Error retrieving credentials for {service_name} connection {connection_id}: {str(e)}"
