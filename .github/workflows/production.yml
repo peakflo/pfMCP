@@ -41,4 +41,4 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy pf-mcp --source . --env-vars-file .envprod.yaml --region=us-central1 --project workflo-prod --no-allow-unauthenticated
+          gcloud run deploy pf-mcp --source . --env-vars-file .envprod.yaml --region=us-central1 --no-allow-unauthenticated
