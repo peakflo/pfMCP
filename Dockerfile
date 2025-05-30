@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD [ "bash", "./start_sse_dev_server.sh" ]
+CMD python ./src/servers/main.py --port ${PORT}

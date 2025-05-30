@@ -6,7 +6,7 @@ name: Cloud functions deploy
 # events but only for the master branch
 on:
   push:
-    branches: [main]
+    branches: [production]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -26,19 +26,19 @@ jobs:
 
       - name: Add secrets to env
         run: |
-          echo "ANTHROPIC_API_KEY=${{ secrets.INT_ANTHROPIC_API_KEY }}" >> .envstage.yaml
-          echo "NANGO_SECRET_KEY=${{ secrets.INT_NANGO_SECRET_KEY }}" >> .envstage.yaml
+          echo "ANTHROPIC_API_KEY=${{ secrets.PROD_ANTHROPIC_API_KEY }}" >> .envprod.yaml
+          echo "NANGO_SECRET_KEY=${{ secrets.PROD_NANGO_SECRET_KEY }}" >> .envprod.yaml
 
       - name: GCP Auth
         uses: google-github-actions/auth@v2.1.2
         with:
-          credentials_json: ${{ secrets.INT_GCP_SA_KEY }}
+          credentials_json: ${{ secrets.PROD_GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ vars.INT_GCP_PROJECT_ID }}
+          project_id: ${{ vars.PROD_GCP_PROJECT_ID }}
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --project absolute-test-project --no-allow-unauthenticated
+          gcloud run deploy pf-mcp --source . --env-vars-file .envprod.yaml --region=us-central1 --project workflo-prod --no-allow-unauthenticated
