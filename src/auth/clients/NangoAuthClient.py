@@ -66,7 +66,7 @@ class NangoStandardConnectionCredentials(TypedDict):
 class NangoAuthClient(BaseAuthClient[CredentialsT]):
     """
     Implementation of BaseAuthClient that uses Nango's infrastructure.
-    
+
     Can work with any type of credentials that can be managed through Nango.
     """
 
@@ -86,14 +86,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             logger.warning(
                 "Missing Nango secret key. Some functionality may be limited."
             )
-            
+
     def _map_service_name(self, service_name: str) -> str:
         """
         Map MCP service name to Nango service name
-        
+
         Args:
             service_name: MCP service name
-            
+
         Returns:
             Nango service name. If the service name is not in the mapping,
             the original service name is returned unchanged.
@@ -131,11 +131,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
     ) -> Optional[CredentialsT]:
         """
         Get user credentials from Nango API
-        
+
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
             connection_id: Identifier for the connection
-            
+
         Returns:
             Credentials object if found, None otherwise
         """
@@ -156,7 +156,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             if response.status_code == 404:
                 logger.info(f"No connection found for {service_name} connection {connection_id}")
                 return None
-                
+
             if response.status_code != 200:
                 logger.error(
                     f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
@@ -185,58 +185,60 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 f"Error retrieving credentials for {service_name} connection {connection_id}: {str(e)}"
             )
             return None
-            
+
     def get_oauth_config(self, service_name: str) -> Dict[str, Any]:
         """
         Retrieves OAuth configuration for a specific service from Nango
-        
+
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
-            
+
         Returns:
             Dict containing OAuth configuration
         """
         if not self.secret_key:
             logger.error("Nango secret key is required to get OAuth config")
             raise ValueError("Nango secret key is required")
-            
+
         try:
             # Map the service name to Nango's service name
             nango_service_name = self._map_service_name(service_name)
-            
+
             # Get provider information from Nango
             url = f"{self.api_base_url}/provider/{nango_service_name}"
             logger.info(f"[get_oauth_config] url: {url}")
             headers = {"Authorization": f"Bearer {self.secret_key}"}
-            
+
             response = requests.get(url, headers=headers)
-            
+
             if response.status_code != 200:
-                logger.error(f"Failed to get provider info for {service_name}: {response.text}")
+                logger.error(
+                    f"Failed to get provider info for {service_name}: {response.text}"
+                )
                 raise ValueError(f"Failed to get provider info for {service_name}")
-                
+
             provider_data = response.json()
-            
+
             # Extract OAuth configuration from provider data
             oauth_config = {
                 "client_id": provider_data.get("oauth_client_id"),
                 "client_secret": provider_data.get("oauth_client_secret"),
                 "auth_url": provider_data.get("auth_url"),
                 "token_url": provider_data.get("token_url"),
-                "scopes": provider_data.get("oauth_scopes", "").split(",")
+                "scopes": provider_data.get("oauth_scopes", "").split(","),
             }
-            
+
             return oauth_config
         except Exception as e:
             logger.error(f"Error retrieving OAuth config for {service_name}: {str(e)}")
             raise
-            
+
     def save_user_credentials(
         self, service_name: str, connection_id: str, credentials: CredentialsT
     ) -> None:
         """
         Saves user credentials to Nango
-        
+
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
             connection_id: Identifier for the connection
@@ -245,19 +247,19 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         if not self.secret_key:
             logger.error("Nango secret key is required to save user credentials")
             return
-            
+
         try:
             # Map the service name to Nango's service name
             nango_service_name = self._map_service_name(service_name)
-            
+
             # Use the Nango API to update connection credentials
             url = f"{self.api_base_url}/connection/{nango_service_name}/{connection_id}"
             logger.info(f"[save_user_credentials] url: {url}")
             headers = {
                 "Authorization": f"Bearer {self.secret_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
-            
+
             # Convert credentials to JSON if needed
             if hasattr(credentials, "to_json"):
                 credentials_data = credentials.to_json()
@@ -266,17 +268,19 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             else:
                 # Try to serialize the object directly
                 credentials_data = credentials
-                
+
             response = requests.put(url, headers=headers, json=credentials_data)
-            
+
             if response.status_code != 200:
                 logger.error(
                     f"Failed to save credentials for {service_name} connection {connection_id}: {response.text}"
                 )
                 return
-                
-            logger.info(f"Successfully saved credentials for {service_name} connection {connection_id}")
+
+            logger.info(
+                f"Successfully saved credentials for {service_name} connection {connection_id}"
+            )
         except Exception as e:
             logger.error(
                 f"Error saving credentials for {service_name} connection {connection_id}: {str(e)}"
-            ) 
+            )
