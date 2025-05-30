@@ -3,7 +3,7 @@ import logging
 from typing import Optional, TypeVar, Type
 from dotenv import load_dotenv
 
-from auth.clients.NangoAuthClient import SERVICE_NAME_MAP
+from auth.constants import SERVICE_NAME_MAP
 from .clients.BaseAuthClient import BaseAuthClient
 
 logger = logging.getLogger("auth-factory")
@@ -52,15 +52,15 @@ def create_auth_client(
 
     return LocalAuthClient()
 
-def get_auth_type(self, service_name: str) -> str:
-        """
-        Map MCP service name to Nango auth type
+def get_auth_type(service_name: str) -> str:
+    """
+    Map MCP service name to Nango auth type
 
-        Args:
-            service_name: MCP service name
+    Args:
+        service_name: MCP service name
 
-        Returns:
-            Nango auth type. If the service name is not in the mapping,
-            "oauth2" is returned.
-        """
-        return SERVICE_NAME_MAP.get(service_name, {}).get("auth_type", "oauth2")
+    Returns:
+        Nango auth type. If the service name is not in the mapping,
+        "oauth2" is returned.
+    """
+    return SERVICE_NAME_MAP.get(service_name, {}).get("auth_type", "oauth2")

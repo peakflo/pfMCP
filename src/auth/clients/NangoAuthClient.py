@@ -5,49 +5,11 @@ import requests
 import jwt
 from typing import Optional, Dict, Any, TypeVar, Generic, TypedDict
 
-from auth.factory import get_auth_type
+from auth.constants import SERVICE_NAME_MAP, AUTH_TYPE_OAUTH2, AUTH_TYPE_UNAUTHENTICATED
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
 
 logger = logging.getLogger("nango-auth-client")
-
-# Service name mapping from MCP to Nango
-# This maps the service names used in MCP to their equivalents in Nango
-AUTH_TYPE_OAUTH2 = "oauth2"
-AUTH_TYPE_UNAUTHENTICATED = "unauthenticated"
-
-SERVICE_NAME_MAP = {
-    # Google services
-    "gsheets": {
-        "nango_service_name": "google-sheet",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "gmail": {
-        "nango_service_name": "google-mail",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "gdocs": {
-        "nango_service_name": "google-docs",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "gdrive": {
-        "nango_service_name": "google-drive",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "gmaps": {
-        "nango_service_name": "google",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "gmeet": {
-        "nango_service_name": "google",
-        "auth_type": AUTH_TYPE_OAUTH2
-    },
-    "peakflo": {
-        "nango_service_name": "peakflo",
-        "auth_type": AUTH_TYPE_UNAUTHENTICATED
-    },
-    # # Add more mappings as needed
-}
 
 class JWTTokenResponse(TypedDict):
     access_token: str
@@ -109,17 +71,18 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         """
         # Generate JWT token
         expires_at = time.time() + 3600
+        payload = {
+            "iss": service_name,
+            "aud": service_name,
+            "acc": access_token,
+            "sub": tenant_id,
+            "iat": time.time(),
+            "exp": expires_at
+        }
         jwt_token = jwt.encode(
-            {
-                "iss": service_name,
-                "aud": service_name,
-                "acc": access_token,
-                "sub": tenant_id,
-                "iat": time.time(),
-                "exp": expires_at
-            },
+            payload,
             private_key,
-            algorithm="RS256"
+            # algorithm="RS256"
         )
         return {
             "access_token": jwt_token,
@@ -146,13 +109,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         try:
             # Map the service name to Nango's service name
             nango_service_name = self._map_service_name(service_name)
-            auth_type = get_auth_type(service_name)
+            auth_type = SERVICE_NAME_MAP.get(service_name, {}).get("auth_type", AUTH_TYPE_OAUTH2)
             # Use the Nango API to get connection details
             url = f"{self.api_base_url}/connection/{connection_id}?provider_config_key={nango_service_name}"
             logger.info(f"[get_user_credentials] url: {url}")
             headers = {"Authorization": f"Bearer {self.secret_key}"}
             
-            response = requests.get(url, headers=headers)      
+            response = requests.get(url, headers=headers)  
+            logger.info(f"[get_user_credentials] response: {response.text}")
             if response.status_code == 404:
                 logger.info(f"No connection found for {service_name} connection {connection_id}")
                 return None
@@ -171,7 +135,13 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 # Return the JWT token data
                 connection_data = response.json()
-                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get("metadata")
+                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get("metadata", {})
+                logger.info(f"[get_user_credentials] metadata fetched for tenant {metadata.get('tenantId')}")
+                # check if metadata has all the required fields
+                if not metadata.get("tenantId") or not metadata.get("privateKey") or not metadata.get("accessToken"):
+                    logger.error(f"Missing required fields in metadata for {service_name} connection {connection_id}")
+                    return None
+                
                 jwt_token_data = self._get_jwt_token(
                     service_name, 
                     metadata.get("tenantId"),

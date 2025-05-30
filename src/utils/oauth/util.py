@@ -13,7 +13,8 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, List, Optional, Any, Callable
 
-from auth.clients.NangoAuthClient import AUTH_TYPE_UNAUTHENTICATED, JWTTokenResponse
+from auth.constants import AUTH_TYPE_UNAUTHENTICATED
+from auth.clients.NangoAuthClient import JWTTokenResponse
 from src.auth.factory import create_auth_client, get_auth_type
 
 
