@@ -277,7 +277,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON strings containing data of messages with user and message details",
                     "examples": [
@@ -309,7 +309,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "text"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of the message send operation",
                     "examples": [
@@ -333,7 +333,7 @@ def create_server(user_id, api_key=None):
                             "description": "Title of the canvas",
                         },
                         "blocks": {
-                            "type": "array",
+                            "type": "object",
                             "description": "Array of Slack block kit elements as JSON objects",
                             "items": {"type": "object"},
                         },
@@ -345,7 +345,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "title", "blocks"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of the canvas creation",
                     "examples": [
@@ -372,7 +372,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "user"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of adding a user to a channel",
                     "examples": [
@@ -403,7 +403,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "timestamp", "reaction"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of adding a reaction",
                     "examples": ['{"ok": true}'],
@@ -428,7 +428,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "timestamp"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of delete operation",
                     "examples": [
@@ -459,7 +459,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "thread_ts"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing parent message and its replies",
                     "examples": [
@@ -486,7 +486,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "timestamp"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of pin operation",
                     "examples": ['{"ok": true}'],
@@ -511,7 +511,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "timestamp"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of unpin operation",
                     "examples": ['{"ok": true}'],
@@ -532,7 +532,7 @@ def create_server(user_id, api_key=None):
                     "required": ["user"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing user presence information",
                     "examples": [
@@ -559,7 +559,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "users"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of invitation operation",
                     "examples": [
@@ -586,7 +586,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "user"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing response of removal operation",
                     "examples": ['{"ok": true, "errors": {}}'],
@@ -607,7 +607,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing pinned items in a channel",
                     "examples": [
@@ -638,7 +638,7 @@ def create_server(user_id, api_key=None):
                     "required": ["name"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing details of the created channel",
                     "examples": [
@@ -665,7 +665,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "topic"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing result of the channel topic update",
                     "examples": [
@@ -692,7 +692,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel", "purpose"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing result of the channel purpose update",
                     "examples": [
@@ -715,7 +715,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing result of the channel archiving operation",
                     "examples": ['{"ok": true}'],
@@ -736,7 +736,7 @@ def create_server(user_id, api_key=None):
                     "required": ["channel"],
                 },
                 outputSchema={
-                    "type": "array",
+                    "type": "object",
                     "items": {"type": "string"},
                     "description": "Array of JSON string containing result of the channel unarchiving operation",
                     "examples": ['{"ok": true}'],
