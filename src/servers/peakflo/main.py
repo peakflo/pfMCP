@@ -73,16 +73,24 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_BASE_URL}/invoices/{arguments['externalId']}"
         message = "Invoice updated successfully"
 
-    logger.info(f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}")
+    logger.info(
+        f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
+    )
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.request(method, url, json=arguments, headers=headers, timeout=60.0)
+            response = await client.request(
+                method, url, json=arguments, headers=headers, timeout=60.0
+            )
             status_code = response.status_code
-            logger.info(f"[make_peakflo_request] status_code: {status_code} response: {response.text}")
+            logger.info(
+                f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
+            )
 
             return {
                 "_status_code": status_code,
-                "message": status_code == 200 and message or f"Error: {response.text or 'Unknown error'}",
+                "message": status_code == 200
+                and message
+                or f"Error: {response.text or 'Unknown error'}",
                 "data": arguments,
             }
     except httpx.HTTPStatusError as e:
@@ -118,25 +126,25 @@ def create_server(user_id, api_key=None):
                     "properties": {
                         "externalId": {
                             "type": "string",
-                            "description": "External reference ID for the invoice"
+                            "description": "External reference ID for the invoice",
                         },
                         "customerRef": {
                             "type": "string",
-                            "description": "Customer reference identifier"
+                            "description": "Customer reference identifier",
                         },
                         "issueDate": {
                             "type": "string",
                             "format": "date-time",
-                            "description": "Invoice issue date in ISO format"
+                            "description": "Invoice issue date in ISO format",
                         },
                         "dueDate": {
                             "type": "string",
                             "format": "date-time",
-                            "description": "Invoice due date in ISO format"
+                            "description": "Invoice due date in ISO format",
                         },
                         "currency": {
                             "type": "string",
-                            "description": "Currency code (e.g., SGD, USD)"
+                            "description": "Currency code (e.g., SGD, USD)",
                         },
                         "lineItems": {
                             "type": "array",
@@ -146,77 +154,77 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "description": {
                                         "type": "string",
-                                        "description": "Item description"
+                                        "description": "Item description",
                                     },
                                     "unitAmount": {
                                         "type": "number",
-                                        "description": "Unit price of the item"
+                                        "description": "Unit price of the item",
                                     },
                                     "quantity": {
                                         "type": "number",
-                                        "description": "Quantity of the item"
+                                        "description": "Quantity of the item",
                                     },
                                     "discountAmount": {
                                         "type": "number",
-                                        "description": "Discount amount for the item"
+                                        "description": "Discount amount for the item",
                                     },
                                     "subTotal": {
                                         "type": "number",
-                                        "description": "Subtotal for the item"
+                                        "description": "Subtotal for the item",
                                     },
                                     "taxAmount": {
                                         "type": "number",
-                                        "description": "Tax amount for the item"
+                                        "description": "Tax amount for the item",
                                     },
                                     "totalAmount": {
                                         "type": "number",
-                                        "description": "Total amount for the item"
+                                        "description": "Total amount for the item",
                                     },
                                     "itemRef": {
                                         "type": "string",
-                                        "description": "Item reference identifier"
-                                    }
+                                        "description": "Item reference identifier",
+                                    },
                                 },
-                                "required": ["description", "unitAmount", "quantity"]
-                            }
+                                "required": ["description", "unitAmount", "quantity"],
+                            },
                         },
                         "totalAmount": {
                             "type": "number",
-                            "description": "Total invoice amount"
+                            "description": "Total invoice amount",
                         },
                         "totalDiscount": {
                             "type": "number",
-                            "description": "Total discount amount"
+                            "description": "Total discount amount",
                         },
                         "totalTaxAmount": {
                             "type": "number",
-                            "description": "Total tax amount"
+                            "description": "Total tax amount",
                         },
                         "amountDue": {
                             "type": "number",
-                            "description": "Amount due for the invoice"
+                            "description": "Amount due for the invoice",
                         },
                         "status": {
                             "type": "string",
                             "enum": ["draft", "sent", "paid", "overdue", "cancelled"],
-                            "description": "Invoice status"
+                            "description": "Invoice status",
                         },
                         "note": {
                             "type": "string",
-                            "description": "Additional notes for the invoice"
+                            "description": "Additional notes for the invoice",
                         },
                         "subTotal": {
                             "type": "number",
-                            "description": "Subtotal before taxes and discounts"
+                            "description": "Subtotal before taxes and discounts",
                         },
                         "invoiceNumber": {
                             "type": "string",
-                            "description": "Invoice number identifier"
-                        }
+                            "description": "Invoice number identifier",
+                        },
                     },
                     "required": [
                         "externalId",
-                        "customerRef", 
+                        "customerRef",
                         "issueDate",
                         "dueDate",
                         "currency",
@@ -224,8 +232,8 @@ def create_server(user_id, api_key=None):
                         "totalAmount",
                         "amountDue",
                         "status",
-                        "invoiceNumber"
-                    ]
+                        "invoiceNumber",
+                    ],
                 },
             ),
             Tool(
@@ -236,25 +244,25 @@ def create_server(user_id, api_key=None):
                     "properties": {
                         "externalId": {
                             "type": "string",
-                            "description": "External reference ID for the invoice"
+                            "description": "External reference ID for the invoice",
                         },
                         "customerRef": {
                             "type": "string",
-                            "description": "Customer reference identifier"
+                            "description": "Customer reference identifier",
                         },
                         "issueDate": {
                             "type": "string",
                             "format": "date-time",
-                            "description": "Invoice issue date in ISO format"
+                            "description": "Invoice issue date in ISO format",
                         },
                         "dueDate": {
                             "type": "string",
                             "format": "date-time",
-                            "description": "Invoice due date in ISO format"
+                            "description": "Invoice due date in ISO format",
                         },
                         "currency": {
                             "type": "string",
-                            "description": "Currency code (e.g., SGD, USD)"
+                            "description": "Currency code (e.g., SGD, USD)",
                         },
                         "lineItems": {
                             "type": "array",
@@ -264,77 +272,77 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "description": {
                                         "type": "string",
-                                        "description": "Item description"
+                                        "description": "Item description",
                                     },
                                     "unitAmount": {
                                         "type": "number",
-                                        "description": "Unit price of the item"
+                                        "description": "Unit price of the item",
                                     },
                                     "quantity": {
                                         "type": "number",
-                                        "description": "Quantity of the item"
+                                        "description": "Quantity of the item",
                                     },
                                     "discountAmount": {
                                         "type": "number",
-                                        "description": "Discount amount for the item"
+                                        "description": "Discount amount for the item",
                                     },
                                     "subTotal": {
                                         "type": "number",
-                                        "description": "Subtotal for the item"
+                                        "description": "Subtotal for the item",
                                     },
                                     "taxAmount": {
                                         "type": "number",
-                                        "description": "Tax amount for the item"
+                                        "description": "Tax amount for the item",
                                     },
                                     "totalAmount": {
                                         "type": "number",
-                                        "description": "Total amount for the item"
+                                        "description": "Total amount for the item",
                                     },
                                     "itemRef": {
                                         "type": "string",
-                                        "description": "Item reference identifier"
-                                    }
+                                        "description": "Item reference identifier",
+                                    },
                                 },
-                                "required": ["description", "unitAmount", "quantity"]
-                            }
+                                "required": ["description", "unitAmount", "quantity"],
+                            },
                         },
                         "totalAmount": {
                             "type": "number",
-                            "description": "Total invoice amount"
+                            "description": "Total invoice amount",
                         },
                         "totalDiscount": {
                             "type": "number",
-                            "description": "Total discount amount"
+                            "description": "Total discount amount",
                         },
                         "totalTaxAmount": {
                             "type": "number",
-                            "description": "Total tax amount"
+                            "description": "Total tax amount",
                         },
                         "amountDue": {
                             "type": "number",
-                            "description": "Amount due for the invoice"
+                            "description": "Amount due for the invoice",
                         },
                         "status": {
                             "type": "string",
                             "enum": ["draft", "sent", "paid", "overdue", "cancelled"],
-                            "description": "Invoice status"
+                            "description": "Invoice status",
                         },
                         "note": {
                             "type": "string",
-                            "description": "Additional notes for the invoice"
+                            "description": "Additional notes for the invoice",
                         },
                         "subTotal": {
                             "type": "number",
-                            "description": "Subtotal before taxes and discounts"
+                            "description": "Subtotal before taxes and discounts",
                         },
                         "invoiceNumber": {
                             "type": "string",
-                            "description": "Invoice number identifier"
-                        }
+                            "description": "Invoice number identifier",
+                        },
                     },
                     "required": [
                         "externalId",
-                        "customerRef", 
+                        "customerRef",
                         "issueDate",
                         "dueDate",
                         "currency",
@@ -342,10 +350,10 @@ def create_server(user_id, api_key=None):
                         "totalAmount",
                         "amountDue",
                         "status",
-                        "invoiceNumber"
-                    ]
+                        "invoiceNumber",
+                    ],
                 },
-            )
+            ),
         ]
 
     @server.call_tool()

@@ -6,7 +6,6 @@ from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 logger = logging.getLogger(__name__)
 
 
-
 def process_peakflo_token_response(token_response: Dict[str, Any]) -> Dict[str, Any]:
     """Process Slack token response."""
     if not token_response.get("ok"):

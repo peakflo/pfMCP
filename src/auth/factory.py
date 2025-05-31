@@ -52,6 +52,7 @@ def create_auth_client(
 
     return LocalAuthClient()
 
+
 def get_auth_type(service_name: str) -> str:
     """
     Map MCP service name to Nango auth type

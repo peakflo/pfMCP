@@ -154,7 +154,9 @@ def run_oauth_flow(
         # Wait for callback (timeout after 120 seconds)
         max_wait_time = 120
         wait_time = 0
-        while not server.auth_code and not server.auth_error and wait_time < max_wait_time:
+        while (
+            not server.auth_code and not server.auth_error and wait_time < max_wait_time
+        ):
             time.sleep(1)
             wait_time += 1
 
@@ -210,20 +212,25 @@ def run_oauth_flow(
         # Save credentials using auth client
         auth_client.save_user_credentials(service_name, user_id, token_response)
 
-        logger.info(f"Credentials saved for user {user_id}. You can now run the server.")
+        logger.info(
+            f"Credentials saved for user {user_id}. You can now run the server."
+        )
         return token_response
     elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
         environment = os.environ.get("ENVIRONMENT", "local").lower()
         # AUTH_TYPE_UNAUTHENTICATED is only supported for Nango
         if environment is not "nango":
-            raise ValueError(f"AUTH_TYPE_UNAUTHENTICATED is only supported for Nango. Current environment: {environment}")
-        
+            raise ValueError(
+                f"AUTH_TYPE_UNAUTHENTICATED is only supported for Nango. Current environment: {environment}"
+            )
+
         # Get JWT token and return it. We don't need to save the credentials
         # because we will set metadata via API during client onboarding
         # metadata means peakflo accessToken, peakflo tenantId, and privateKey
-        jwt_token: JWTTokenResponse = auth_client.get_user_credentials(service_name, user_id)
+        jwt_token: JWTTokenResponse = auth_client.get_user_credentials(
+            service_name, user_id
+        )
         return jwt_token
-        
 
 
 async def refresh_token_if_needed(
