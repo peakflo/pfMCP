@@ -1,0 +1,18 @@
+name: "Slack guMCP Server"
+icon: "assets/icon.png"
+description: "Interact with Peakflo resources"
+documentation_path: "README.md"
+resources:
+  - name: "invoices"
+    description: "Peakflo invoices"
+    required_scopes: []
+tools:
+  - name: "get_invoices"
+    description: "Get invoices"
+    required_scopes: []
+  - name: "create_invoice"
+    description: "Create an invoice"
+    required_scopes: []
+  - name: "update_invoice"
+    description: "Update an invoice"
+    required_scopes: []

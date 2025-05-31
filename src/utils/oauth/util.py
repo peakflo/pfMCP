@@ -13,7 +13,9 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, List, Optional, Any, Callable
 
-from src.auth.factory import create_auth_client
+from auth.constants import AUTH_TYPE_UNAUTHENTICATED
+from auth.clients.NangoAuthClient import JWTTokenResponse
+from src.auth.factory import create_auth_client, get_auth_type
 
 
 logger = logging.getLogger(__name__)
@@ -117,97 +119,118 @@ def run_oauth_flow(
     # Get auth client
     auth_client = create_auth_client()
 
-    # Get OAuth config
-    oauth_config = auth_client.get_oauth_config(service_name)
+    auth_type = get_auth_type(service_name)
+    if auth_type == "oauth2":
+        # Get OAuth config
+        oauth_config = auth_client.get_oauth_config(service_name)
 
-    if not oauth_config.get("client_id") or not oauth_config.get("client_secret"):
-        raise ValueError(f"Missing OAuth credentials for {service_name}")
+        if not oauth_config.get("client_id") or not oauth_config.get("client_secret"):
+            raise ValueError(f"Missing OAuth credentials for {service_name}")
 
-    # Get redirect URI from config or use default
-    redirect_uri = oauth_config.get("redirect_uri", f"http://localhost:{port}")
+        # Get redirect URI from config or use default
+        redirect_uri = oauth_config.get("redirect_uri", f"http://localhost:{port}")
 
-    # Create local server for callback
-    server = HTTPServer(("localhost", port), OAuthCallbackHandler)
-    server.auth_code = None
-    server.auth_error = None
-    server.additional_params = {}
+        # Create local server for callback
+        server = HTTPServer(("localhost", port), OAuthCallbackHandler)
+        server.auth_code = None
+        server.auth_error = None
+        server.additional_params = {}
 
-    # Start server in a thread
-    server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = True
-    server_thread.start()
+        # Start server in a thread
+        server_thread = threading.Thread(target=server.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
 
-    # Build auth params and URL
-    auth_params = auth_params_builder(oauth_config, redirect_uri, scopes)
-    auth_request_url = f"{auth_url_base}?{urllib.parse.urlencode(auth_params)}"
+        # Build auth params and URL
+        auth_params = auth_params_builder(oauth_config, redirect_uri, scopes)
+        auth_request_url = f"{auth_url_base}?{urllib.parse.urlencode(auth_params)}"
 
-    print(f"\n===== {service_name.title()} Authentication =====")
-    print(f"Opening browser for authentication...")
+        print(f"\n===== {service_name.title()} Authentication =====")
+        print(f"Opening browser for authentication...")
 
-    # Open the browser for authorization
-    webbrowser.open(auth_request_url)
+        # Open the browser for authorization
+        webbrowser.open(auth_request_url)
 
-    # Wait for callback (timeout after 120 seconds)
-    max_wait_time = 120
-    wait_time = 0
-    while not server.auth_code and not server.auth_error and wait_time < max_wait_time:
-        time.sleep(1)
-        wait_time += 1
+        # Wait for callback (timeout after 120 seconds)
+        max_wait_time = 120
+        wait_time = 0
+        while (
+            not server.auth_code and not server.auth_error and wait_time < max_wait_time
+        ):
+            time.sleep(1)
+            wait_time += 1
 
-    # Stop the server
-    server.shutdown()
-    server_thread.join()
+        # Stop the server
+        server.shutdown()
+        server_thread.join()
 
-    if server.auth_error:
-        logger.error(f"Authentication error: {server.auth_error}")
-        raise ValueError(f"Authentication failed: {server.auth_error}")
+        if server.auth_error:
+            logger.error(f"Authentication error: {server.auth_error}")
+            raise ValueError(f"Authentication failed: {server.auth_error}")
 
-    if not server.auth_code:
-        logger.error("No authentication code received")
-        raise ValueError("Authentication timed out or was canceled")
+        if not server.auth_code:
+            logger.error("No authentication code received")
+            raise ValueError("Authentication timed out or was canceled")
 
-    if hasattr(server, "code_verifier"):
-        oauth_config["code_verifier"] = server.code_verifier
+        if hasattr(server, "code_verifier"):
+            oauth_config["code_verifier"] = server.code_verifier
 
-    # Exchange the authorization code for tokens
-    token_data = token_data_builder(
-        oauth_config,
-        redirect_uri,
-        scopes,
-        server.auth_code,
-    )
-
-    # Add headers if header builder is provided
-    headers = token_header_builder(oauth_config) if token_header_builder else None
-    response = requests.post(token_url, data=token_data, headers=headers)
-    if response.status_code != 200:
-        raise ValueError(
-            f"Failed to exchange authorization code for tokens: {response.text}"
+        # Exchange the authorization code for tokens
+        token_data = token_data_builder(
+            oauth_config,
+            redirect_uri,
+            scopes,
+            server.auth_code,
         )
 
-    token_response = response.json()
-
-    # Process the token response if needed
-    if process_token_response:
-        token_response = process_token_response(token_response)
-
-    # Update to include "expires_at" key if it doesn't exist
-    if isinstance(token_response, dict):
-        if "expires_in" in token_response and not "expires_at" in token_response:
-            # Default processing - add expiry time
-            token_response["expires_at"] = int(time.time()) + token_response.get(
-                "expires_in", 3600
+        # Add headers if header builder is provided
+        headers = token_header_builder(oauth_config) if token_header_builder else None
+        response = requests.post(token_url, data=token_data, headers=headers)
+        if response.status_code != 200:
+            raise ValueError(
+                f"Failed to exchange authorization code for tokens: {response.text}"
             )
 
-    # Add any additional parameters from the callback
-    if hasattr(server, "additional_params"):
-        token_response.update(server.additional_params)
+        token_response = response.json()
 
-    # Save credentials using auth client
-    auth_client.save_user_credentials(service_name, user_id, token_response)
+        # Process the token response if needed
+        if process_token_response:
+            token_response = process_token_response(token_response)
 
-    logger.info(f"Credentials saved for user {user_id}. You can now run the server.")
-    return token_response
+        # Update to include "expires_at" key if it doesn't exist
+        if isinstance(token_response, dict):
+            if "expires_in" in token_response and not "expires_at" in token_response:
+                # Default processing - add expiry time
+                token_response["expires_at"] = int(time.time()) + token_response.get(
+                    "expires_in", 3600
+                )
+
+        # Add any additional parameters from the callback
+        if hasattr(server, "additional_params"):
+            token_response.update(server.additional_params)
+
+        # Save credentials using auth client
+        auth_client.save_user_credentials(service_name, user_id, token_response)
+
+        logger.info(
+            f"Credentials saved for user {user_id}. You can now run the server."
+        )
+        return token_response
+    elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
+        environment = os.environ.get("ENVIRONMENT", "local").lower()
+        # AUTH_TYPE_UNAUTHENTICATED is only supported for Nango
+        if environment is not "nango":
+            raise ValueError(
+                f"AUTH_TYPE_UNAUTHENTICATED is only supported for Nango. Current environment: {environment}"
+            )
+
+        # Get JWT token and return it. We don't need to save the credentials
+        # because we will set metadata via API during client onboarding
+        # metadata means peakflo accessToken, peakflo tenantId, and privateKey
+        jwt_token: JWTTokenResponse = auth_client.get_user_credentials(
+            service_name, user_id
+        )
+        return jwt_token
 
 
 async def refresh_token_if_needed(
