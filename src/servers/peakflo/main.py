@@ -72,6 +72,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_BASE_URL}/invoices/{arguments['externalId']}"
         message = "Invoice updated successfully"
+    elif name == "read_vendor":
+        method = "GET"
+        url = f"{PEAKFLO_BASE_URL}/vendors/{arguments['externalId']}"
+        message = "Vendor fetched successfully"
 
     logger.info(
         f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
@@ -113,11 +117,202 @@ def create_server(user_id, api_key=None):
     server = Server(f"{SERVICE_NAME}-server")
     server.user_id = user_id
     server.api_key = api_key
-    tool_names = ["create_invoice", "update_invoice"]
+    tool_names = ["read_vendor", "create_invoice", "update_invoice"]
 
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
         return [
+            Tool(
+                name="read_vendor",
+                description="Fetch vendor details by external ID from Peakflo API",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "externalId": {
+                            "type": "string",
+                            "description": "External ID of the vendor to fetch"
+                        }
+                    },
+                    "required": ["externalId"]
+                },
+                outputSchema={
+                    "type": "object",
+                    "properties": {
+                        "companyName": {
+                            "type": "string",
+                            "description": "Name of the vendor company"
+                        },
+                        "companyId": {
+                            "type": "string",
+                            "description": "Unique identifier for the company"
+                        },
+                        "defaultCurrency": {
+                            "type": "string",
+                            "description": "Default currency for the vendor (e.g., USD, SGD)"
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "description": "Array of vendor addresses",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "Type of address (e.g., billing, shipping)"
+                                    },
+                                    "line1": {
+                                        "type": "string",
+                                        "description": "Primary address line"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "description": "City name"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "description": "Country code"
+                                    },
+                                    "postalCode": {
+                                        "type": "string",
+                                        "description": "Postal/ZIP code"
+                                    }
+                                }
+                            }
+                        },
+                        "contacts": {
+                            "type": "array",
+                            "description": "Array of vendor contacts",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "externalId": {
+                                        "type": "string",
+                                        "description": "External reference ID for the contact"
+                                    },
+                                    "firstName": {
+                                        "type": "string",
+                                        "description": "Contact's first name"
+                                    },
+                                    "lastName": {
+                                        "type": "string",
+                                        "description": "Contact's last name"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "description": "Contact's phone number"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "description": "Contact's email address"
+                                    },
+                                    "isMainContact": {
+                                        "type": "boolean",
+                                        "description": "Whether this is the main contact"
+                                    }
+                                }
+                            }
+                        },
+                        "taxNumber": {
+                            "type": "string",
+                            "description": "Vendor's tax identification number"
+                        },
+                        "notes": {
+                            "type": "string",
+                            "description": "Additional notes about the vendor"
+                        },
+                        "bankDetails": {
+                            "type": "array",
+                            "description": "Array of bank account details",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "description": "Bank account identifier"
+                                    },
+                                    "bankName": {
+                                        "type": "string",
+                                        "description": "Name of the bank"
+                                    },
+                                    "bankCode": {
+                                        "type": "string",
+                                        "description": "Bank code"
+                                    },
+                                    "bankCountry": {
+                                        "type": "string",
+                                        "description": "Country code of the bank"
+                                    },
+                                    "accountNumber": {
+                                        "type": "string",
+                                        "description": "Bank account number"
+                                    },
+                                    "accountHolder": {
+                                        "type": "string",
+                                        "description": "Name of the account holder"
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "description": "Currency of the bank account"
+                                    },
+                                    "bankAccountType": {
+                                        "type": "string",
+                                        "description": "Type of bank account"
+                                    },
+                                    "isDefault": {
+                                        "type": "boolean",
+                                        "description": "Whether this is the default bank account"
+                                    }
+                                }
+                            }
+                        },
+                        "entityType": {
+                            "type": "string",
+                            "description": "Type of entity (e.g., vendor)"
+                        },
+                        "beneficiaryCountry": {
+                            "type": "string",
+                            "description": "Country code of the beneficiary"
+                        },
+                        "vendorFirstName": {
+                            "type": "string",
+                            "description": "First name of the vendor"
+                        },
+                        "vendorLastName": {
+                            "type": "string",
+                            "description": "Last name of the vendor"
+                        },
+                        "paymentTerms": {
+                            "type": "integer",
+                            "description": "Payment terms in days"
+                        },
+                        "customField": {
+                            "type": "array",
+                            "description": "Array of custom fields",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "customFieldNumber": {
+                                        "type": "string",
+                                        "description": "Custom field identifier"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Name of the custom field"
+                                    },
+                                    "value": {
+                                        "type": "string",
+                                        "description": "Value of the custom field"
+                                    }
+                                }
+                            }
+                        },
+                        "vatApplicable": {
+                            "type": "boolean",
+                            "description": "Whether VAT is applicable"
+                        }
+                    }
+                }
+            ),
             Tool(
                 name="create_invoice",
                 description="Create an invoice with comprehensive details including line items, customer information, and financial breakdown",
