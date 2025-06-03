@@ -180,3 +180,6 @@ oauth.keys.json
 .cursor/
 .cursor/**
 **/logs/*
+
+poetry.lock
+pyproject.toml
