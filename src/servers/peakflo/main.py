@@ -83,7 +83,11 @@ async def make_peakflo_request(name, arguments, token):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.request(
-                method, url, json=arguments if method != "GET" else None, headers=headers, timeout=60.0
+                method,
+                url,
+                json=arguments if method != "GET" else None,
+                headers=headers,
+                timeout=60.0,
             )
             status_code = response.status_code
             logger.info(
