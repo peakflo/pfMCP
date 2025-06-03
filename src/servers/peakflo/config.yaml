@@ -16,3 +16,6 @@ tools:
   - name: "update_invoice"
     description: "Update an invoice"
     required_scopes: []
+  - name: "read_vendor"
+    description: "Fetch vendor details by external ID from Peakflo API"
+    required_scopes: []
