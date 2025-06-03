@@ -130,25 +130,25 @@ def create_server(user_id, api_key=None):
                     "properties": {
                         "externalId": {
                             "type": "string",
-                            "description": "External ID of the vendor to fetch"
+                            "description": "External ID of the vendor to fetch",
                         }
                     },
-                    "required": ["externalId"]
+                    "required": ["externalId"],
                 },
                 outputSchema={
                     "type": "object",
                     "properties": {
                         "companyName": {
                             "type": "string",
-                            "description": "Name of the vendor company"
+                            "description": "Name of the vendor company",
                         },
                         "companyId": {
                             "type": "string",
-                            "description": "Unique identifier for the company"
+                            "description": "Unique identifier for the company",
                         },
                         "defaultCurrency": {
                             "type": "string",
-                            "description": "Default currency for the vendor (e.g., USD, SGD)"
+                            "description": "Default currency for the vendor (e.g., USD, SGD)",
                         },
                         "addresses": {
                             "type": "array",
@@ -158,26 +158,26 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "type": {
                                         "type": "string",
-                                        "description": "Type of address (e.g., billing, shipping)"
+                                        "description": "Type of address (e.g., billing, shipping)",
                                     },
                                     "line1": {
                                         "type": "string",
-                                        "description": "Primary address line"
+                                        "description": "Primary address line",
                                     },
                                     "city": {
                                         "type": "string",
-                                        "description": "City name"
+                                        "description": "City name",
                                     },
                                     "country": {
                                         "type": "string",
-                                        "description": "Country code"
+                                        "description": "Country code",
                                     },
                                     "postalCode": {
                                         "type": "string",
-                                        "description": "Postal/ZIP code"
-                                    }
-                                }
-                            }
+                                        "description": "Postal/ZIP code",
+                                    },
+                                },
+                            },
                         },
                         "contacts": {
                             "type": "array",
@@ -187,38 +187,38 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "externalId": {
                                         "type": "string",
-                                        "description": "External reference ID for the contact"
+                                        "description": "External reference ID for the contact",
                                     },
                                     "firstName": {
                                         "type": "string",
-                                        "description": "Contact's first name"
+                                        "description": "Contact's first name",
                                     },
                                     "lastName": {
                                         "type": "string",
-                                        "description": "Contact's last name"
+                                        "description": "Contact's last name",
                                     },
                                     "phone": {
                                         "type": "string",
-                                        "description": "Contact's phone number"
+                                        "description": "Contact's phone number",
                                     },
                                     "email": {
                                         "type": "string",
-                                        "description": "Contact's email address"
+                                        "description": "Contact's email address",
                                     },
                                     "isMainContact": {
                                         "type": "boolean",
-                                        "description": "Whether this is the main contact"
-                                    }
-                                }
-                            }
+                                        "description": "Whether this is the main contact",
+                                    },
+                                },
+                            },
                         },
                         "taxNumber": {
                             "type": "string",
-                            "description": "Vendor's tax identification number"
+                            "description": "Vendor's tax identification number",
                         },
                         "notes": {
                             "type": "string",
-                            "description": "Additional notes about the vendor"
+                            "description": "Additional notes about the vendor",
                         },
                         "bankDetails": {
                             "type": "array",
@@ -228,62 +228,62 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "id": {
                                         "type": "string",
-                                        "description": "Bank account identifier"
+                                        "description": "Bank account identifier",
                                     },
                                     "bankName": {
                                         "type": "string",
-                                        "description": "Name of the bank"
+                                        "description": "Name of the bank",
                                     },
                                     "bankCode": {
                                         "type": "string",
-                                        "description": "Bank code"
+                                        "description": "Bank code",
                                     },
                                     "bankCountry": {
                                         "type": "string",
-                                        "description": "Country code of the bank"
+                                        "description": "Country code of the bank",
                                     },
                                     "accountNumber": {
                                         "type": "string",
-                                        "description": "Bank account number"
+                                        "description": "Bank account number",
                                     },
                                     "accountHolder": {
                                         "type": "string",
-                                        "description": "Name of the account holder"
+                                        "description": "Name of the account holder",
                                     },
                                     "currency": {
                                         "type": "string",
-                                        "description": "Currency of the bank account"
+                                        "description": "Currency of the bank account",
                                     },
                                     "bankAccountType": {
                                         "type": "string",
-                                        "description": "Type of bank account"
+                                        "description": "Type of bank account",
                                     },
                                     "isDefault": {
                                         "type": "boolean",
-                                        "description": "Whether this is the default bank account"
-                                    }
-                                }
-                            }
+                                        "description": "Whether this is the default bank account",
+                                    },
+                                },
+                            },
                         },
                         "entityType": {
                             "type": "string",
-                            "description": "Type of entity (e.g., vendor)"
+                            "description": "Type of entity (e.g., vendor)",
                         },
                         "beneficiaryCountry": {
                             "type": "string",
-                            "description": "Country code of the beneficiary"
+                            "description": "Country code of the beneficiary",
                         },
                         "vendorFirstName": {
                             "type": "string",
-                            "description": "First name of the vendor"
+                            "description": "First name of the vendor",
                         },
                         "vendorLastName": {
                             "type": "string",
-                            "description": "Last name of the vendor"
+                            "description": "Last name of the vendor",
                         },
                         "paymentTerms": {
                             "type": "integer",
-                            "description": "Payment terms in days"
+                            "description": "Payment terms in days",
                         },
                         "customField": {
                             "type": "array",
@@ -293,25 +293,25 @@ def create_server(user_id, api_key=None):
                                 "properties": {
                                     "customFieldNumber": {
                                         "type": "string",
-                                        "description": "Custom field identifier"
+                                        "description": "Custom field identifier",
                                     },
                                     "name": {
                                         "type": "string",
-                                        "description": "Name of the custom field"
+                                        "description": "Name of the custom field",
                                     },
                                     "value": {
                                         "type": "string",
-                                        "description": "Value of the custom field"
-                                    }
-                                }
-                            }
+                                        "description": "Value of the custom field",
+                                    },
+                                },
+                            },
                         },
                         "vatApplicable": {
                             "type": "boolean",
-                            "description": "Whether VAT is applicable"
-                        }
-                    }
-                }
+                            "description": "Whether VAT is applicable",
+                        },
+                    },
+                },
             ),
             Tool(
                 name="create_invoice",
