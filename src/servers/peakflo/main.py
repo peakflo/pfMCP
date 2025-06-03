@@ -83,7 +83,7 @@ async def make_peakflo_request(name, arguments, token):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.request(
-                method, url, json=arguments, headers=headers, timeout=60.0
+                method, url, json=arguments if method != "GET" else None, headers=headers, timeout=60.0
             )
             status_code = response.status_code
             logger.info(
@@ -95,7 +95,7 @@ async def make_peakflo_request(name, arguments, token):
                 "message": status_code == 200
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
-                "data": arguments,
+                "data": arguments if method != "GET" else response.json(),
             }
     except httpx.HTTPStatusError as e:
         logger.error(
