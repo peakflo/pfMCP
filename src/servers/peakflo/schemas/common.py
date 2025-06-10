@@ -1,0 +1,142 @@
+contact_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": "External reference ID for the contact",
+        },
+        "firstName": {
+            "type": "string",
+            "description": "Contact's first name",
+        },
+        "lastName": {
+            "type": "string",
+            "description": "Contact's last name",
+        },
+        "phone": {
+            "type": "string",
+            "description": "Contact's phone number",
+        },
+        "email": {
+            "type": "string",
+            "description": "Contact's email address",
+        },
+        "isMainContact": {
+            "type": "boolean",
+            "description": "Whether this is the main contact",
+        },
+    },
+}
+
+
+address_schema = {
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "description": "Type of address (e.g., billing, shipping)",
+        },
+        "line1": {
+            "type": "string",
+            "description": "Primary address line",
+        },
+        "city": {
+            "type": "string",
+            "description": "City name",
+        },
+        "country": {
+            "type": "string",
+            "description": "Country code",
+        },
+        "postalCode": {
+            "type": "string",
+            "description": "Postal/ZIP code",
+        },
+    },
+}
+
+
+bank_detail_schema = {
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Bank account identifier",
+        },
+        "bankName": {
+            "type": "string",
+            "description": "Name of the bank",
+        },
+        "bankCode": {
+            "type": "string",
+            "description": "Bank code",
+        },
+        "bankCountry": {
+            "type": "string",
+            "description": "Country code of the bank",
+        },
+        "accountNumber": {
+            "type": "string",
+            "description": "Bank account number",
+        },
+        "accountHolder": {
+            "type": "string",
+            "description": "Name of the account holder",
+        },
+        "currency": {
+            "type": "string",
+            "description": "Currency of the bank account",
+        },
+        "bankAccountType": {
+            "type": "string",
+            "description": "Type of bank account",
+        },
+        "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default bank account",
+        },
+    },
+}
+
+line_item_schema = {
+    "type": "array",
+    "description": "Array of line items for the invoice",
+    "items": {
+        "type": "object",
+        "properties": {
+            "description": {
+                "type": "string",
+                "description": "Item description",
+            },
+            "unitAmount": {
+                "type": "number",
+                "description": "Unit price of the item",
+            },
+            "quantity": {
+                "type": "number",
+                "description": "Quantity of the item",
+            },
+            "discountAmount": {
+                "type": "number",
+                "description": "Discount amount for the item",
+            },
+            "subTotal": {
+                "type": "number",
+                "description": "Subtotal for the item",
+            },
+            "taxAmount": {
+                "type": "number",
+                "description": "Tax amount for the item",
+            },
+            "totalAmount": {
+                "type": "number",
+                "description": "Total amount for the item",
+            },
+            "itemRef": {
+                "type": "string",
+                "description": "Item reference identifier",
+            },
+        },
+        "required": ["description", "unitAmount", "quantity"],
+    },
+}
