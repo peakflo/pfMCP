@@ -5,6 +5,8 @@ import logging
 import json
 from pathlib import Path
 
+from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
+
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -23,7 +25,8 @@ from src.auth.factory import create_auth_client
 
 
 SERVICE_NAME = Path(__file__).parent.name
-PEAKFLO_BASE_URL = "https://stage-api.peakflo.co/v1"
+PEAKFLO_V1_BASE_URL = f"https://stage-api.peakflo.co/v1"
+PEAKFLO_V2_BASE_URL = f"https://stage-api.peakflo.co/v2"
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -66,16 +69,32 @@ async def make_peakflo_request(name, arguments, token):
     }
     if name == "create_invoice":
         method = "POST"
-        url = f"{PEAKFLO_BASE_URL}/invoices"
+        url = f"{PEAKFLO_V1_BASE_URL}/invoices"
         message = "Invoice created successfully"
     elif name == "update_invoice":
         method = "PUT"
-        url = f"{PEAKFLO_BASE_URL}/invoices/{arguments['externalId']}"
+        url = f"{PEAKFLO_V1_BASE_URL}/invoices/{arguments['externalId']}"
         message = "Invoice updated successfully"
     elif name == "read_vendor":
         method = "GET"
-        url = f"{PEAKFLO_BASE_URL}/vendors/{arguments['externalId']}"
+        url = f"{PEAKFLO_V1_BASE_URL}/vendors/{arguments['externalId']}"
         message = "Vendor fetched successfully"
+    elif name == "raise_dispute":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
+        message = "Dispute raised successfully"
+    elif name == "soa_email":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/upload-soa-email"
+        message = "SOA email sent successfully"
+    elif name == "create_task":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/addAction"
+        message = "Task created successfully"
+    elif name == "add_action_log":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
+        message = "Action log added successfully"
 
     logger.info(
         f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
@@ -121,439 +140,13 @@ def create_server(user_id, api_key=None):
     server = Server(f"{SERVICE_NAME}-server")
     server.user_id = user_id
     server.api_key = api_key
-    tool_names = ["read_vendor", "create_invoice", "update_invoice"]
+
+    tools = PeakfloApiToolFactory.get_all_tools()
+    tool_names = [tool.name for tool in tools]
 
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="read_vendor",
-                description="Fetch vendor details by external ID from Peakflo API",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "externalId": {
-                            "type": "string",
-                            "description": "External ID of the vendor to fetch",
-                        }
-                    },
-                    "required": ["externalId"],
-                },
-                outputSchema={
-                    "type": "object",
-                    "properties": {
-                        "companyName": {
-                            "type": "string",
-                            "description": "Name of the vendor company",
-                        },
-                        "companyId": {
-                            "type": "string",
-                            "description": "Unique identifier for the company",
-                        },
-                        "defaultCurrency": {
-                            "type": "string",
-                            "description": "Default currency for the vendor (e.g., USD, SGD)",
-                        },
-                        "addresses": {
-                            "type": "array",
-                            "description": "Array of vendor addresses",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "description": "Type of address (e.g., billing, shipping)",
-                                    },
-                                    "line1": {
-                                        "type": "string",
-                                        "description": "Primary address line",
-                                    },
-                                    "city": {
-                                        "type": "string",
-                                        "description": "City name",
-                                    },
-                                    "country": {
-                                        "type": "string",
-                                        "description": "Country code",
-                                    },
-                                    "postalCode": {
-                                        "type": "string",
-                                        "description": "Postal/ZIP code",
-                                    },
-                                },
-                            },
-                        },
-                        "contacts": {
-                            "type": "array",
-                            "description": "Array of vendor contacts",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "externalId": {
-                                        "type": "string",
-                                        "description": "External reference ID for the contact",
-                                    },
-                                    "firstName": {
-                                        "type": "string",
-                                        "description": "Contact's first name",
-                                    },
-                                    "lastName": {
-                                        "type": "string",
-                                        "description": "Contact's last name",
-                                    },
-                                    "phone": {
-                                        "type": "string",
-                                        "description": "Contact's phone number",
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "description": "Contact's email address",
-                                    },
-                                    "isMainContact": {
-                                        "type": "boolean",
-                                        "description": "Whether this is the main contact",
-                                    },
-                                },
-                            },
-                        },
-                        "taxNumber": {
-                            "type": "string",
-                            "description": "Vendor's tax identification number",
-                        },
-                        "notes": {
-                            "type": "string",
-                            "description": "Additional notes about the vendor",
-                        },
-                        "bankDetails": {
-                            "type": "array",
-                            "description": "Array of bank account details",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {
-                                        "type": "string",
-                                        "description": "Bank account identifier",
-                                    },
-                                    "bankName": {
-                                        "type": "string",
-                                        "description": "Name of the bank",
-                                    },
-                                    "bankCode": {
-                                        "type": "string",
-                                        "description": "Bank code",
-                                    },
-                                    "bankCountry": {
-                                        "type": "string",
-                                        "description": "Country code of the bank",
-                                    },
-                                    "accountNumber": {
-                                        "type": "string",
-                                        "description": "Bank account number",
-                                    },
-                                    "accountHolder": {
-                                        "type": "string",
-                                        "description": "Name of the account holder",
-                                    },
-                                    "currency": {
-                                        "type": "string",
-                                        "description": "Currency of the bank account",
-                                    },
-                                    "bankAccountType": {
-                                        "type": "string",
-                                        "description": "Type of bank account",
-                                    },
-                                    "isDefault": {
-                                        "type": "boolean",
-                                        "description": "Whether this is the default bank account",
-                                    },
-                                },
-                            },
-                        },
-                        "entityType": {
-                            "type": "string",
-                            "description": "Type of entity (e.g., vendor)",
-                        },
-                        "beneficiaryCountry": {
-                            "type": "string",
-                            "description": "Country code of the beneficiary",
-                        },
-                        "vendorFirstName": {
-                            "type": "string",
-                            "description": "First name of the vendor",
-                        },
-                        "vendorLastName": {
-                            "type": "string",
-                            "description": "Last name of the vendor",
-                        },
-                        "paymentTerms": {
-                            "type": "integer",
-                            "description": "Payment terms in days",
-                        },
-                        "customField": {
-                            "type": "array",
-                            "description": "Array of custom fields",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "customFieldNumber": {
-                                        "type": "string",
-                                        "description": "Custom field identifier",
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "description": "Name of the custom field",
-                                    },
-                                    "value": {
-                                        "type": "string",
-                                        "description": "Value of the custom field",
-                                    },
-                                },
-                            },
-                        },
-                        "vatApplicable": {
-                            "type": "boolean",
-                            "description": "Whether VAT is applicable",
-                        },
-                    },
-                },
-            ),
-            Tool(
-                name="create_invoice",
-                description="Create an invoice with comprehensive details including line items, customer information, and financial breakdown",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "externalId": {
-                            "type": "string",
-                            "description": "External reference ID for the invoice",
-                        },
-                        "customerRef": {
-                            "type": "string",
-                            "description": "Customer reference identifier",
-                        },
-                        "issueDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Invoice issue date in ISO format",
-                        },
-                        "dueDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Invoice due date in ISO format",
-                        },
-                        "currency": {
-                            "type": "string",
-                            "description": "Currency code (e.g., SGD, USD)",
-                        },
-                        "lineItems": {
-                            "type": "array",
-                            "description": "Array of line items for the invoice",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "description": {
-                                        "type": "string",
-                                        "description": "Item description",
-                                    },
-                                    "unitAmount": {
-                                        "type": "number",
-                                        "description": "Unit price of the item",
-                                    },
-                                    "quantity": {
-                                        "type": "number",
-                                        "description": "Quantity of the item",
-                                    },
-                                    "discountAmount": {
-                                        "type": "number",
-                                        "description": "Discount amount for the item",
-                                    },
-                                    "subTotal": {
-                                        "type": "number",
-                                        "description": "Subtotal for the item",
-                                    },
-                                    "taxAmount": {
-                                        "type": "number",
-                                        "description": "Tax amount for the item",
-                                    },
-                                    "totalAmount": {
-                                        "type": "number",
-                                        "description": "Total amount for the item",
-                                    },
-                                    "itemRef": {
-                                        "type": "string",
-                                        "description": "Item reference identifier",
-                                    },
-                                },
-                                "required": ["description", "unitAmount", "quantity"],
-                            },
-                        },
-                        "totalAmount": {
-                            "type": "number",
-                            "description": "Total invoice amount",
-                        },
-                        "totalDiscount": {
-                            "type": "number",
-                            "description": "Total discount amount",
-                        },
-                        "totalTaxAmount": {
-                            "type": "number",
-                            "description": "Total tax amount",
-                        },
-                        "amountDue": {
-                            "type": "number",
-                            "description": "Amount due for the invoice",
-                        },
-                        "status": {
-                            "type": "string",
-                            "enum": ["draft", "sent", "paid", "overdue", "cancelled"],
-                            "description": "Invoice status",
-                        },
-                        "note": {
-                            "type": "string",
-                            "description": "Additional notes for the invoice",
-                        },
-                        "subTotal": {
-                            "type": "number",
-                            "description": "Subtotal before taxes and discounts",
-                        },
-                        "invoiceNumber": {
-                            "type": "string",
-                            "description": "Invoice number identifier",
-                        },
-                    },
-                    "required": [
-                        "externalId",
-                        "customerRef",
-                        "issueDate",
-                        "dueDate",
-                        "currency",
-                        "lineItems",
-                        "totalAmount",
-                        "amountDue",
-                        "status",
-                        "invoiceNumber",
-                    ],
-                },
-            ),
-            Tool(
-                name="update_invoice",
-                description="Update an invoice with comprehensive details including line items, customer information, and financial breakdown",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "externalId": {
-                            "type": "string",
-                            "description": "External reference ID for the invoice",
-                        },
-                        "customerRef": {
-                            "type": "string",
-                            "description": "Customer reference identifier",
-                        },
-                        "issueDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Invoice issue date in ISO format",
-                        },
-                        "dueDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Invoice due date in ISO format",
-                        },
-                        "currency": {
-                            "type": "string",
-                            "description": "Currency code (e.g., SGD, USD)",
-                        },
-                        "lineItems": {
-                            "type": "array",
-                            "description": "Array of line items for the invoice",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "description": {
-                                        "type": "string",
-                                        "description": "Item description",
-                                    },
-                                    "unitAmount": {
-                                        "type": "number",
-                                        "description": "Unit price of the item",
-                                    },
-                                    "quantity": {
-                                        "type": "number",
-                                        "description": "Quantity of the item",
-                                    },
-                                    "discountAmount": {
-                                        "type": "number",
-                                        "description": "Discount amount for the item",
-                                    },
-                                    "subTotal": {
-                                        "type": "number",
-                                        "description": "Subtotal for the item",
-                                    },
-                                    "taxAmount": {
-                                        "type": "number",
-                                        "description": "Tax amount for the item",
-                                    },
-                                    "totalAmount": {
-                                        "type": "number",
-                                        "description": "Total amount for the item",
-                                    },
-                                    "itemRef": {
-                                        "type": "string",
-                                        "description": "Item reference identifier",
-                                    },
-                                },
-                                "required": ["description", "unitAmount", "quantity"],
-                            },
-                        },
-                        "totalAmount": {
-                            "type": "number",
-                            "description": "Total invoice amount",
-                        },
-                        "totalDiscount": {
-                            "type": "number",
-                            "description": "Total discount amount",
-                        },
-                        "totalTaxAmount": {
-                            "type": "number",
-                            "description": "Total tax amount",
-                        },
-                        "amountDue": {
-                            "type": "number",
-                            "description": "Amount due for the invoice",
-                        },
-                        "status": {
-                            "type": "string",
-                            "enum": ["draft", "sent", "paid", "overdue", "cancelled"],
-                            "description": "Invoice status",
-                        },
-                        "note": {
-                            "type": "string",
-                            "description": "Additional notes for the invoice",
-                        },
-                        "subTotal": {
-                            "type": "number",
-                            "description": "Subtotal before taxes and discounts",
-                        },
-                        "invoiceNumber": {
-                            "type": "string",
-                            "description": "Invoice number identifier",
-                        },
-                    },
-                    "required": [
-                        "externalId",
-                        "customerRef",
-                        "issueDate",
-                        "dueDate",
-                        "currency",
-                        "lineItems",
-                        "totalAmount",
-                        "amountDue",
-                        "status",
-                        "invoiceNumber",
-                    ],
-                },
-            ),
-        ]
+        return tools
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
