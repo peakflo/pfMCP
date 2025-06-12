@@ -134,6 +134,10 @@ update_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "sourceId": {
+            "type": "string",
+            "description": "Source ID of the invoice",
+        },
     },
     "required": [
         "externalId",
