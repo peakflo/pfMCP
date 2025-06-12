@@ -141,6 +141,7 @@ update_invoice_schema = {
     },
     "required": [
         "externalId",
+        "sourceId",
         "customerRef",
         "issueDate",
         "dueDate",
