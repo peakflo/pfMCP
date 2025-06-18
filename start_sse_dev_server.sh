@@ -29,4 +29,4 @@ kill_server() {
 kill_server
 
 echo "Starting guMCP development server on $GUMCP_HOST:$GUMCP_PORT with hot reloading"
-python scripts/server_watcher.py
+python3 scripts/server_watcher.py
