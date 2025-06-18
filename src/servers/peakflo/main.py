@@ -79,7 +79,7 @@ async def make_peakflo_request(name, arguments, token):
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors/{arguments['externalId']}"
         message = "Vendor fetched successfully"
-    elif name == "raise_dispute":
+    elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
         message = "Dispute raised successfully"
@@ -95,6 +95,8 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
         message = "Action log added successfully"
+    else:
+        raise ValueError(f"Unknown tool call: {name}")
 
     logger.info(
         f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
