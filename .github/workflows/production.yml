@@ -28,6 +28,7 @@ jobs:
         run: |
           echo "ANTHROPIC_API_KEY: ${{ secrets.PROD_ANTHROPIC_API_KEY }}" >> .envprod.yaml
           echo "NANGO_SECRET_KEY: ${{ secrets.PROD_NANGO_SECRET_KEY }}" >> .envprod.yaml
+          echo 'PEAKFLO_API_BASE_URL: "https://prod-api.peakflo.co/v1"' >> .envprod.yaml
 
       - name: GCP Auth
         uses: google-github-actions/auth@v2.1.2
