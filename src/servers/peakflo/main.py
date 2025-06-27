@@ -25,8 +25,7 @@ from src.auth.factory import create_auth_client
 
 
 SERVICE_NAME = Path(__file__).parent.name
-PEAKFLO_V1_BASE_URL = f"https://stage-api.peakflo.co/v1"
-PEAKFLO_V2_BASE_URL = f"https://stage-api.peakflo.co/v2"
+PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
