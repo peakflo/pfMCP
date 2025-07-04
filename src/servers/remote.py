@@ -179,6 +179,8 @@ def create_starlette_app():
                         # when timeout happens server is not aware of it
                         # we need to terminate connection actively
                         await asyncio.wait_for(run_server(), 295)
+                except TimeoutError:
+                    return
                 finally:
                     # Clean up the transport when the connection closes
                     if session_key in user_session_transports:
