@@ -174,8 +174,9 @@ def create_starlette_app():
                                 streams[1],
                                 init_options,
                             )
+
                         # GCP cloud run request timeout max value is 3600 and default value is 300
-                        # when timeout happens server is not aware of it 
+                        # when timeout happens server is not aware of it
                         # we need to terminate connection actively
                         await asyncio.wait_for(run_server(), 295)
                 finally:
