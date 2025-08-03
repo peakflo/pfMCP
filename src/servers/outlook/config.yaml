@@ -7,3 +7,5 @@ tools:
     description: "Read emails from Outlook. Fetches emails based on specified filters."
   - name: "send_email"
     description: "Send an email using Outlook"
+  - name: "forward_email"
+    description: "Forward an email using Outlook"

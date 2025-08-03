@@ -49,8 +49,17 @@ logger = logging.getLogger(SERVICE_NAME)
 
 async def create_outlook_client(user_id, api_key=None):
     """Create a new Outlook client for this request"""
-    credentials = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
-    return credentials
+    logger.info(f"Creating Outlook client for user {user_id}")
+    try:
+        credentials = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
+        if not credentials:
+            logger.error("No credentials returned from get_credentials")
+            raise ValueError("Failed to obtain credentials")
+        logger.info("Successfully obtained credentials")
+        return credentials
+    except Exception as e:
+        logger.error(f"Error in create_outlook_client: {str(e)}")
+        raise
 
 
 def create_server(user_id, api_key=None):
@@ -224,6 +233,31 @@ def create_server(user_id, api_key=None):
                     "required": ["to", "subject", "body"],
                 },
             ),
+            Tool(
+                name="forward_email",
+                description="Forward an email using Outlook",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "comment": {
+                            "type": "string",
+                            "description": "Comment to add to the forwarded email",
+                        },
+                        "messageId": {
+                            "type": "string",
+                            "description": "ID of the email to forward",
+                        },
+                        "receipients": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                            },
+                            "description": "Recipients of the forwarded email",
+                        },
+                    },
+                    "required": ["receipients", "messageId"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -235,9 +269,15 @@ def create_server(user_id, api_key=None):
             f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
         )
 
-        access_token = await create_outlook_client(
-            server.user_id, api_key=server.api_key
-        )
+        logger.info("Attempting to get/refresh access token...")
+        try:
+            access_token = await create_outlook_client(
+                server.user_id, api_key=server.api_key
+            )
+            logger.info("Successfully obtained access token")
+        except Exception as e:
+            logger.error(f"Error getting access token: {str(e)}")
+            return [TextContent(type="text", text=f"Authentication error: {str(e)}")]
 
         if name == "read_emails":
             try:
@@ -369,6 +409,9 @@ def create_server(user_id, api_key=None):
                         "toRecipients": to_list,
                         "ccRecipients": cc_list,
                         "bccRecipients": bcc_list,
+                        "internetMessageHeaders": [
+                            {"name": "X-Mailer", "value": "Microsoft Graph API"}
+                        ],
                     },
                     "saveToSentItems": "true",
                 }
@@ -378,11 +421,18 @@ def create_server(user_id, api_key=None):
                     "Content-Type": "application/json",
                 }
 
+                # Log the request details
+                logger.info(f"Sending email with payload: {email_payload}")
+
                 response = requests.post(
                     "https://graph.microsoft.com/v1.0/me/sendMail",
                     headers=headers,
                     data=json.dumps(email_payload),
                 )
+
+                # Log the response
+                logger.info(f"Response status code: {response.status_code}")
+                logger.info(f"Response content: {response.content}")
 
                 if response.status_code == 202:
                     return [
@@ -405,6 +455,72 @@ def create_server(user_id, api_key=None):
                 logger.error(f"Error in send_email: {str(e)}")
                 return [TextContent(type="text", text=f"Error: {str(e)}")]
 
+        elif name == "forward_email":
+            try:
+                to_recipients = arguments.get("receipients", [])
+                message_id = arguments.get("messageId", "")
+                comment = arguments.get("comment", "")
+
+                if not to_recipients or not message_id:
+                    return [
+                        TextContent(
+                            type="text",
+                            text="Error: Missing required parameters (toRecipients, messageId)",
+                        )
+                    ]
+
+                to_list = [
+                    {
+                        "emailAddress": {
+                            "address": email.strip(),
+                        }
+                    }
+                    for email in to_recipients
+                    if email.strip()
+                ]
+
+                email_payload = {
+                    "comment": comment,
+                    "toRecipients": to_list,
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                }
+
+                logger.info(f"Forwarding email with payload: {email_payload}")
+
+                response = requests.post(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/microsoft.graph.forward",
+                    headers=headers,
+                    data=json.dumps(email_payload),
+                )
+
+                logger.info(f"Response status code: {response.status_code}")
+                logger.info(f"Response content: {response.content}")
+
+                if response.status_code == 202:
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Email forwarded successfully to {', '.join(to_recipients)}",
+                        )
+                    ]
+                else:
+                    error_message = (
+                        response.json().get("error", {}).get("message", "Unknown error")
+                    )
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to forward email: {error_message}",
+                        )
+                    ]
+
+            except Exception as e:
+                logger.error(f"Error in forward_email: {str(e)}")
+                return [TextContent(type="text", text=f"Error: {str(e)}")]
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
     return server
