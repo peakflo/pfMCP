@@ -254,7 +254,7 @@ def create_server(user_id, api_key=None):
 
                 # Build request parameters
                 params = {
-                    "$select": "id,subject,from,toRecipients,receivedDateTime,bodyPreview",
+                    "$select": "id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments",
                     "$top": count,
                     "$orderby": "receivedDateTime desc",
                 }
@@ -302,21 +302,63 @@ def create_server(user_id, api_key=None):
                     )
                     date = email.get("receivedDateTime", "")
                     preview = email.get("bodyPreview", "")
+                    has_attachments = email.get("hasAttachments", False)
+                    
+                    # Fetch attachments separately if the email has attachments
+                    attachment_list = []
+                    if has_attachments:
+                        email_id = email.get("id")
+                        attachment_response = requests.get(
+                            f"https://graph.microsoft.com/v1.0/me/messages/{email_id}/attachments",
+                            headers=headers,
+                        )
+                        
+                        if attachment_response.status_code == 200:
+                            attachments_data = attachment_response.json().get("value", [])
+                            for attachment in attachments_data:
+                                attachment_id = attachment.get("id")
+                                
+                                # Get download link for the attachment
+                                download_url = f"https://graph.microsoft.com/v1.0/me/messages/{email_id}/attachments/{attachment_id}/$value"
+                                
+                                attachment_info = {
+                                    "id": attachment_id,
+                                    "name": attachment.get("name"),
+                                    "contentType": attachment.get("contentType"),
+                                    "size": attachment.get("size"),
+                                    "isInline": attachment.get("isInline", False),
+                                    "contentId": attachment.get("contentId"),
+                                    "downloadUrl": download_url,
+                                    "downloadHeaders": {
+                                        "Authorization": f"Bearer {access_token}",
+                                        "Content-Type": attachment.get("contentType", "application/octet-stream")
+                                    }
+                                }
+                                attachment_list.append(attachment_info)
 
-                    email_info = (
-                        f"Subject: {subject}\n"
-                        f"From: {from_name} <{from_email}>\n"
-                        f"Date: {date}\n"
-                        f"Preview: {preview}\n"
-                        f"ID: {email.get('id')}\n"
-                    )
+                    email_info = {
+                        "id": email.get("id"),
+                        "subject": subject,
+                        "from": {
+                            "name": from_name,
+                            "email": from_email
+                        },
+                        "receivedDateTime": date,
+                        "bodyPreview": preview,
+                        "hasAttachments": has_attachments,
+                        "attachments": attachment_list
+                    }
                     email_list.append(email_info)
+
+                response_data = {
+                    "count": len(emails),
+                    "emails": email_list
+                }
 
                 return [
                     TextContent(
                         type="text",
-                        text=f"Found {len(emails)} emails:\n\n"
-                        + "\n---\n".join(email_list),
+                        text=json.dumps(response_data, indent=2),
                     )
                 ]
 
