@@ -7,3 +7,5 @@ tools:
     description: "Read emails from Outlook. Fetches emails based on specified filters."
   - name: "send_email"
     description: "Send an email using Outlook"
+  - name: "move_email"
+    description: "Move an email to a different folder like inbox, sentitems, drafts using Outlook"

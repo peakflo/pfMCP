@@ -31,6 +31,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.microsoft.util import authenticate_and_save_credentials, get_credentials
+from src.servers.outlook.constants import common_folders
 
 
 SERVICE_NAME = Path(__file__).parent.name
@@ -224,6 +225,24 @@ def create_server(user_id, api_key=None):
                     "required": ["to", "subject", "body"],
                 },
             ),
+            Tool(
+                name="move_email",
+                description="Move an email to a different folder like inbox, junkemail, drafts using Outlook",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "messageId": {
+                            "type": "string",
+                            "description": "The ID of the email to move",
+                        },
+                        "folderName": {
+                            "type": "string",
+                            "description": "The name of the folder to move the email to, example: 'inbox', 'junkemail', 'drafts'",
+                        },
+                    },
+                    "required": ["messageId", "folderName"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -403,6 +422,59 @@ def create_server(user_id, api_key=None):
 
             except Exception as e:
                 logger.error(f"Error in send_email: {str(e)}")
+                return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+        elif name == "move_email":
+            try:
+                message_id = arguments.get("messageId")
+                folder_name = arguments.get("folderName")
+
+                if not message_id or not folder_name:
+                    return [
+                        TextContent(
+                            type="text",
+                            text="Error: Missing required parameters (messageId, folderName)",
+                        )
+                    ]
+
+                folder_id = folder_name
+                if folder_name not in common_folders:
+                    folder_id = get_folder_id(access_token, folder_name)
+
+                email_payload = {
+                    "destinationId": folder_id,
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                }
+
+                response = requests.post(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/microsoft.graph.move",
+                    headers=headers,
+                    data=json.dumps(email_payload),
+                )
+
+                if response.status_code == 202:
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Email moved successfully to {folder_name}",
+                        )
+                    ]
+                else:
+                    error_message = (
+                        response.json().get("error", {}).get("message", "Unknown error")
+                    )
+                    return [
+                        TextContent(
+                            type="text", text=f"Failed to move email: {error_message}"
+                        )
+                    ]
+
+            except Exception as e:
+                logger.error(f"Error in move_email: {str(e)}")
                 return [TextContent(type="text", text=f"Error: {str(e)}")]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
