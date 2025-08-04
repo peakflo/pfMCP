@@ -201,7 +201,7 @@ def create_server(user_id, api_key=None):
                         },
                         "filter": {
                             "type": "string",
-                            "description": "Filter query. For example, 'isRead eq false' for unread emails",
+                            "description": "Filter query. For example, 'isRead eq false' for unread emails, '(from/emailAddress/address) eq '{user-mail}' for emails from the user",
                         },
                         "search": {
                             "type": "string",
