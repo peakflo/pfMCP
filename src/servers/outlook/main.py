@@ -303,7 +303,7 @@ def create_server(user_id, api_key=None):
                     date = email.get("receivedDateTime", "")
                     preview = email.get("bodyPreview", "")
                     has_attachments = email.get("hasAttachments", False)
-                    
+
                     # Fetch attachments separately if the email has attachments
                     attachment_list = []
                     if has_attachments:
@@ -312,15 +312,17 @@ def create_server(user_id, api_key=None):
                             f"https://graph.microsoft.com/v1.0/me/messages/{email_id}/attachments",
                             headers=headers,
                         )
-                        
+
                         if attachment_response.status_code == 200:
-                            attachments_data = attachment_response.json().get("value", [])
+                            attachments_data = attachment_response.json().get(
+                                "value", []
+                            )
                             for attachment in attachments_data:
                                 attachment_id = attachment.get("id")
-                                
+
                                 # Get download link for the attachment
                                 download_url = f"https://graph.microsoft.com/v1.0/me/messages/{email_id}/attachments/{attachment_id}/$value"
-                                
+
                                 attachment_info = {
                                     "id": attachment_id,
                                     "name": attachment.get("name"),
@@ -331,29 +333,25 @@ def create_server(user_id, api_key=None):
                                     "downloadUrl": download_url,
                                     "downloadHeaders": {
                                         "Authorization": f"Bearer {access_token}",
-                                        "Content-Type": attachment.get("contentType", "application/octet-stream")
-                                    }
+                                        "Content-Type": attachment.get(
+                                            "contentType", "application/octet-stream"
+                                        ),
+                                    },
                                 }
                                 attachment_list.append(attachment_info)
 
                     email_info = {
                         "id": email.get("id"),
                         "subject": subject,
-                        "from": {
-                            "name": from_name,
-                            "email": from_email
-                        },
+                        "from": {"name": from_name, "email": from_email},
                         "receivedDateTime": date,
                         "bodyPreview": preview,
                         "hasAttachments": has_attachments,
-                        "attachments": attachment_list
+                        "attachments": attachment_list,
                     }
                     email_list.append(email_info)
 
-                response_data = {
-                    "count": len(emails),
-                    "emails": email_list
-                }
+                response_data = {"count": len(emails), "emails": email_list}
 
                 return [
                     TextContent(
