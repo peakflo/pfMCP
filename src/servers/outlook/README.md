@@ -46,3 +46,67 @@ python src/servers/outlook/main.py auth
 ```bash
 python src/servers/local.py --server outlook --user-id local
 ```
+
+### Available Tools
+
+#### Read Emails
+
+Fetches emails from your Outlook account with various filtering options.
+
+```python
+{
+    "folder": "string",  # Folder to search in (default: "inbox")
+    "count": "integer",  # Number of emails to retrieve (default: 10)
+    "filter": "string",  # Filter query (e.g., "isRead eq false" for unread emails)
+    "search": "string"   # Search query for email content
+}
+```
+
+#### Send Email
+
+Send an email using your Outlook account.
+
+```python
+{
+    "to": "string",     # Recipient email addresses (comma-separated)
+    "subject": "string", # Email subject
+    "body": "string",    # Email body content
+    "cc": "string",     # CC email addresses (comma-separated, optional)
+    "bcc": "string"     # BCC email addresses (comma-separated, optional)
+}
+```
+
+#### Move Email
+
+Move an email to a different folder in your Outlook account.
+
+```python
+{
+    "messageId": "string",  # The ID of the email to move
+    "folderName": "string"  # Destination folder name (e.g., "inbox", "junkemail", "drafts")
+}
+```
+
+#### Forward Email
+
+Forward an existing email to one or more recipients.
+
+```python
+{
+    "messageId": "string",    # The ID of the email to forward
+    "receipients": ["string"], # List of recipient email addresses
+    "comment": "string"       # Optional comment to add to the forwarded email (optional)
+}
+```
+
+### Common Folders
+
+The following are some common folder names that can be used:
+
+- inbox
+- junkemail
+- drafts
+- sentitems
+- deleteditems
+
+You can also use custom folder names that exist in your Outlook account.
