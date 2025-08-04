@@ -87,6 +87,18 @@ Move an email to a different folder in your Outlook account.
 }
 ```
 
+#### Forward Email
+
+Forward an existing email to one or more recipients.
+
+```python
+{
+    "messageId": "string",    # The ID of the email to forward
+    "receipients": ["string"], # List of recipient email addresses
+    "comment": "string"       # Optional comment to add to the forwarded email (optional)
+}
+```
+
 ### Common Folders
 
 The following are some common folder names that can be used:

@@ -9,3 +9,5 @@ tools:
     description: "Send an email using Outlook"
   - name: "move_email"
     description: "Move an email to a different folder like inbox, sentitems, drafts using Outlook"
+  - name: "forward_email"
+    description: "Forward an email using Outlook"
