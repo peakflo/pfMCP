@@ -227,7 +227,7 @@ def create_server(user_id, api_key=None):
             ),
             Tool(
                 name="move_email",
-                description="Move an email to a different folder using Outlook",
+                description="Move an email to a different folder like inbox, junkemail, drafts using Outlook",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -237,7 +237,7 @@ def create_server(user_id, api_key=None):
                         },
                         "folderName": {
                             "type": "string",
-                            "description": "The name of the folder to move the email to",
+                            "description": "The name of the folder to move the email to, example: 'inbox', 'junkemail', 'drafts'",
                         },
                     },
                     "required": ["messageId", "folderName"],
