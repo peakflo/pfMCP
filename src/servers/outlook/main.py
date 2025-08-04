@@ -277,6 +277,27 @@ def create_server(user_id, api_key=None):
                     "required": ["receipients", "messageId"],
                 },
             ),
+            Tool(
+                name="categorize_email",
+                description="Categorize an email using Outlook",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "messageId": {
+                            "type": "string",
+                            "description": "ID of the email to categorize",
+                        },
+                        "categories": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                            },
+                            "description": "List of Categories to be added to the email, example: 'Blue Category', 'Personal', 'Work'",
+                        },
+                    },
+                    "required": ["categories", "messageId"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -592,6 +613,61 @@ def create_server(user_id, api_key=None):
 
             except Exception as e:
                 logger.error(f"Error in forward_email: {str(e)}")
+                return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+        elif name == "categorize_email":
+            try:
+                categories = arguments.get("categories", [])
+                message_id = arguments.get("messageId", "")
+
+                if not categories or not message_id:
+                    return [
+                        TextContent(
+                            type="text",
+                            text="Error: Missing required parameters (categories, messageId)",
+                        )
+                    ]
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                }
+
+                email_payload = {
+                    "categories": categories,
+                }
+
+                logger.info(f"Categorizing email with payload: {email_payload}")
+
+                response = requests.patch(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{message_id}",
+                    headers=headers,
+                    data=json.dumps(email_payload),
+                )
+
+                logger.info(f"Response status code: {response.status_code}")
+                logger.info(f"Response content: {response.content}")
+
+                if response.status_code == 202:
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Email categorized successfully to {', '.join(categories)}",
+                        )
+                    ]
+                else:
+                    error_message = (
+                        response.json().get("error", {}).get("message", "Unknown error")
+                    )
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to categorize email: {error_message}",
+                        )
+                    ]
+
+            except Exception as e:
+                logger.error(f"Error in categorize_email: {str(e)}")
                 return [TextContent(type="text", text=f"Error: {str(e)}")]
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
