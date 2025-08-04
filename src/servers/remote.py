@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 from pathlib import Path
 import threading
+import asyncio
 
 from starlette.routing import Route
 from starlette.applications import Starlette
@@ -166,11 +167,20 @@ def create_starlette_app():
                         logger.info(
                             f"SSE connection established for {server_name} session: {user_id}"
                         )
-                        await server_instance.run(
-                            streams[0],
-                            streams[1],
-                            init_options,
-                        )
+
+                        async def run_server():
+                            await server_instance.run(
+                                streams[0],
+                                streams[1],
+                                init_options,
+                            )
+
+                        # GCP cloud run request timeout max value is 3600 and default value is 300
+                        # when timeout happens server is not aware of it
+                        # we need to terminate connection actively
+                        await asyncio.wait_for(run_server(), 295)
+                except TimeoutError:
+                    return
                 finally:
                     # Clean up the transport when the connection closes
                     if session_key in user_session_transports:
