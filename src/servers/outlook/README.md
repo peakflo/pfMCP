@@ -99,6 +99,17 @@ Forward an existing email to one or more recipients.
 }
 ```
 
+#### Categorize Email
+
+Assign or update categories for an email in your Outlook account.
+
+```python
+{
+    "messageId": "string",    # The ID of the email to categorize
+    "categories": ["string"]  # List of category names to apply to the email
+}
+```
+
 ### Common Folders
 
 The following are some common folder names that can be used:
