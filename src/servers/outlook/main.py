@@ -339,11 +339,20 @@ def create_server(user_id, api_key=None):
                     "$orderby": "receivedDateTime desc",
                 }
 
+                # TODO: Add support for multiple filters
                 if filter_query:
-                    params["$filter"] = filter_query
+                    # https://devblogs.microsoft.com/microsoft365dev/update-to-filtering-and-sorting-rest-api/
+                    # Order parameter should be present in filter query
+                    params["$filter"] = (
+                        "receivedDateTime ge 2000-08-05T00:00:00Z"
+                        + " and "
+                        + filter_query
+                    )
 
                 if search_query:
                     params["$search"] = f'"{search_query}"'
+                    # The query parameter '$orderBy' is not supported with '$search'
+                    del params["$orderby"]
 
                 headers = {"Authorization": f"Bearer {access_token}"}
                 response = requests.get(
