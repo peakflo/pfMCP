@@ -523,7 +523,7 @@ def create_server(user_id, api_key=None):
                 logger.info(f"Response status code: {response.status_code}")
                 logger.info(f"Response content: {response.content}")
 
-                if response.status_code == 202:
+                if response.status_code in [200, 202]:
                     return [
                         TextContent(
                             type="text",
@@ -576,7 +576,7 @@ def create_server(user_id, api_key=None):
                     data=json.dumps(email_payload),
                 )
 
-                if response.status_code == 202:
+                if response.status_code in [200, 202]:
                     return [
                         TextContent(
                             type="text",
@@ -642,7 +642,7 @@ def create_server(user_id, api_key=None):
                 logger.info(f"Response status code: {response.status_code}")
                 logger.info(f"Response content: {response.content}")
 
-                if response.status_code == 202:
+                if response.status_code in [200, 202]:
                     return [
                         TextContent(
                             type="text",
@@ -697,7 +697,7 @@ def create_server(user_id, api_key=None):
                 logger.info(f"Response status code: {response.status_code}")
                 logger.info(f"Response content: {response.content}")
 
-                if response.status_code == 202:
+                if response.status_code in [200, 202]:
                     return [
                         TextContent(
                             type="text",
