@@ -122,7 +122,6 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             headers = {"Authorization": f"Bearer {self.secret_key}"}
 
             response = requests.get(url, headers=headers)
-            logger.info(f"[get_user_credentials] response: {response.text}")
             if response.status_code == 404:
                 logger.info(
                     f"No connection found for {service_name} connection {connection_id}"
