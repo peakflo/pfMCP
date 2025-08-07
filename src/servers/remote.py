@@ -67,7 +67,6 @@ IDLE_TIMEOUT = 1800  # 30 minutes
 # Background cleanup task
 cleanup_task = None
 
-
 def debug_session_store(event: str, session_id: str = None):
     """Debug session management state with structured JSON logging
 
@@ -111,7 +110,6 @@ def debug_session_store(event: str, session_id: str = None):
             }
 
     logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
-
 
 def discover_servers():
     """Discover and load all servers from the servers directory"""
