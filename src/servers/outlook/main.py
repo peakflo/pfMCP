@@ -266,7 +266,7 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "ID of the email to forward",
                         },
-                        "receipients": {
+                        "recipients": {
                             "type": "array",
                             "items": {
                                 "type": "string",
@@ -274,7 +274,7 @@ def create_server(user_id, api_key=None):
                             "description": "Recipients of the forwarded email",
                         },
                     },
-                    "required": ["receipients", "messageId"],
+                    "required": ["recipients", "messageId"],
                 },
             ),
             Tool(
@@ -599,7 +599,7 @@ def create_server(user_id, api_key=None):
 
         elif name == "forward_email":
             try:
-                to_recipients = arguments.get("receipients", [])
+                to_recipients = arguments.get("recipient", [])
                 message_id = arguments.get("messageId", "")
                 comment = arguments.get("comment", "")
 
