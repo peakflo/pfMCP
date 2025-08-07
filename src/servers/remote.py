@@ -110,7 +110,7 @@ def debug_session_store(event: str, session_id: str = None):
                 "is_idle": instance.is_idle(),
             }
 
-    logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
+    logger.info(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
 
 
 def discover_servers():
