@@ -241,18 +241,26 @@ def create_starlette_app():
                         )
 
                         async def run_server():
-                            await server_instance.run(
-                                streams[0],
-                                streams[1],
-                                init_options,
-                            )
+                            try:
+                                await server_instance.run(
+                                    streams[0],
+                                    streams[1],
+                                    init_options,
+                                )
+                            except asyncio.CancelledError:
+                                logger.info(f"Server instance cancelled for session: {user_id}")
+                                raise
+                            except Exception as e:
+                                logger.error(f"Server instance error for session {user_id}: {e}")
+                                raise
 
-                        # GCP cloud run request timeout max value is 3600 and default value is 300
-                        # when timeout happens server is not aware of it
-                        # we need to terminate connection actively
-                        await asyncio.wait_for(run_server(), 295)
-                except TimeoutError:
-                    return
+                        # Run server without hard timeout to prevent cancellation cascade
+                        # Infrastructure (GCP Cloud Run, K8s, etc.) should handle request timeouts
+                        # This prevents the asyncio.CancelledError cascade that was causing crashes
+                        # For production, consider implementing heartbeat/keepalive mechanisms
+                        await run_server()
+                except Exception as e:
+                    logger.error(f"Unexpected error in SSE handler for session {user_id}: {e}")
                 finally:
                     # Clean up the transport when the connection closes
                     async with session_lock:
