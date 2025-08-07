@@ -39,20 +39,20 @@ METRICS_PORT = 9091
 
 def debug_session_store(event: str, session_id: str = None):
     """Debug session management state with structured JSON logging
-    
+
     Args:
         event: Description of the event that triggered this debug log
         session_id: Optional specific session to look for. If None, shows all sessions.
     """
     import json
-    
+
     debug_data = {
         "event": event,
         "timestamp": time.time(),
         "session_id": session_id,
         "stateless_mode": True,
     }
-    
+
     logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
 
 
@@ -120,11 +120,11 @@ def create_metrics_app():
 
 def create_server_for_session(server_name: str, session_key_encoded: str) -> Server:
     """Create a stateless MCP server for a specific session"""
-    
+
     # Parse user_id and api_key from session_key_encoded
     user_id = None
     api_key = None
-    
+
     if ":" in session_key_encoded:
         user_id = session_key_encoded.split(":")[0]
         api_key = session_key_encoded.split(":")[1]
@@ -132,35 +132,35 @@ def create_server_for_session(server_name: str, session_key_encoded: str) -> Ser
         user_id = session_key_encoded
 
     session_key = f"{server_name}:{session_key_encoded}"
-    
+
     logger.info(f"Creating stateless server for {server_name} with session: {user_id}")
-    
+
     # Debug session state
     debug_session_store("stateless_server_creation", session_key)
-    
+
     # Get server factory and create server instance
     server_info = servers[server_name]
     create_server = server_info["create_server"]
     get_init_options = server_info["get_initialization_options"]
-    
+
     # Create and return the server instance directly
     server = create_server(user_id, api_key)
-    
+
     # Increment metrics
     connection_total.labels(server=server_name).inc()
-    
+
     return server
 
 
 def create_starlette_app():
     """Create a Starlette app with stateless MCP servers"""
-    
+
     # Discover and load all servers
     discover_servers()
 
     # Create session managers for each server
     session_managers = {}
-    
+
     for server_name in servers.keys():
         # Create a session manager factory for this server
         def create_session_manager_for_server(name):
@@ -169,10 +169,10 @@ def create_starlette_app():
                 path_parts = scope["path"].strip("/").split("/")
                 if len(path_parts) >= 2 and path_parts[0] == name:
                     session_key_encoded = path_parts[1]
-                    
+
                     # Create server for this session
                     server = create_server_for_session(name, session_key_encoded)
-                    
+
                     # Create session manager with stateless mode
                     return streamable_http_manager.StreamableHTTPSessionManager(
                         app=server,
@@ -181,13 +181,16 @@ def create_starlette_app():
                         stateless=True,
                     )
                 return None
+
             return session_manager_factory
-        
+
         session_managers[server_name] = create_session_manager_for_server(server_name)
 
     # Create handlers for each server
     def create_server_handler(server_name: str):
-        async def handle_server_request(scope: Scope, receive: Receive, send: Send) -> None:
+        async def handle_server_request(
+            scope: Scope, receive: Receive, send: Send
+        ) -> None:
             session_manager = session_managers[server_name](scope)
             if session_manager:
                 async with session_manager.run():
@@ -196,18 +199,18 @@ def create_starlette_app():
                 # Return 404 if session manager couldn't be created
                 response = Response("Session not found", status_code=404)
                 await response(scope, receive, send)
-        
+
         return handle_server_request
 
     # Create routes for each server
     routes = []
-    
+
     for server_name in servers.keys():
         handler = create_server_handler(server_name)
-        
+
         # Mount the server handler at /{server_name}/
         routes.append(Mount(f"/{server_name}", app=handler))
-        
+
         logger.info(f"Added stateless routes for server: {server_name}")
 
     # Health checks
@@ -218,7 +221,7 @@ def create_starlette_app():
                 "status": "ok",
                 "message": "guMCP stateless server running",
                 "servers": list(servers.keys()),
-                "mode": "stateless"
+                "mode": "stateless",
             }
         )
 
@@ -226,11 +229,9 @@ def create_starlette_app():
 
     async def health_check(request):
         """Health check endpoint"""
-        return JSONResponse({
-            "status": "ok", 
-            "servers": list(servers.keys()),
-            "mode": "stateless"
-        })
+        return JSONResponse(
+            {"status": "ok", "servers": list(servers.keys()), "mode": "stateless"}
+        )
 
     routes.append(Route("/health_check", endpoint=health_check))
 
