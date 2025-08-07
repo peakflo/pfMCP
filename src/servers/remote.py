@@ -68,6 +68,51 @@ IDLE_TIMEOUT = 1800  # 30 minutes
 cleanup_task = None
 
 
+def debug_session_store(event: str, session_id: str = None):
+    """Debug session management state with structured JSON logging
+
+    Args:
+        event: Description of the event that triggered this debug log
+        session_id: Optional specific session to look for. If None, shows all sessions.
+    """
+    import json
+
+    debug_data = {
+        "event": event,
+        "timestamp": time.time(),
+        "active_transports": list(user_session_transports.keys()),
+        "active_server_instances": list(user_server_instances.keys()),
+        "total_sessions": len(user_server_instances),
+    }
+
+    if session_id:
+        debug_data["target_session"] = session_id
+        debug_data["session_found_in_transports"] = (
+            session_id in user_session_transports
+        )
+        debug_data["session_found_in_instances"] = session_id in user_server_instances
+
+        if session_id in user_server_instances:
+            instance = user_server_instances[session_id]
+            debug_data["session_details"] = {
+                "created_at": instance.created_at,
+                "last_activity": instance.last_activity,
+                "active_transports": instance.active_transports,
+                "is_idle": instance.is_idle(),
+            }
+    else:
+        # Include summary of all sessions
+        debug_data["all_sessions"] = {}
+        for session_key, instance in user_server_instances.items():
+            debug_data["all_sessions"][session_key] = {
+                "active_transports": instance.active_transports,
+                "last_activity": instance.last_activity,
+                "is_idle": instance.is_idle(),
+            }
+
+    logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
+
+
 def discover_servers():
     """Discover and load all servers from the servers directory"""
     # Get the path to the servers directory
@@ -149,6 +194,9 @@ async def cleanup_idle_sessions():
                     server_name = session_key.split(":", 1)[0]
                     active_connections.labels(server=server_name).dec()
                     logger.info(f"Cleaned up idle server instance: {session_key}")
+
+                    # Debug session state after cleanup
+                    debug_session_store("idle_session_cleanup")
         except Exception as e:
             logger.error(f"Error in cleanup task: {e}")
 
@@ -187,6 +235,9 @@ def create_starlette_app():
                     f"New SSE connection requested for {server_name} with session: {user_id}"
                 )
 
+                # Debug session state before processing
+                debug_session_store("new_sse_connection_requested", session_key)
+
                 # Create an SSE transport for this session
                 sse_transport = SseServerTransport(
                     f"/{server_name}/{session_key_encoded}/messages/"
@@ -215,6 +266,9 @@ def create_starlette_app():
                         logger.info(
                             f"Created new server instance for session: {user_id}"
                         )
+
+                        # Debug session state after creating new instance
+                        debug_session_store("new_server_instance_created", session_key)
                     else:
                         instance_wrapper = user_server_instances[session_key]
                         instance_wrapper.update_activity()
@@ -222,6 +276,11 @@ def create_starlette_app():
                         server_instance = instance_wrapper.server
                         logger.info(
                             f"Reusing existing server instance for session: {user_id}"
+                        )
+
+                        # Debug session state after reusing existing instance
+                        debug_session_store(
+                            "existing_server_instance_reused", session_key
                         )
 
                 # Get standard initialization options
@@ -286,6 +345,9 @@ def create_starlette_app():
                                 f"Closed SSE connection for {server_name} session: {user_id}"
                             )
 
+                            # Debug session state after cleanup
+                            debug_session_store("sse_connection_closed", session_key)
+
             return handle_sse
 
         # Add routes for this server with session_key as path parameter
@@ -305,7 +367,13 @@ def create_starlette_app():
                 session_key_encoded = request.path_params["session_key"]
                 session_key = f"{server_name}:{session_key_encoded}"
 
+                # Debug session lookup in message handler
+                debug_session_store("message_handler_session_lookup", session_key)
+
                 if session_key not in user_session_transports:
+                    logger.warning(
+                        f"Session {session_key} not found in transports for message handling"
+                    )
                     return Response(
                         f"Session not found or expired",
                         status_code=404,
