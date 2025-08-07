@@ -248,10 +248,14 @@ def create_starlette_app():
                                     init_options,
                                 )
                             except asyncio.CancelledError:
-                                logger.info(f"Server instance cancelled for session: {user_id}")
+                                logger.info(
+                                    f"Server instance cancelled for session: {user_id}"
+                                )
                                 raise
                             except Exception as e:
-                                logger.error(f"Server instance error for session {user_id}: {e}")
+                                logger.error(
+                                    f"Server instance error for session {user_id}: {e}"
+                                )
                                 raise
 
                         # Run server without hard timeout to prevent cancellation cascade
@@ -260,7 +264,9 @@ def create_starlette_app():
                         # For production, consider implementing heartbeat/keepalive mechanisms
                         await run_server()
                 except Exception as e:
-                    logger.error(f"Unexpected error in SSE handler for session {user_id}: {e}")
+                    logger.error(
+                        f"Unexpected error in SSE handler for session {user_id}: {e}"
+                    )
                 finally:
                     # Clean up the transport when the connection closes
                     async with session_lock:
