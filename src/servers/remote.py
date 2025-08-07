@@ -5,6 +5,9 @@ import importlib.util
 from pathlib import Path
 import threading
 import asyncio
+import time
+from dataclasses import dataclass
+from typing import Dict, Any
 
 from starlette.routing import Route
 from starlette.applications import Starlette
@@ -22,9 +25,29 @@ logger = logging.getLogger("gumcp-server")
 # Dictionary to store servers
 servers = {}
 
+
+@dataclass
+class ServerInstance:
+    """Represents a server instance with activity tracking"""
+
+    server: Any
+    created_at: float
+    last_activity: float
+    active_transports: int = 0
+
+    def update_activity(self):
+        self.last_activity = time.time()
+
+    def is_idle(self, idle_timeout: int = 1800) -> bool:  # 30 minutes default
+        return time.time() - self.last_activity > idle_timeout
+
+
 # Store user-specific SSE transports and server instances
-user_session_transports = {}
-user_server_instances = {}
+user_session_transports: Dict[str, SseServerTransport] = {}
+user_server_instances: Dict[str, ServerInstance] = {}
+
+# Synchronization lock for thread-safe operations
+session_lock = asyncio.Lock()
 
 # Prometheus metrics
 active_connections = Gauge(
@@ -36,6 +59,13 @@ connection_total = Counter(
 
 # Default metrics port
 METRICS_PORT = 9091
+
+# Cleanup configuration
+CLEANUP_INTERVAL = 300  # 5 minutes
+IDLE_TIMEOUT = 1800  # 30 minutes
+
+# Background cleanup task
+cleanup_task = None
 
 
 def discover_servers():
@@ -100,8 +130,33 @@ def create_metrics_app():
     return app
 
 
+async def cleanup_idle_sessions():
+    """Periodically clean up idle server instances"""
+    while True:
+        try:
+            await asyncio.sleep(CLEANUP_INTERVAL)
+            async with session_lock:
+                idle_sessions = []
+                for session_key, instance in user_server_instances.items():
+                    if (
+                        instance.is_idle(IDLE_TIMEOUT)
+                        and instance.active_transports == 0
+                    ):
+                        idle_sessions.append(session_key)
+
+                for session_key in idle_sessions:
+                    instance = user_server_instances.pop(session_key)
+                    server_name = session_key.split(":", 1)[0]
+                    active_connections.labels(server=server_name).dec()
+                    logger.info(f"Cleaned up idle server instance: {session_key}")
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {e}")
+
+
 def create_starlette_app():
     """Create a Starlette app with multiple SSE transports for different servers"""
+    global cleanup_task
+
     # Discover and load all servers
     discover_servers()
 
@@ -137,26 +192,43 @@ def create_starlette_app():
                     f"/{server_name}/{session_key_encoded}/messages/"
                 )
 
-                # Store the transport
-                user_session_transports[session_key] = sse_transport
+                # Use async lock for thread-safe operations
+                async with session_lock:
+                    # Store the transport
+                    user_session_transports[session_key] = sse_transport
 
-                # Create a new server instance for this user if it doesn't exist
-                # or reuse the existing one to maintain state between reconnections
-                if session_key not in user_server_instances:
-                    server_instance = server_factory(user_id, api_key)
-                    user_server_instances[session_key] = server_instance
-                else:
-                    server_instance = user_server_instances[session_key]
+                    # Create a new server instance for this user if it doesn't exist
+                    # or reuse the existing one to maintain state between reconnections
+                    if session_key not in user_server_instances:
+                        server_instance = server_factory(user_id, api_key)
+                        current_time = time.time()
+                        instance_wrapper = ServerInstance(
+                            server=server_instance,
+                            created_at=current_time,
+                            last_activity=current_time,
+                            active_transports=1,
+                        )
+                        user_server_instances[session_key] = instance_wrapper
+
+                        # Only increment active connections for new server instances
+                        active_connections.labels(server=server_name).inc()
+                        logger.info(
+                            f"Created new server instance for session: {user_id}"
+                        )
+                    else:
+                        instance_wrapper = user_server_instances[session_key]
+                        instance_wrapper.update_activity()
+                        instance_wrapper.active_transports += 1
+                        server_instance = instance_wrapper.server
+                        logger.info(
+                            f"Reusing existing server instance for session: {user_id}"
+                        )
 
                 # Get standard initialization options
                 init_options = get_init_options(server_instance)
 
                 try:
                     # Increment metrics
-
-                    # Only increment active connections for new sessions
-                    if not session_key in user_server_instances:
-                        active_connections.labels(server=server_name).inc()
 
                     # Always increment total connections counter
                     connection_total.labels(server=server_name).inc()
@@ -183,13 +255,22 @@ def create_starlette_app():
                     return
                 finally:
                     # Clean up the transport when the connection closes
-                    if session_key in user_session_transports:
-                        del user_session_transports[session_key]
-                        # Decrement active connections metric
-                        active_connections.labels(server=server_name).dec()
-                        logger.info(
-                            f"Closed SSE connection for {server_name} session: {user_id}"
-                        )
+                    async with session_lock:
+                        if session_key in user_session_transports:
+                            del user_session_transports[session_key]
+
+                            # Update the server instance transport count
+                            if session_key in user_server_instances:
+                                instance_wrapper = user_server_instances[session_key]
+                                instance_wrapper.active_transports -= 1
+                                instance_wrapper.update_activity()
+
+                                # If no active transports and instance is idle, consider for cleanup
+                                # The cleanup task will handle the actual removal
+
+                            logger.info(
+                                f"Closed SSE connection for {server_name} session: {user_id}"
+                            )
 
             return handle_sse
 
@@ -252,9 +333,30 @@ def create_starlette_app():
 
     routes.append(Route("/health_check", endpoint=health_check))
 
+    async def startup():
+        """Startup event handler to initialize background tasks"""
+        global cleanup_task
+        if cleanup_task is None:
+            cleanup_task = asyncio.create_task(cleanup_idle_sessions())
+            logger.info("Started idle session cleanup task")
+
+    async def shutdown():
+        """Shutdown event handler to cleanup background tasks"""
+        global cleanup_task
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
+            cleanup_task = None
+            logger.info("Stopped idle session cleanup task")
+
     app = Starlette(
         debug=True,
         routes=routes,
+        on_startup=[startup],
+        on_shutdown=[shutdown],
     )
 
     return app
