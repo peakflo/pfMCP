@@ -599,7 +599,7 @@ def create_server(user_id, api_key=None):
 
         elif name == "forward_email":
             try:
-                to_recipients = arguments.get("recipient", [])
+                to_recipients = arguments.get("recipients", [])
                 message_id = arguments.get("messageId", "")
                 comment = arguments.get("comment", "")
 
