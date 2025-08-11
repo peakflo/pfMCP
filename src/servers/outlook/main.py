@@ -389,23 +389,35 @@ def create_server(user_id, api_key=None):
                         .get("emailAddress", {})
                         .get("address", "Unknown")
                     )
-                    
+
                     # Extract to recipients
                     to_recipients = []
                     for recipient in email.get("toRecipients", []):
-                        to_recipients.append({
-                            "name": recipient.get("emailAddress", {}).get("name", ""),
-                            "email": recipient.get("emailAddress", {}).get("address", "")
-                        })
-                    
+                        to_recipients.append(
+                            {
+                                "name": recipient.get("emailAddress", {}).get(
+                                    "name", ""
+                                ),
+                                "email": recipient.get("emailAddress", {}).get(
+                                    "address", ""
+                                ),
+                            }
+                        )
+
                     # Extract cc recipients
                     cc_recipients = []
                     for recipient in email.get("ccRecipients", []):
-                        cc_recipients.append({
-                            "name": recipient.get("emailAddress", {}).get("name", ""),
-                            "email": recipient.get("emailAddress", {}).get("address", "")
-                        })
-                    
+                        cc_recipients.append(
+                            {
+                                "name": recipient.get("emailAddress", {}).get(
+                                    "name", ""
+                                ),
+                                "email": recipient.get("emailAddress", {}).get(
+                                    "address", ""
+                                ),
+                            }
+                        )
+
                     date = email.get("receivedDateTime", "")
                     preview = email.get("bodyPreview", "")
                     has_attachments = email.get("hasAttachments", False)
