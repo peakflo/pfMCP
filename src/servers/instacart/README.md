@@ -1,6 +1,6 @@
 # Instacart Server
 
-guMCP server implementation for interacting with Instacart's API.
+pfMCP server implementation for interacting with Instacart's API.
 
 ### Prerequisites
 

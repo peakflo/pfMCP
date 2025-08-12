@@ -1,6 +1,6 @@
 # Mailchimp Server
 
-guMCP server implementation for interacting with **Mailchimp** API.
+pfMCP server implementation for interacting with **Mailchimp** API.
 
 ---
 

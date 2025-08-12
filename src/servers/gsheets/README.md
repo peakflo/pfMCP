@@ -1,6 +1,6 @@
 # Google Sheets Server
 
-guMCP server implementation for interacting with Google Sheets.
+pfMCP server implementation for interacting with Google Sheets.
 
 ---
 
@@ -72,7 +72,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/gsheets/local
 
 - Ensure your OAuth app has **Sheets API access** enabled in the Google Cloud console.
 - If you're testing with multiple users or environments, use different `user_id` values.
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows.
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows.
 - Make sure you have mentioned the anthropic API key in the .env file.
 
 ---

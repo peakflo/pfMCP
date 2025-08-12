@@ -1,6 +1,6 @@
 # ❄️ Snowflake Server
 
-guMCP server implementation for interacting with **Snowflake**.
+pfMCP server implementation for interacting with **Snowflake**.
 
 ---
 

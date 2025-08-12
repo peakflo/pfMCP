@@ -1,6 +1,6 @@
 # Calendly Server
 
-guMCP server implementation for interacting with Calendly scheduling and event management.
+pfMCP server implementation for interacting with Calendly scheduling and event management.
 
 ### Prerequisites
 

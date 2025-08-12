@@ -1,6 +1,6 @@
 # SendGrid Server
 
-guMCP server implementation for interacting with SendGrid's email API.
+pfMCP server implementation for interacting with SendGrid's email API.
 
 ### Prerequisites
 

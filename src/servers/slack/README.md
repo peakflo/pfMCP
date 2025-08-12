@@ -1,6 +1,6 @@
 # Slack Server
 
-guMCP server implementation for interacting with Slack.
+pfMCP server implementation for interacting with Slack.
 
 ### Prerequisites
 

@@ -1,4 +1,4 @@
-GuMCP server implementation for interacting with the Monday.com API using OAuth authentication.
+pfMCP server implementation for interacting with the Monday.com API using OAuth authentication.
 
 ---
 

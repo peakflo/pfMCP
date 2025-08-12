@@ -1,6 +1,6 @@
-# Notion guMCP Server
+# Notion pfMCP Server
 
-guMCP server implementation for interacting with Notion using OAuth authentication.
+pfMCP server implementation for interacting with Notion using OAuth authentication.
 
 ---
 
@@ -57,7 +57,7 @@ You can launch the server for local development using:
 ./start_remote_sse_server.sh
 ```
 
-This will start the guMCP server and make it available for integration and testing.
+This will start the pfMCP server and make it available for integration and testing.
 
 If you have a local client for testing, you can run it like:
 

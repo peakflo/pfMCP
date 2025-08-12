@@ -1,6 +1,6 @@
 # Intercom Server
 
-guMCP server implementation for interacting with Intercom customer messaging and support platform.
+pfMCP server implementation for interacting with Intercom customer messaging and support platform.
 
 ### Prerequisites
 

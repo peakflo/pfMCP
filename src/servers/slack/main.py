@@ -276,15 +276,16 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing data of messages with user and message details",
-                    "examples": [
-                        '{"user":"U12345","type":"message","ts":"1234567890.123456","text":"This is a test message","team":"T12345","user_name":"test_user","user_profile":{"real_name":"Test User","display_name":"Test User"}}',
-                        '{"user":"U67890","type":"message","ts":"1234567891.123456","text":"Hello there","team":"T12345","user_name":"another_user","user_profile":{"real_name":"Another User","display_name":"Another User"}}',
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing data of messages with user and message details",
+                #     "examples": [
+                #         '{"user":"U12345","type":"message","ts":"1234567890.123456","text":"This is a test message","team":"T12345","user_name":"test_user","user_profile":{"real_name":"Test User","display_name":"Test User"}}',
+                #         '{"user":"U67890","type":"message","ts":"1234567891.123456","text":"Hello there","team":"T12345","user_name":"another_user","user_profile":{"real_name":"Another User","display_name":"Another User"}}',
+                #     ],
+                # },
                 requiredScopes=["channels:history", "groups:history", "im:read"],
             ),
             Tool(
@@ -308,14 +309,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "text"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of the message send operation",
-                    "examples": [
-                        '[{"status":"success","channel":"C12345","ts":"1234567890.123456","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"This is a test message","team":"T12345"}}]'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of the message send operation",
+                #     "examples": [
+                #         '[{"status":"success","channel":"C12345","ts":"1234567890.123456","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"This is a test message","team":"T12345"}}]'
+                #     ],
+                # },
                 requiredScopes=["chat:write", "chat:write.customize"],
             ),
             Tool(
@@ -344,14 +345,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "title", "blocks"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of the canvas creation",
-                    "examples": [
-                        '[{"status":"success","channel":"C12345","ts":"1234567890.123456","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Test Canvas","team":"T12345","blocks":[{"type":"header","text":{"type":"plain_text","text":"Test Canvas"}},{"type":"section","text":{"type":"mrkdwn","text":"This is a test canvas message"}}]}}]'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of the canvas creation",
+                #     "examples": [
+                #         '[{"status":"success","channel":"C12345","ts":"1234567890.123456","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Test Canvas","team":"T12345","blocks":[{"type":"header","text":{"type":"plain_text","text":"Test Canvas"}},{"type":"section","text":{"type":"mrkdwn","text":"This is a test canvas message"}}]}}]'
+                #     ],
+                # },
                 requiredScopes=["chat:write", "chat:write.customize"],
             ),
             Tool(
@@ -371,14 +372,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "user"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of adding a user to a channel",
-                    "examples": [
-                        '{"ok": true, "channel": {"id": "C12345", "name": "general", "is_channel": true, "is_group": false, "is_private": false, "created": 1234567890, "creator": "U12345", "team_id": "T12345"}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of adding a user to a channel",
+                #     "examples": [
+                #         '{"ok": true, "channel": {"id": "C12345", "name": "general", "is_channel": true, "is_group": false, "is_private": false, "created": 1234567890, "creator": "U12345", "team_id": "T12345"}}'
+                #     ],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -402,12 +403,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "timestamp", "reaction"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of adding a reaction",
-                    "examples": ['{"ok": true}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of adding a reaction",
+                #     "examples": ['{"ok": true}'],
+                # },
                 requiredScopes=["reactions:write"],
             ),
             Tool(
@@ -427,14 +428,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "timestamp"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of delete operation",
-                    "examples": [
-                        '{"ok": true, "channel": "C12345", "ts": "1234567890.123456"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of delete operation",
+                #     "examples": [
+                #         '{"ok": true, "channel": "C12345", "ts": "1234567890.123456"}'
+                #     ],
+                # },
                 requiredScopes=["chat:write"],
             ),
             Tool(
@@ -458,14 +459,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "thread_ts"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing parent message and its replies",
-                    "examples": [
-                        '{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Thread reply message","thread_ts":"1234567890.123456","team":"T12345","user_name":"test_user","user_profile":{"real_name":"Test User","display_name":"Test User"}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing parent message and its replies",
+                #     "examples": [
+                #         '{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Thread reply message","thread_ts":"1234567890.123456","team":"T12345","user_name":"test_user","user_profile":{"real_name":"Test User","display_name":"Test User"}}'
+                #     ],
+                # },
                 requiredScopes=["channels:history", "groups:history", "im:read"],
             ),
             Tool(
@@ -485,12 +486,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "timestamp"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of pin operation",
-                    "examples": ['{"ok": true}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of pin operation",
+                #     "examples": ['{"ok": true}'],
+                # },
                 requiredScopes=["pins:write"],
             ),
             Tool(
@@ -510,12 +511,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "timestamp"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of unpin operation",
-                    "examples": ['{"ok": true}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of unpin operation",
+                #     "examples": ['{"ok": true}'],
+                # },
                 requiredScopes=["pins:write"],
             ),
             Tool(
@@ -531,14 +532,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["user"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing user presence information",
-                    "examples": [
-                        '{"ok": true, "presence": "active", "online": true, "auto_away": false, "manual_away": false, "connection_count": 1}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing user presence information",
+                #     "examples": [
+                #         '{"ok": true, "presence": "active", "online": true, "auto_away": false, "manual_away": false, "connection_count": 1}'
+                #     ],
+                # },
                 requiredScopes=["users:read"],
             ),
             Tool(
@@ -558,14 +559,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "users"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of invitation operation",
-                    "examples": [
-                        '{"ok": true, "channel": {"id": "C12345", "name": "general", "is_channel": true, "is_group": false, "is_private": false, "created": 1234567890, "creator": "U12345", "team_id": "T12345"}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of invitation operation",
+                #     "examples": [
+                #         '{"ok": true, "channel": {"id": "C12345", "name": "general", "is_channel": true, "is_group": false, "is_private": false, "created": 1234567890, "creator": "U12345", "team_id": "T12345"}}'
+                #     ],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -585,12 +586,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "user"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing response of removal operation",
-                    "examples": ['{"ok": true, "errors": {}}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing response of removal operation",
+                #     "examples": ['{"ok": true, "errors": {}}'],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -606,14 +607,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing pinned items in a channel",
-                    "examples": [
-                        '{"type":"message","created":1234567890,"created_by":"U12345","channel":"C12345","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Pinned message","pinned_to":["C12345"]}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing pinned items in a channel",
+                #     "examples": [
+                #         '{"type":"message","created":1234567890,"created_by":"U12345","channel":"C12345","message":{"user":"U12345","type":"message","ts":"1234567890.123456","text":"Pinned message","pinned_to":["C12345"]}}'
+                #     ],
+                # },
                 requiredScopes=["pins:read"],
             ),
             Tool(
@@ -637,14 +638,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing details of the created channel",
-                    "examples": [
-                        '{"ok": true, "channel": {"id": "C12345", "name": "testchannel", "is_channel": true, "is_group": false, "is_im": false, "is_private": false, "created": 1234567890, "is_archived": false, "is_general": false, "creator": "U12345", "team_id": "T12345"}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing details of the created channel",
+                #     "examples": [
+                #         '{"ok": true, "channel": {"id": "C12345", "name": "testchannel", "is_channel": true, "is_group": false, "is_im": false, "is_private": false, "created": 1234567890, "is_archived": false, "is_general": false, "creator": "U12345", "team_id": "T12345"}}'
+                #     ],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -664,14 +665,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "topic"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing result of the channel topic update",
-                    "examples": [
-                        '{"ok": true, "channel": {"id": "C12345", "name": "channelname", "topic": {"value": "Channel Topic Example", "creator": "U12345", "last_set": 1234567890}}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing result of the channel topic update",
+                #     "examples": [
+                #         '{"ok": true, "channel": {"id": "C12345", "name": "channelname", "topic": {"value": "Channel Topic Example", "creator": "U12345", "last_set": 1234567890}}}'
+                #     ],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -691,14 +692,14 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel", "purpose"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing result of the channel purpose update",
-                    "examples": [
-                        '{"ok": true, "channel": {"id": "C12345", "name": "channelname", "purpose": {"value": "Channel Purpose Example", "creator": "U12345", "last_set": 1234567890}}}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing result of the channel purpose update",
+                #     "examples": [
+                #         '{"ok": true, "channel": {"id": "C12345", "name": "channelname", "purpose": {"value": "Channel Purpose Example", "creator": "U12345", "last_set": 1234567890}}}'
+                #     ],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -714,12 +715,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing result of the channel archiving operation",
-                    "examples": ['{"ok": true}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing result of the channel archiving operation",
+                #     "examples": ['{"ok": true}'],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
             Tool(
@@ -735,12 +736,12 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["channel"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON string containing result of the channel unarchiving operation",
-                    "examples": ['{"ok": true}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON string containing result of the channel unarchiving operation",
+                #     "examples": ['{"ok": true}'],
+                # },
                 requiredScopes=["channels:manage", "groups:write"],
             ),
         ]

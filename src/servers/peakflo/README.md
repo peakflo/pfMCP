@@ -1,6 +1,6 @@
 # Peakflo Server
 
-guMCP server implementation for interacting with Peakflo.
+pfMCP server implementation for interacting with Peakflo.
 
 ### Prerequisites
 

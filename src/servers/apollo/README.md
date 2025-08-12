@@ -1,6 +1,6 @@
 # Apollo Server
 
-guMCP server implementation for interacting with Apollo.io for sales prospecting, contact management, and CRM functionality.
+pfMCP server implementation for interacting with Apollo.io for sales prospecting, contact management, and CRM functionality.
 
 ### 📦 Prerequisites
 

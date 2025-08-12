@@ -1,6 +1,6 @@
 # Google Docs Server
 
-guMCP server implementation for interacting with Google Docs.
+pfMCP server implementation for interacting with Google Docs.
 
 ### Prerequisites
 

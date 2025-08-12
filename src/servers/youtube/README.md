@@ -1,6 +1,6 @@
 # YouTube Server
 
-guMCP server implementation for interacting with the **YouTube Data API v3**.
+pfMCP server implementation for interacting with the **YouTube Data API v3**.
 
 ---
 

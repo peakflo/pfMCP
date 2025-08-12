@@ -4,13 +4,17 @@ import argparse
 import importlib.util
 from pathlib import Path
 import threading
-
-from starlette.routing import Route
+import contextlib
+import time
+from typing import Dict, Any, AsyncIterator
+from starlette.routing import Route, Mount
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
+from starlette.types import Receive, Scope, Send
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
-from mcp.server.sse import SseServerTransport
+from mcp.server.lowlevel import Server
+from mcp.server import streamable_http_manager
 
 # Configure logging
 logging.basicConfig(
@@ -20,10 +24,6 @@ logger = logging.getLogger("gumcp-server")
 
 # Dictionary to store servers
 servers = {}
-
-# Store user-specific SSE transports and server instances
-user_session_transports = {}
-user_server_instances = {}
 
 # Prometheus metrics
 active_connections = Gauge(
@@ -35,6 +35,25 @@ connection_total = Counter(
 
 # Default metrics port
 METRICS_PORT = 9091
+
+
+def debug_session_store(event: str, session_id: str = None):
+    """Debug session management state with structured JSON logging
+
+    Args:
+        event: Description of the event that triggered this debug log
+        session_id: Optional specific session to look for. If None, shows all sessions.
+    """
+    import json
+
+    debug_data = {
+        "event": event,
+        "timestamp": time.time(),
+        "session_id": session_id,
+        "stateless_mode": True,
+    }
+
+    logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
 
 
 def discover_servers():
@@ -60,21 +79,21 @@ def discover_servers():
                     spec.loader.exec_module(server_module)
 
                     # Get the server and initialization options from the module
-                    if hasattr(server_module, "server") and hasattr(
+                    if hasattr(server_module, "create_server") and hasattr(
                         server_module, "get_initialization_options"
                     ):
-                        server = server_module.server
+                        create_server = server_module.create_server
                         get_init_options = server_module.get_initialization_options
 
-                        # Store the server
+                        # Store the server factory and init options
                         servers[server_name] = {
-                            "server": server,
+                            "create_server": create_server,
                             "get_initialization_options": get_init_options,
                         }
                         logger.info(f"Loaded server: {server_name}")
                     else:
                         logger.warning(
-                            f"Server {server_name} does not have required server or get_initialization_options"
+                            f"Server {server_name} does not have required create_server or get_initialization_options"
                         )
                 except Exception as e:
                     logger.error(f"Failed to load server {server_name}: {e}")
@@ -99,129 +118,100 @@ def create_metrics_app():
     return app
 
 
+def create_server_for_session(server_name: str, session_key_encoded: str) -> Server:
+    """Create a stateless MCP server for a specific session"""
+
+    # Parse user_id and api_key from session_key_encoded
+    user_id = None
+    api_key = None
+
+    if ":" in session_key_encoded:
+        user_id = session_key_encoded.split(":")[0]
+        api_key = session_key_encoded.split(":")[1]
+    else:
+        user_id = session_key_encoded
+
+    session_key = f"{server_name}:{session_key_encoded}"
+
+    logger.info(f"Creating stateless server for {server_name} with session: {user_id}")
+
+    # Debug session state
+    debug_session_store("stateless_server_creation", session_key)
+
+    # Get server factory and create server instance
+    server_info = servers[server_name]
+    create_server = server_info["create_server"]
+    get_init_options = server_info["get_initialization_options"]
+
+    # Create and return the server instance directly
+    server = create_server(user_id, api_key)
+
+    # Increment metrics
+    connection_total.labels(server=server_name).inc()
+
+    return server
+
+
 def create_starlette_app():
-    """Create a Starlette app with multiple SSE transports for different servers"""
+    """Create a Starlette app with stateless MCP servers"""
+
     # Discover and load all servers
     discover_servers()
 
-    # Define routes for the Starlette app
+    # Create session managers for each server
+    session_managers = {}
+
+    for server_name in servers.keys():
+        # Create a session manager factory for this server
+        def create_session_manager_for_server(name):
+            def session_manager_factory(scope: Scope):
+                # Extract session_key from the path
+                path_parts = scope["path"].strip("/").split("/")
+                if len(path_parts) >= 2 and path_parts[0] == name:
+                    session_key_encoded = path_parts[1]
+
+                    # Create server for this session
+                    server = create_server_for_session(name, session_key_encoded)
+
+                    # Create session manager with stateless mode
+                    return streamable_http_manager.StreamableHTTPSessionManager(
+                        app=server,
+                        event_store=None,
+                        json_response=False,
+                        stateless=True,
+                    )
+                return None
+
+            return session_manager_factory
+
+        session_managers[server_name] = create_session_manager_for_server(server_name)
+
+    # Create handlers for each server
+    def create_server_handler(server_name: str):
+        async def handle_server_request(
+            scope: Scope, receive: Receive, send: Send
+        ) -> None:
+            session_manager = session_managers[server_name](scope)
+            if session_manager:
+                async with session_manager.run():
+                    await session_manager.handle_request(scope, receive, send)
+            else:
+                # Return 404 if session manager couldn't be created
+                response = Response("Session not found", status_code=404)
+                await response(scope, receive, send)
+
+        return handle_server_request
+
+    # Create routes for each server
     routes = []
 
-    # Create an SSE endpoint for each server
-    for server_name, server_info in servers.items():
-        # Create handler for user-specific SSE sessions
-        def create_handler(server_name, server_factory, get_init_options):
-            async def handle_sse(request):
-                """Handle SSE connection requests for a specific server and session"""
-                # Get session_key from route parameter (For Gumloop, this is a URL encoded version of "{user_id}:{api_key}")
-                session_key_encoded = request.path_params["session_key"]
-                # Using the server_name and encoded session_key as the actual session key
-                session_key = f"{server_name}:{session_key_encoded}"
+    for server_name in servers.keys():
+        handler = create_server_handler(server_name)
 
-                user_id = None
-                api_key = None
+        # Mount the server handler at /{server_name}/
+        routes.append(Mount(f"/{server_name}", app=handler))
 
-                if ":" in session_key_encoded:
-                    user_id = session_key_encoded.split(":")[0]
-                    api_key = session_key_encoded.split(":")[1]
-                else:
-                    user_id = session_key_encoded
-
-                logger.info(
-                    f"New SSE connection requested for {server_name} with session: {user_id}"
-                )
-
-                # Create an SSE transport for this session
-                sse_transport = SseServerTransport(
-                    f"/{server_name}/{session_key_encoded}/messages/"
-                )
-
-                # Store the transport
-                user_session_transports[session_key] = sse_transport
-
-                # Create a new server instance for this user if it doesn't exist
-                # or reuse the existing one to maintain state between reconnections
-                if session_key not in user_server_instances:
-                    server_instance = server_factory(user_id, api_key)
-                    user_server_instances[session_key] = server_instance
-                else:
-                    server_instance = user_server_instances[session_key]
-
-                # Get standard initialization options
-                init_options = get_init_options(server_instance)
-
-                try:
-                    # Increment metrics
-
-                    # Only increment active connections for new sessions
-                    if not session_key in user_server_instances:
-                        active_connections.labels(server=server_name).inc()
-
-                    # Always increment total connections counter
-                    connection_total.labels(server=server_name).inc()
-
-                    async with sse_transport.connect_sse(
-                        request.scope, request.receive, request._send
-                    ) as streams:
-                        logger.info(
-                            f"SSE connection established for {server_name} session: {user_id}"
-                        )
-                        await server_instance.run(
-                            streams[0],
-                            streams[1],
-                            init_options,
-                        )
-                finally:
-                    # Clean up the transport when the connection closes
-                    if session_key in user_session_transports:
-                        del user_session_transports[session_key]
-                        # Decrement active connections metric
-                        active_connections.labels(server=server_name).dec()
-                        logger.info(
-                            f"Closed SSE connection for {server_name} session: {user_id}"
-                        )
-
-            return handle_sse
-
-        # Add routes for this server with session_key as path parameter
-        handler = create_handler(
-            server_name,
-            server_info["server"],
-            server_info["get_initialization_options"],
-        )
-
-        # Add the SSE connection route with path parameter for session_key
-        routes.append(Route(f"/{server_name}/{{session_key}}", endpoint=handler))
-
-        # Message handler for sending messages to a specific session
-        def create_message_handler(server_name):
-            async def handle_message(request):
-                """Handle messages sent to a specific user session"""
-                session_key_encoded = request.path_params["session_key"]
-                session_key = f"{server_name}:{session_key_encoded}"
-
-                if session_key not in user_session_transports:
-                    return Response(
-                        f"Session not found or expired",
-                        status_code=404,
-                    )
-
-                transport = user_session_transports[session_key]
-                return transport.handle_post_message
-
-            return handle_message
-
-        # Add the message posting route with the custom handler
-        message_handler = create_message_handler(server_name)
-        routes.append(
-            Route(
-                f"/{server_name}/{{session_key}}/messages/",
-                endpoint=message_handler,
-                methods=["POST"],
-            )
-        )
-
-        logger.info(f"Added user-specific routes for server: {server_name}")
+        logger.info(f"Added stateless routes for server: {server_name}")
 
     # Health checks
     async def root_handler(request):
@@ -229,8 +219,9 @@ def create_starlette_app():
         return JSONResponse(
             {
                 "status": "ok",
-                "message": "guMCP server running",
+                "message": "guMCP stateless server running",
                 "servers": list(servers.keys()),
+                "mode": "stateless",
             }
         )
 
@@ -238,13 +229,25 @@ def create_starlette_app():
 
     async def health_check(request):
         """Health check endpoint"""
-        return JSONResponse({"status": "ok", "servers": list(servers.keys())})
+        return JSONResponse(
+            {"status": "ok", "servers": list(servers.keys()), "mode": "stateless"}
+        )
 
     routes.append(Route("/health_check", endpoint=health_check))
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        """Application lifespan context manager"""
+        logger.info("Application started with stateless MCP servers!")
+        try:
+            yield
+        finally:
+            logger.info("Application shutting down...")
 
     app = Starlette(
         debug=True,
         routes=routes,
+        lifespan=lifespan,
     )
 
     return app
@@ -259,7 +262,7 @@ def run_metrics_server(host, port):
 
 def main():
     """Main entry point for the Starlette server"""
-    parser = argparse.ArgumentParser(description="guMCP Server")
+    parser = argparse.ArgumentParser(description="guMCP Stateless Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host for Starlette server")
     parser.add_argument(
         "--port", type=int, default=8000, help="Port for Starlette server"
@@ -267,6 +270,7 @@ def main():
 
     args = parser.parse_args()
 
+    # Start metrics server in background
     metrics_thread = threading.Thread(
         target=run_metrics_server, args=(args.host, METRICS_PORT), daemon=True
     )
@@ -275,7 +279,7 @@ def main():
 
     # Run the main Starlette server
     app = create_starlette_app()
-    logger.info(f"Starting Starlette server on {args.host}:{args.port}")
+    logger.info(f"Starting stateless Starlette server on {args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
 
 

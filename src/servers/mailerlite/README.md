@@ -1,6 +1,6 @@
 # MailerLite Server
 
-guMCP server implementation for interacting with the MailerLite API, supporting subscriber management, campaign automation, form creation, and email marketing features.
+pfMCP server implementation for interacting with the MailerLite API, supporting subscriber management, campaign automation, form creation, and email marketing features.
 
 ---
 
@@ -18,7 +18,7 @@ guMCP server implementation for interacting with the MailerLite API, supporting 
 2. Click on **Integrations** option in the left side bar once logged in [Integrations](https://dashboard.mailerlite.com/integrations)
 3. Click on **API** under the MailerLite API section and click on Use
 4. Click the **Generate new token** button
-5. Give your API key a descriptive name (e.g., "guMCP Integration")
+5. Give your API key a descriptive name (e.g., "pfMCP Integration")
 6. Choose IP Restriction to "All" if you want to allow all IPs to access the API, else choose "Enable IP Allowlist" and enter the IP address of the server you want to allow.
 7. Copy the generated API key and keep it secure. You will be prompted to enter this during the authentication step.
 
@@ -121,7 +121,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/mailerlite/local
 
 - Ensure your MailerLite API key has the necessary permissions for the operations you want to perform
 - All API calls include proper error handling and response validation
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows
 
 ---
 

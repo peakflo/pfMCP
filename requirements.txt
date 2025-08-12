@@ -157,7 +157,7 @@ mailchimp-marketing==3.0.80
     # via -r requirements.in
 mailerlite==0.1.10
     # via -r requirements.in
-mcp==1.4.1
+mcp==1.12.3
     # via -r requirements.in
 more-itertools==10.6.0
     # via simple-salesforce

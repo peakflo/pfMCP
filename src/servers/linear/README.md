@@ -1,6 +1,6 @@
 # Linear Server
 
-guMCP server implementation for interacting with Linear issue tracking.
+pfMCP server implementation for interacting with Linear issue tracking.
 
 ### Prerequisites
 

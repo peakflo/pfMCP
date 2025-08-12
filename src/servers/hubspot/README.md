@@ -1,6 +1,6 @@
 # HubSpot Server
 
-guMCP server implementation for interacting with HubSpot CRM.
+pfMCP server implementation for interacting with HubSpot CRM.
 
 ### Prerequisites
 

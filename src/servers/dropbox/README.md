@@ -1,6 +1,6 @@
 # Dropbox Server
 
-guMCP server implementation for interacting with **Dropbox**.
+pfMCP server implementation for interacting with **Dropbox**.
 
 ---
 
