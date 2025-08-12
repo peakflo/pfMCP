@@ -1,6 +1,6 @@
 # Cal.com Server
 
-guMCP server implementation for interacting with Cal.com's API.
+pfMCP server implementation for interacting with Cal.com's API.
 
 ### Prerequisites
 

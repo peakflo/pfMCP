@@ -1,6 +1,6 @@
 # Google Maps Server
 
-guMCP server implementation for interacting with the **Google Maps API**.
+pfMCP server implementation for interacting with the **Google Maps API**.
 
 ---
 

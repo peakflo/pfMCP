@@ -1,6 +1,6 @@
 # DocuSign Server
 
-guMCP server implementation for interacting with DocuSign for electronic signatures, document management, and user administration.
+pfMCP server implementation for interacting with DocuSign for electronic signatures, document management, and user administration.
 
 ---
 
@@ -17,7 +17,7 @@ guMCP server implementation for interacting with DocuSign for electronic signatu
 2. Go to **Settings** → **Apps and Keys** (in the left sidebar)
 3. Click on **"Add App & Integration Key"**
 4. Fill out:
-   - **App Name**: e.g., `guMCP Integration`
+   - **App Name**: e.g., `pfMCP Integration`
    - Click **"Create App"**
 5. After the app is created:
    - Copy the **Integration Key** (this is your `client_id`)

@@ -1,6 +1,6 @@
 # Zendesk Server
 
-guMCP server implementation for interacting with Zendesk.
+pfMCP server implementation for interacting with Zendesk.
 
 ### Prerequisites
 

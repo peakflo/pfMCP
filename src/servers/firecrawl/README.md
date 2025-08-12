@@ -1,6 +1,6 @@
 # Firecrawl Server
 
-guMCP server implementation for interacting with Firecrawl's API for web scraping, crawling, and data extraction.
+pfMCP server implementation for interacting with Firecrawl's API for web scraping, crawling, and data extraction.
 
 ### Prerequisites
 

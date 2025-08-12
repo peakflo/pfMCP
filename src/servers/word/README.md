@@ -1,6 +1,6 @@
 # Word Server
 
-guMCP server implementation for interacting with Microsoft Word documents stored in OneDrive.
+pfMCP server implementation for interacting with Microsoft Word documents stored in OneDrive.
 
 ### Prerequisites
 

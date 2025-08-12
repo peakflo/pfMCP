@@ -1,6 +1,6 @@
 # Twilio Server
 
-guMCP server implementation for interacting with Twilio's messaging, voice, verification, and communication APIs.
+pfMCP server implementation for interacting with Twilio's messaging, voice, verification, and communication APIs.
 
 ## 📦 Prerequisites
 

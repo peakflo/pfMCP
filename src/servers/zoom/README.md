@@ -1,6 +1,6 @@
-# Zoom GuMCP Server
+# Zoom pfMCP Server
 
-GuMCP server implementation for interacting with Zoom Meetings API using OAuth authentication.
+pfMCP server implementation for interacting with Zoom Meetings API using OAuth authentication.
 
 ---
 

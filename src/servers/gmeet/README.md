@@ -1,6 +1,6 @@
 # Google Meet Server
 
-guMCP server implementation for interacting with the **Google Calendar API** to manage Google Meet meetings.
+pfMCP server implementation for interacting with the **Google Calendar API** to manage Google Meet meetings.
 
 ---
 

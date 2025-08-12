@@ -1,6 +1,6 @@
 # Klaviyo Server
 
-guMCP server implementation for interacting with Klaviyo for email marketing, customer engagement, and audience management.
+pfMCP server implementation for interacting with Klaviyo for email marketing, customer engagement, and audience management.
 
 ---
 
@@ -17,7 +17,7 @@ guMCP server implementation for interacting with Klaviyo for email marketing, cu
 2. Go to **Integrations** → **[Manage Apps](https://www.klaviyo.com/manage-apps)**
 3. Click on **"Create App"**
 4. Fill out:
-   - **App Name**: e.g., `guMCP Integration`
+   - **App Name**: e.g., `pfMCP Integration`
    - Copy the generated **Client ID** and **Client Secret**
 5. Click **Continue**
 6. Select the needed scopes:

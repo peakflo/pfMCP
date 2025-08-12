@@ -1,6 +1,6 @@
-# Patreon GuMCP Server
+# Patreon pfMCP Server
 
-GuMCP server implementation for interacting with the Patreon API using OAuth authentication.
+pfMCP server implementation for interacting with the Patreon API using OAuth authentication.
 
 ---
 

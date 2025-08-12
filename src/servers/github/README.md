@@ -1,6 +1,6 @@
-# GitHub GuMCP Server
+# GitHub pfMCP Server
 
-GuMCP server implementation for interacting with GitHub using OAuth authentication.
+pfMCP server implementation for interacting with GitHub using OAuth authentication.
 
 ---
 
@@ -80,7 +80,7 @@ You can launch the server for local development using:
 ./start_remote_dev_server.sh
 ```
 
-This will start the GuMCP server and make it available for integration and testing.
+This will start the pfMCP server and make it available for integration and testing.
 
 If you have a local client for testing, you can run it like:
 
@@ -97,7 +97,7 @@ Adjust the endpoint path as needed based on your deployment setup.
 - This implementation uses OAuth instead of a static token for improved security and multi-user support.
 - Each user's OAuth access token is securely stored via your `auth_client`.
 - The `github_oauth_client.json` file contains your app's secret credentials and should never be committed to version control.
-- This server integrates with GuMCP agents for tool-based LLM workflows.
+- This server integrates with pfMCP agents for tool-based LLM workflows.
 - Make sure you've set the Anthropic API key in your `.env` if you're using LLM toolchains.
 
 ---

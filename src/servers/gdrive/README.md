@@ -1,6 +1,6 @@
 # Google Drive Server
 
-guMCP server implementation for interacting with Google Drive.
+pfMCP server implementation for interacting with Google Drive.
 
 ### Prerequisites
 

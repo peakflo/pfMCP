@@ -1,6 +1,6 @@
-# Apify GuMCP Server
+# Apify pfMCP Server
 
-GuMCP server implementation for interacting with the Apify API using token-based authentication.
+pfMCP server implementation for interacting with the Apify API using token-based authentication.
 
 ## 📦 Prerequisites
 

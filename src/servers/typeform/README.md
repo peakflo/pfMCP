@@ -1,6 +1,6 @@
 # Typeform Server
 
-guMCP server implementation for interacting with Typeform forms and responses.
+pfMCP server implementation for interacting with Typeform forms and responses.
 
 ### Prerequisites
 

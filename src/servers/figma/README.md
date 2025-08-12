@@ -1,6 +1,6 @@
 # Figma Server
 
-guMCP server implementation for interacting with the Figma API.
+pfMCP server implementation for interacting with the Figma API.
 
 ### Prerequisites
 

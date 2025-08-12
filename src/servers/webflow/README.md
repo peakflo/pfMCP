@@ -1,6 +1,6 @@
 # Webflow Server
 
-guMCP server implementation for interacting with Webflow sites and content management.
+pfMCP server implementation for interacting with Webflow sites and content management.
 
 ### Prerequisites
 

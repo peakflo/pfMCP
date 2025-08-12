@@ -1,6 +1,6 @@
-# Contributing to guMCP
+# Contributing to pfMCP
 
-Thank you for your interest in contributing to guMCP! This document provides guidelines and instructions to help you get started with development.
+Thank you for your interest in contributing to pfMCP! This document provides guidelines and instructions to help you get started with development.
 
 ## Project Overview
 
@@ -22,8 +22,8 @@ Thank you for your interest in contributing to guMCP! This document provides gui
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/gumloop/guMCP.git
-cd guMCP
+git clone https://github.com/peakflo/pfMCP.git
+cd pfMCP
 ```
 
 2. **Create a virtual environment**
@@ -153,7 +153,7 @@ See [Perplexity](src/servers/perplexity/main.py) for a clear example
 
 ### Remote Auth Clients
 
-If implementing your own AuthClient to host and run guMCP servers remotely, please note that the assumption made in [BaseAuthClient](src/auth/clients/BaseAuthClient.py) is that `get_user_credentials()` returns a _refreshed and ready-to-use_ version of the credential. That is, refreshing should be taken care of on the side of the `AuthClient`.
+If implementing your own AuthClient to host and run pfMCP servers remotely, please note that the assumption made in [BaseAuthClient](src/auth/clients/BaseAuthClient.py) is that `get_user_credentials()` returns a _refreshed and ready-to-use_ version of the credential. That is, refreshing should be taken care of on the side of the `AuthClient`.
 
 ## Implementation
 
@@ -171,7 +171,7 @@ When implementing tools for a server, please follow these guidelines:
 
 5. **Error Handling**: Implement proper error handling with informative error messages to help users understand what went wrong.
 
-6. **Test Framework Compliance**: We strongly recommend implementing your tools following our [guMCP Test](../tests/README.md). This helps with testing and generating accurate outputSchema.
+6. **Test Framework Compliance**: We strongly recommend implementing your tools following our [pfMCP Test](../tests/README.md). This helps with testing and generating accurate outputSchema.
 
 7. **Output Schema**: Every tool definition must include an outputSchema to help Gummie understand the response format:
 
@@ -189,7 +189,7 @@ When implementing tools for a server, please follow these guidelines:
    You can manually create `outputSchema` following our guidelines, but we recommend using:
    
    - The `scripts/tool_test_executor.py` script which runs tools and saves their outputs to `./scripts/logs/<server_name>.json`
-   - If using tool_test_executor.py, ensure your server follows the testing framework structure in [guMCP Test](../tests/README.md) for optimal results
+   - If using tool_test_executor.py, ensure your server follows the testing framework structure in [pfMCP Test](../tests/README.md) for optimal results
    - Example command: `python scripts/tool_test_executor.py <server_name>`
 
    After generating tool outputs, provide both the generated output file (from `./scripts/logs/<server_name>.json`) and your tool definition file to Cursor, ChatGPT or other LLMs along with this prompt to create high-quality outputSchema:
@@ -204,7 +204,7 @@ When implementing tools for a server, please follow these guidelines:
 
 ### Resources
 
-Resources in guMCP follow a consistent URI format:
+Resources in pfMCP follow a consistent URI format:
 
 ```
 {server_id}://{resource_type}/{resource_id}
@@ -238,7 +238,7 @@ Tests can be run from the root directory using:
 python tests/servers/test_runner.py --server=simple-tools-server
 # Run specific tests locally (sse) -- you would need to have the sse server running, ex. by running ./start_sse_dev_server.sh from the root directory
 python tests/servers/test_runner.py --server=simple-tools-server --remote
-# Run tests on a specific hosted guMCP server (ex. Gumloop's MCP Server)
+# Run tests on a specific hosted pfMCP server (ex. Peakflo's MCP Server)
 python tests/servers/test_runner.py --server=simple-tools-server --remote --endpoint=https://mcp.gumloop.com/gdrive/{user_id}%3A{api_key}
 ```
 
@@ -254,7 +254,7 @@ Note: You must have an `ANTHROPIC_API_KEY` in your `.env` file for this to work 
 
 When adding new features, please ensure you:
 
-1. Write tests following our [guMCP Test](../tests/README.md) framework
+1. Write tests following our [pfMCP Test](../tests/README.md) framework
 2. Implement both RESOURCE_TESTS and TOOL_TESTS for complete coverage
 3. Ensure all tests pass before submitting a PR
 4. Use the shared context to pass values between tests
@@ -277,9 +277,9 @@ Please have some tests that do NOT use mocks and expect the user to already be a
 ## Request for PRs
 
 - Add Support for New MCP Spec
-  - [Streamable HTTP Transport](https://github.com/gumloop/guMCP/issues/26)
+  - [Streamable HTTP Transport](https://github.com/gumloop/pfMCP/issues/26)
   - Client/Server Authentication Mechanism
-- [Add Support for FastMCP](https://github.com/gumloop/guMCP/issues/24)
+- [Add Support for FastMCP](https://github.com/gumloop/pfMCP/issues/24)
 
 ## Versioning
 
@@ -296,4 +296,4 @@ If you have questions or need help, you can:
 - Open an issue in the GitHub repository
 - Contact the project maintainers via email or other communication channels
 
-Thank you for contributing to guMCP!
+Thank you for contributing to pfMCP!

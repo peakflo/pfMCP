@@ -1,6 +1,6 @@
-# PayPal GuMCP Server
+# PayPal pfMCP Server
 
-GuMCP server implementation for interacting with the PayPal API using OAuth authentication.
+pfMCP server implementation for interacting with the PayPal API using OAuth authentication.
 
 ---
 

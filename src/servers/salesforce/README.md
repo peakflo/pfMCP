@@ -1,7 +1,7 @@
 
 # Salesforce Server
 
-guMCP server implementation for interacting with Salesforce.
+pfMCP server implementation for interacting with Salesforce.
 
 ---
 
@@ -26,7 +26,7 @@ Follow these steps to create a Connected App in Salesforce and obtain the creden
    - Click **New Connected App**
 
 3. **Basic Information**
-   - Fill in the **Connected App Name** (e.g., `guMCP App`)
+   - Fill in the **Connected App Name** (e.g., `pfMCP App`)
    - Fill in **API Name** (auto-filled)
    - Provide a valid **Contact Email**
 

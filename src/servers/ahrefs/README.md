@@ -1,6 +1,6 @@
 # Ahrefs Server
 
-guMCP server implementation for accessing Ahrefs SEO and backlink analytics data.
+pfMCP server implementation for accessing Ahrefs SEO and backlink analytics data.
 
 ## Prerequisites
 

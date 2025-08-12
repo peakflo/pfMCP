@@ -1,6 +1,6 @@
-# Browserbase GuMCP Server
+# Browserbase pfMCP Server
 
-GuMCP server implementation for interacting with the **Browserbase API** for headless browser automation.
+pfMCP server implementation for interacting with the **Browserbase API** for headless browser automation.
 
 ---
 

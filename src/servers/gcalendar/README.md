@@ -1,6 +1,6 @@
 # Google Calendar Server
 
-guMCP server implementation for interacting with Google Calendar.
+pfMCP server implementation for interacting with Google Calendar.
 
 ### Prerequisites
 

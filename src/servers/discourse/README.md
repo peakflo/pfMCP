@@ -1,6 +1,6 @@
 # Discourse Server
 
-guMCP server implementation for interacting with Discourse forums and communities.
+pfMCP server implementation for interacting with Discourse forums and communities.
 
 ### Prerequisites
 

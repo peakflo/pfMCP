@@ -1,6 +1,6 @@
 # Microsoft Teams Server
 
-guMCP server implementation for interacting with Microsoft Teams for team management, channel operations, messaging, and meetings.
+pfMCP server implementation for interacting with Microsoft Teams for team management, channel operations, messaging, and meetings.
 
 ---
 
