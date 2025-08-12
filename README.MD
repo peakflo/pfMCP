@@ -7,17 +7,11 @@ pfMCP is an open-source collection of Model Context Protocol (MCP) servers that 
 While many MCP server providers are closed source, and open-source alternatives typically only support local hosting through stdio, pfMCP provides:
 
 - A comprehensive collection of MCP servers that work both locally and remotely
-- Support for both stdio and SSE (Server-Sent Events) transports
+- Support for both stdio and Streamable stateless HTTP transports
 - A unified backend architecture for consistent implementation
 - Full open-source access to encourage community contributions
 
 ## Getting Started
-
-> **🎬 RECOMMENDED: Watch our quick setup video before getting started!**
->
-> This under 5-minute walkthrough will save you time and help you understand the key concepts.
->
-> [![Watch the pfMCP Getting Started Video](https://www.gumloop.com/_next/image?url=%2Fimages%2Fmcp%2FGuideVideo.png&w=1920&q=75)](https://vimeo.com/1070438737/8dea56e6a1)
 
 ### Prerequisites
 
