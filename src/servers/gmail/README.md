@@ -1,6 +1,6 @@
 # Gmail Server
 
-guMCP server implementation for interacting with Gmail.
+pfMCP server implementation for interacting with Gmail.
 
 ### Prerequisites
 

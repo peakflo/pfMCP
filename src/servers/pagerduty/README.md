@@ -1,6 +1,6 @@
 # PagerDuty Server
 
-guMCP server implementation for interacting with PagerDuty incident management and on-call scheduling.
+pfMCP server implementation for interacting with PagerDuty incident management and on-call scheduling.
 
 ## Prerequisites
 

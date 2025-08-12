@@ -1,6 +1,6 @@
 # Hunter.io Server
 
-guMCP server implementation for interacting with **Hunter.io** API V2.
+pfMCP server implementation for interacting with **Hunter.io** API V2.
 
 ---
 

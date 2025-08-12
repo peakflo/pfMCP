@@ -1,6 +1,6 @@
 # Outlook Server
 
-guMCP server implementation for interacting with Microsoft Outlook.
+pfMCP server implementation for interacting with Microsoft Outlook.
 
 ### Prerequisites
 

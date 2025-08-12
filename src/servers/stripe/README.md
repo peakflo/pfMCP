@@ -1,6 +1,6 @@
 # Stripe Server
 
-guMCP server implementation for interacting with Stripe API.
+pfMCP server implementation for interacting with Stripe API.
 
 ---
 
@@ -95,7 +95,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/stripe/local
 
 - Ensure your Stripe app has the required permissions enabled in the dashboard.
 - Use different `user_id` values if you're testing with multiple environments.
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows.
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows.
 - Make sure you have provided your Anthropic API key in the `.env` file.
 
 ---

@@ -1,6 +1,6 @@
 # Hacker News Server
 
-guMCP server implementation for interacting with the **Hacker News API**.
+pfMCP server implementation for interacting with the **Hacker News API**.
 
 ---
 

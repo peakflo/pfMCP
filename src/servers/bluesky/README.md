@@ -1,6 +1,6 @@
 # Bluesky Server
 
-guMCP server implementation for interacting with the Bluesky API, supporting social media management, including posting, following, blocking, and profile management.
+pfMCP server implementation for interacting with the Bluesky API, supporting social media management, including posting, following, blocking, and profile management.
 
 ---
 
@@ -18,7 +18,7 @@ guMCP server implementation for interacting with the Bluesky API, supporting soc
 2. Click on your **Settings** icon on the bottom of left-side pane, then click on Privacy & Security [Privacy and Security](https://bsky.app/settings/privacy-and-security)
 3. Navigate to the **App Passwords** section
 4. Click on **Add Password**
-5. Enter a name for your app (e.g., "guMCP"), and provide the access for the password
+5. Enter a name for your app (e.g., "pfMCP"), and provide the access for the password
 6. Copy the generated app password and keep it secure. You will be prompted to enter this during the authentication step below.
 
 ### Local Authentication
@@ -98,7 +98,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/bluesky/local
 
 - Ensure your Bluesky app password has the necessary permissions for the operations you want to perform.
 - All API calls include proper error handling and response validation.
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows.
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows.
 
 ---
 

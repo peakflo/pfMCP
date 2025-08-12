@@ -1,6 +1,6 @@
-# guMCP Testing Framework
+# pfMCP Testing Framework
 
-This directory contains the testing framework for guMCP servers and tools.
+This directory contains the testing framework for pfMCP servers and tools.
 
 ## Test Structure
 

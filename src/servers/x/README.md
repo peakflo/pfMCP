@@ -1,6 +1,6 @@
 # X Server
 
-guMCP server implementation for interacting with X (formerly Twitter).
+pfMCP server implementation for interacting with X (formerly Twitter).
 
 ### Prerequisites
 

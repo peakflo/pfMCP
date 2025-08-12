@@ -1,6 +1,6 @@
 # Loops Server
 
-guMCP server implementation for interacting with Loops email marketing and customer engagement APIs.
+pfMCP server implementation for interacting with Loops email marketing and customer engagement APIs.
 
 ## 📦 Prerequisites
 

@@ -1,6 +1,6 @@
 # ClickUp Server
 
-guMCP server implementation for interacting with ClickUp task management.
+pfMCP server implementation for interacting with ClickUp task management.
 
 ### Prerequisites
 

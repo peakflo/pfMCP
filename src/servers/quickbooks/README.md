@@ -1,4 +1,4 @@
-# QuickBooks Server for guMCP
+# QuickBooks Server for pfMCP
 
 This server provides integration with QuickBooks Online for financial data access and analysis.
 
@@ -48,7 +48,7 @@ Create the following file with the relevant attributes for your app:
 python src/servers/quickbooks/main.py auth
 ```
 
-This will start the OAuth flow and save your credentials locally. By default, the credentials will be stored at `~/.config/gumcp/quickbooks/local.json`. Each user's credentials are stored in separate files based on their user ID.
+This will start the OAuth flow and save your credentials locally. By default, the credentials will be stored at `~/.config/pfmcp/quickbooks/local.json`. Each user's credentials are stored in separate files based on their user ID.
 
 7. To test the integration, run:
 
@@ -68,13 +68,13 @@ python src/servers/quickbooks/main.py server
 
 This runs the server in standalone mode on http://localhost:8001 using the "local" user ID.
 
-### 2. guMCP Local Framework
+### 2. pfMCP Local Framework
 
 ```bash
 python src/servers/local.py --server quickbooks --user-id <your-user-id>
 ```
 
-This runs the server through the guMCP local framework. The `user-id` parameter determines which credentials file is used, and can use the placeholder `local`.
+This runs the server through the pfMCP local framework. The `user-id` parameter determines which credentials file is used, and can use the placeholder `local`.
 
 ## API Keys (Optional)
 
@@ -87,7 +87,7 @@ python src/servers/local.py --server quickbooks --user-id <your-user-id> --api-k
 For remote endpoints, the format is:
 
 ```
-https://mcp.gumloop.com/quickbooks/{user_id}%3A{api_key}
+https://mcp.peakflo.com/quickbooks/{user_id}%3A{api_key}
 ```
 
 ## Credentials Storage
@@ -95,7 +95,7 @@ https://mcp.gumloop.com/quickbooks/{user_id}%3A{api_key}
 QuickBooks credentials are stored locally at:
 
 ```
-~/.config/gumcp/quickbooks/{user_id}.json
+~/.config/pfmcp/quickbooks/{user_id}.json
 ```
 
 Different user IDs have separate credential files, allowing multiple QuickBooks accounts to be used with the same server.
@@ -136,8 +136,8 @@ python -m tests.servers.test_runner --server=quickbooks
 # For testing with the SSE server (requires the SSE server to be running)
 python tests/servers/test_runner.py --server=quickbooks --remote
 
-# For testing against a specific hosted guMCP server
-python tests/servers/test_runner.py --server=quickbooks --remote --endpoint=https://mcp.gumloop.com/quickbooks/{user_id}%3A{api_key}
+# For testing against a specific hosted pfMCP server
+python tests/servers/test_runner.py --server=quickbooks --remote --endpoint=https://mcp.peakflo.com/quickbooks/{user_id}%3A{api_key}
 ```
 
 ### Test Coverage

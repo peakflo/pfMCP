@@ -1,6 +1,6 @@
 # Excel Server
 
-guMCP server implementation for interacting with Microsoft Excel files stored in OneDrive.
+pfMCP server implementation for interacting with Microsoft Excel files stored in OneDrive.
 
 ### Prerequisites
 

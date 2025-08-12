@@ -1,6 +1,6 @@
 # Canva Server
 
-guMCP server implementation for interacting with the **Canva API**.
+pfMCP server implementation for interacting with the **Canva API**.
 
 ---
 

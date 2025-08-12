@@ -1,10 +1,10 @@
-# Gumloop Unified Model Context Protocol (guMCP)
+# Peakflo Model Context Protocol (pfMCP)
 
-guMCP is an open-source collection of Model Context Protocol (MCP) servers that can be run both remotely and locally. The project aims to create the largest collection of MCP servers with a unified backend, fostering a community around AI integrations and the future of AGI.
+pfMCP is an open-source collection of Model Context Protocol (MCP) servers that can be run both remotely and locally. The project aims to create the largest collection of MCP servers with a unified backend, fostering a community around AI integrations and the future of AGI.
  
 ## Overview
 
-While many MCP server providers are closed source, and open-source alternatives typically only support local hosting through stdio, guMCP provides:
+While many MCP server providers are closed source, and open-source alternatives typically only support local hosting through stdio, pfMCP provides:
 
 - A comprehensive collection of MCP servers that work both locally and remotely
 - Support for both stdio and SSE (Server-Sent Events) transports
@@ -17,7 +17,7 @@ While many MCP server providers are closed source, and open-source alternatives 
 >
 > This under 5-minute walkthrough will save you time and help you understand the key concepts.
 >
-> [![Watch the guMCP Getting Started Video](https://www.gumloop.com/_next/image?url=%2Fimages%2Fmcp%2FGuideVideo.png&w=1920&q=75)](https://vimeo.com/1070438737/8dea56e6a1)
+> [![Watch the pfMCP Getting Started Video](https://www.gumloop.com/_next/image?url=%2Fimages%2Fmcp%2FGuideVideo.png&w=1920&q=75)](https://vimeo.com/1070438737/8dea56e6a1)
 
 ### Prerequisites
 
@@ -30,8 +30,8 @@ While many MCP server providers are closed source, and open-source alternatives 
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/gumloop/guMCP.git
-   cd guMCP
+   git clone https://github.com/peakflo/pfMCP.git
+   cd pfMCP
    ```
 
 2. **Set up a virtual environment**:
@@ -120,82 +120,82 @@ For convenience, we also provide a lightweight MCP Client to start and connect t
 
 ## Supported Servers and Authentication Methods
 
-The following table provides an overview of the current servers implemented in guMCP, their authentication requirements, and relative ease of use with different authentication methods:
+The following table provides an overview of the current servers implemented in pfMCP and their Remote Auth options:
 
-| Server                  | Auth Type | Remote Auth<br>(e.g., Cursor)                                            | Local Auth<br>(e.g., Claude Desktop)                 | Documentation                                                   |
-| ----------------------- | --------- | ------------------------------------------------------------------------ | ---------------------------------------------------- | --------------------------------------------------------------- |
-| **Google Services**     |           |                                                                          |                                                      |                                                                 |
-| Google Sheets           | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gsheets)     | ⚠️ Requires GCP project & OAuth setup                | [GSheets Docs](/src/servers/gsheets/README.md)                  |
-| Gmail                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gmail)       | ⚠️ Requires GCP project & OAuth setup                | [Gmail Docs](/src/servers/gmail/README.md)                      |
-| Google Docs             | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gdocs)       | ⚠️ Requires GCP project & OAuth setup                | [GDocs Docs](/src/servers/gdocs/README.md)                      |
-| Google Drive            | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gdrive)      | ⚠️ Requires GCP project & OAuth setup                | [GDrive Docs](/src/servers/gdrive/README.md)                    |
-| Google Calendar         | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gcalendar)   | ⚠️ Requires GCP project & OAuth setup                | [GCalendar Docs](/src/servers/gcalendar/README.md)              |
-| Google Maps             | API Key   | ⚠️ Coming soon                                                           | ⚠️ Requires GCP project & API Key                    | [GMaps Docs](/src/servers/gmaps/README.md)                      |
-| Google Meet             | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/gmeet)       | ⚠️ Requires GCP project & OAuth setup                | [GMeet Docs](/src/servers/gmeet/README.md)                      |
-| YouTube                 | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/youtube)     | ⚠️ Requires GCP project & OAuth setup                | [YouTube Docs](/src/servers/youtube/README.md)                  |
-| **Communication Tools** |           |                                                                          |                                                      |                                                                 |
-| Slack                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/slack)       | ⚠️ Requires OAuth setup with HTTPS redirect          | [Slack Docs](/src/servers/slack/README.md)                      |
-| Microsoft Teams         | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Azure app registration                   | [Teams Docs](/src/servers/teams/README.md)                      |
-| Outlook                 | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/outlook)     | ⚠️ Requires Azure app registration                   | [Outlook Docs](/src/servers/outlook/README.md)                  |
-| Discourse               | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/discourse)   | ✅ Easy - Simple API key setup                       | [Discourse Docs](/src/servers/discourse/README.md)              |
-| X (Twitter)             | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires X Developer Account                      | [X Docs](/src/servers/x/README.md)                              |
-| Bluesky                 | API Key   | ⚠️ Coming soon                                                           | ✅ Easy - Simple API key setup                       | [Bluesky Docs](/src/servers/bluesky/README.md)                  |
-| Reddit                  | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/reddit)      | ⚠️ Requires Reddit Developer App                     | [Reddit Docs](/src/servers/reddit/README.md)                    |
-| Intercom                | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Intercom OAuth App                       | [Intercom Docs](/src/servers/intercom/README.md)                |
-| Zoom                    | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Zoom Developer App                       | [Zoom Docs](/src/servers/zoom/README.md)                        |
-| Twilio                  | API Key   | ⚠️ Coming soon                                                           | ✅ Easy - Simple API key setup                       | [Twilio Docs](/src/servers/twilio/README.md)                    |
-| **Productivity Tools**  |           |                                                                          |                                                      |                                                                 |
-| Airtable                | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/airtable)    | ⚠️ Requires Airtable OAuth application               | [Airtable Docs](/src/servers/airtable/README.md)                |
-| Excel                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/excel)       | ⚠️ Requires Microsoft OAuth application              | [Excel Docs](/src/servers/excel/README.md)                      |
-| Word                    | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/word)        | ⚠️ Requires Microsoft OAuth application              | [Word Docs](/src/servers/word/README.md)                        |
-| Linear                  | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/linear)      | ⚠️ Requires Linear OAuth application                 | [Linear Docs](/src/servers/linear/README.md)                    |
-| Monday.com              | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/monday)      | ⚠️ Requires Monday.com OAuth application             | [Monday.com Docs](/src/servers/monday/README.md)                |
-| Attio                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/attio)       | ⚠️ Requires Attio OAuth application                  | [Attio Docs](/src/servers/attio/README.md)                      |
-| Notion                  | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/notion)      | ⚠️ Requires Notion OAuth application                 | [Notion Docs](/src/servers/notion/README.md)                    |
-| Loops                   | OAuth 2.0 | ⚠️ Coming soon                                                           | ✅ Easy - Simple API key setup                       | [Loops Docs](/src/servers/loops/README.md)                      |
-| Webflow                 | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Webflow OAuth application                | [Webflow Docs](/src/servers/webflow/README.md)                  |
-| ClickUp                 | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/clickup)     | ⚠️ Requires ClickUp OAuth application                | [ClickUp Docs](/src/servers/clickup/README.md)                  |
-| Dropbox                 | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/dropbox)     | ⚠️ Requires Dropbox OAuth application                | [Dropbox Docs](/src/servers/dropbox/README.md)                  |
-| OneDrive                | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Microsoft OAuth application              | [OneDrive Docs](/src/servers/onedrive/README.md)                |
-| SharePoint              | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Microsoft OAuth application              | [SharePoint Docs](/src/servers/sharepoint/README.md)            |
-| Jira                    | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/jira)        | ⚠️ Requires Atlassian OAuth 2.0 (3LO) setup          | [Jira Docs](/src/servers/jira/README.md)                        |
-| Calendly                | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/calendly)    | ⚠️ Requires Calendly OAuth application               | [Calendly Docs](/src/servers/calendly/README.md)                |
-| Cal.com                 | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/calcom)      | ⚠️ Requires Cal.com API key setup                    | [Cal.com Docs](/src/servers/calcom/README.md)                   |
-| Canva                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/canva)       | ⚠️ Requires Canva OAuth integration                  | [Canva Docs](/src/servers/canva/README.md)                      |
-| **Business Tools**      |           |                                                                          |                                                      |                                                                 |
-| Apollo                  | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/apollo)      | ✅ Easy - Simple API key setup                       | [Apollo Docs](/src/servers/apollo/README.md)                    |
-| HubSpot                 | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/hubspot)     | ⚠️ Requires HubSpot OAuth application                | [HubSpot Docs](/src/servers/hubspot/README.md)                  |
-| Hunter.io               | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/hunter)      | ✅ Easy - Simple API key setup                       | [Hunter.io Docs](/src/servers/hunter_io/README.md)              |
-| Lemlist                 | API Key   | ⚠️ Coming soon                                                           | ✅ Easy - Simple API key setup                       | [Lemlist Docs](/src/servers/lemlist/README.md)                  |
-| SendGrid                | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/sendgrid)    | ✅ Easy - Simple API key setup                       | [SendGrid Docs](/src/servers/sendgrid/README.md)                |
-| QuickBooks              | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Intuit OAuth application                 | [QuickBooks Docs](/src/servers/quickbooks/README.md)            |
-| Typeform                | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/typeform)    | ✅ Easy - Simple API key setup                       | [Typeform Docs](/src/servers/typeform/README.md)                |
-| Stripe                  | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/stripe)      | ⚠️ Requires Stripe OAuth setup                       | [Stripe Docs](/src/servers/stripe/README.md)                    |
-| MailerLite              | API Key   | ⚠️ Coming soon                                                           | ✅ Easy - Simple API key setup                       | [MailerLite Docs](/src/servers/mailerlite/README.md)            |
-| Mailchimp               | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Mailchimp OAuth application              | [Mailchimp Docs](/src/servers/mailchimp/README.md)              |
-| Klaviyo                 | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Klaviyo OAuth application                | [Klaviyo Docs](/src/servers/klaviyo/README.md)                  |
-| PayPal                  | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires PayPal OAuth setup                       | [PayPal Docs](/src/servers/paypal/README.md)                    |
-| Instacart               | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/instacart)   | ✅ Easy - Simple API key setup                       | [Instacart Docs](/src/servers/instacart/README.md)              |
-| PagerDuty               | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires PagerDuty OAuth application              | [PagerDuty Docs](/src/servers/pagerduty/README.md)              |
-| Shopify                 | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Shopify OAuth Application                | [Shopify Docs](/src/servers/shopify/README.md)                  |
-| DocuSign                | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires OAuth setup                              | [DocuSign Docs](/src/servers/docusign/README.md)                |
-| Patreon                 | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires Patreon OAuth application                | [Patreon Docs](/src/servers/patreon/README.md)                  |
-| PostHog                 | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/posthog)     | ✅ Easy - Simple API key setup                       | [PostHog Docs](/src/servers/posthog/README.md)                  |
-| Salesforce              | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/salesforce)  | ⚠️ Requires Salesforce Connected App setup           | [Salesforce Docs](/src/servers/salesforce/README.md)            |
-| **Search Tools**        |           |                                                                          |                                                      |                                                                 |
-| Perplexity              | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/perplexity)  | ✅ Easy - Simple API key setup                       | [Perplexity Docs](/src/servers/perplexity/README.md)            |
-| Ahrefs                  | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/ahrefs)      | ✅ Easy - Simple API key setup                       | [Ahrefs Docs](/src/servers/ahrefs/README.md)                    |
-| Firecrawl               | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/firecrawl)   | ✅ Easy - Simple API key setup                       | [Firecrawl Docs](/src/servers/firecrawl/README.md)              |
-| SerpAPI                 | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/serpapi)     | ✅ Easy - Simple API key setup                       | [SerpAPI Docs](/src/servers/serpapi/README.md)                  |
-| Hacker News             | None      | ✅ No auth required                                                      | ✅ No auth required                                  | [Hacker News Docs](/src/servers/hackernews/README.md)           |
-| Reducto                 | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/reducto)     | ✅ Easy - Simple API key setup                       | [Reducto Docs](/src/servers/reducto/README.md)                  |
-| Apify                   | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/apify)       | ✅ Easy - Simple API key setup                       | [Apify Docs](/src/servers/apify/README.md)                      |
-| **Development Tools**   |           |                                                                          |                                                      |                                                                 |
-| Figma                   | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/figma)       | ⚠️ Requires Figma OAuth application                  | [Figma Docs](/src/servers/figma/README.md)                      |
-| GitHub                  | OAuth 2.0 | ⚠️ Coming soon                                                           | ⚠️ Requires GitHub OAuth application                 | [GitHub Docs](/src/servers/github/README.md)                    |
-| Browserbase             | API Key   | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/browserbase) | ✅ Easy - Simple API key setup                       | [Browserbase Docs](/src/servers/browserbase/README.md)          |
-| Snowflake               | OAuth 2.0 | [✅ Seamless with Gumloop auth](https://www.gumloop.com/mcp/snowflake)   | ⚠️ Requires Snowflake Security Integration for OAuth | [Snowflake Docs](/src/servers/snowflake/README.md)              |
-| Simple Tools Server     | None      | ✅ No auth required                                                      | ✅ No auth required                                  | [Simple Tools Docs](/src/servers/simple-tools-server/README.md) |
+| Server | Remote Auth | Documentation |
+| ------ | ----------- | ------------- |
+| **Google Services** |  |  |
+| Google Sheets | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GSheets Docs](/src/servers/gsheets/README.md) |
+| Gmail | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Gmail Docs](/src/servers/gmail/README.md) |
+| Google Docs | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GDocs Docs](/src/servers/gdocs/README.md) |
+| Google Drive | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GDrive Docs](/src/servers/gdrive/README.md) |
+| Google Calendar | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GCalendar Docs](/src/servers/gcalendar/README.md) |
+| Google Maps | ⚠️ Coming soon | [GMaps Docs](/src/servers/gmaps/README.md) |
+| Google Meet | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GMeet Docs](/src/servers/gmeet/README.md) |
+| YouTube | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [YouTube Docs](/src/servers/youtube/README.md) |
+| **Communication Tools** |  |  |
+| Slack | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Slack Docs](/src/servers/slack/README.md) |
+| Microsoft Teams | ⚠️ Coming soon | [Teams Docs](/src/servers/teams/README.md) |
+| Outlook | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Outlook Docs](/src/servers/outlook/README.md) |
+| Discourse | ✅ Seamless with Gumloop auth | [Discourse Docs](/src/servers/discourse/README.md) |
+| X (Twitter) | ⚠️ Coming soon | [X Docs](/src/servers/x/README.md) |
+| Bluesky | ⚠️ Coming soon | [Bluesky Docs](/src/servers/bluesky/README.md) |
+| Reddit | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Reddit Docs](/src/servers/reddit/README.md) |
+| Intercom | ⚠️ Coming soon | [Intercom Docs](/src/servers/intercom/README.md) |
+| Zoom | ⚠️ Coming soon | [Zoom Docs](/src/servers/zoom/README.md) |
+| Twilio | ⚠️ Coming soon | [Twilio Docs](/src/servers/twilio/README.md) |
+| **Productivity Tools** |  |  |
+| Airtable | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Airtable Docs](/src/servers/airtable/README.md) |
+| Excel | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Excel Docs](/src/servers/excel/README.md) |
+| Word | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Word Docs](/src/servers/word/README.md) |
+| Linear | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Linear Docs](/src/servers/linear/README.md) |
+| Monday.com | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Monday.com Docs](/src/servers/monday/README.md) |
+| Attio | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Attio Docs](/src/servers/attio/README.md) |
+| Notion | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Notion Docs](/src/servers/notion/README.md) |
+| Loops | ⚠️ Coming soon | [Loops Docs](/src/servers/loops/README.md) |
+| Webflow | ⚠️ Coming soon | [Webflow Docs](/src/servers/webflow/README.md) |
+| ClickUp | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [ClickUp Docs](/src/servers/clickup/README.md) |
+| Dropbox | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Dropbox Docs](/src/servers/dropbox/README.md) |
+| OneDrive | ⚠️ Coming soon | [OneDrive Docs](/src/servers/onedrive/README.md) |
+| SharePoint | ⚠️ Coming soon | [SharePoint Docs](/src/servers/sharepoint/README.md) |
+| Jira | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Jira Docs](/src/servers/jira/README.md) |
+| Calendly | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Calendly Docs](/src/servers/calendly/README.md) |
+| Cal.com | ✅ Seamless with Gumloop auth | [Cal.com Docs](/src/servers/cal/README.md) |
+| Canva | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Canva Docs](/src/servers/canva/README.md) |
+| **Business Tools** |  |  |
+| Apollo | ✅ Seamless with Gumloop auth | [Apollo Docs](/src/servers/apollo/README.md) |
+| HubSpot | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [HubSpot Docs](/src/servers/hubspot/README.md) |
+| Hunter.io | ✅ Seamless with Gumloop auth | [Hunter.io Docs](/src/servers/hunter_io/README.md) |
+| Lemlist | ⚠️ Coming soon | [Lemlist Docs](/src/servers/lemlist/README.md) |
+| SendGrid | ✅ Seamless with Gumloop auth | [SendGrid Docs](/src/servers/sendgrid/README.md) |
+| QuickBooks | ⚠️ Coming soon | [QuickBooks Docs](/src/servers/quickbooks/README.md) |
+| Typeform | ✅ Seamless with Gumloop auth | [Typeform Docs](/src/servers/typeform/README.md) |
+| Stripe | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Stripe Docs](/src/servers/stripe/README.md) |
+| MailerLite | ⚠️ Coming soon | [MailerLite Docs](/src/servers/mailerlite/README.md) |
+| Mailchimp | ⚠️ Coming soon | [Mailchimp Docs](/src/servers/mailchimp/README.md) |
+| Klaviyo | ⚠️ Coming soon | [Klaviyo Docs](/src/servers/klaviyo/README.md) |
+| PayPal | ⚠️ Coming soon | [PayPal Docs](/src/servers/paypal/README.md) |
+| Instacart | ✅ Seamless with Gumloop auth | [Instacart Docs](/src/servers/instacart/README.md) |
+| PagerDuty | ⚠️ Coming soon | [PagerDuty Docs](/src/servers/pagerduty/README.md) |
+| Shopify | ⚠️ Coming soon | [Shopify Docs](/src/servers/shopify/README.md) |
+| DocuSign | ⚠️ Coming soon | [DocuSign Docs](/src/servers/docusign/README.md) |
+| Patreon | ⚠️ Coming soon | [Patreon Docs](/src/servers/patreon/README.md) |
+| PostHog | ✅ Seamless with Gumloop auth | [PostHog Docs](/src/servers/posthog/README.md) |
+| Salesforce | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Salesforce Docs](/src/servers/salesforce/README.md) |
+| **Search Tools** |  |  |
+| Perplexity | ✅ Seamless with Gumloop auth | [Perplexity Docs](/src/servers/perplexity/README.md) |
+| Ahrefs | ✅ Seamless with Gumloop auth | [Ahrefs Docs](/src/servers/ahrefs/README.md) |
+| Firecrawl | ✅ Seamless with Gumloop auth | [Firecrawl Docs](/src/servers/firecrawl/README.md) |
+| SerpAPI | ✅ Seamless with Gumloop auth | [SerpAPI Docs](/src/servers/serpapi/README.md) |
+| Hacker News | ✅ No auth required | [Hacker News Docs](/src/servers/hackernews/README.md) |
+| Reducto | ✅ Seamless with Gumloop auth | [Reducto Docs](/src/servers/reducto/README.md) |
+| Apify | ✅ Seamless with Gumloop auth | [Apify Docs](/src/servers/apify/README.md) |
+| **Development Tools** |  |  |
+| Figma | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Figma Docs](/src/servers/figma/README.md) |
+| GitHub | ⚠️ Coming soon | [GitHub Docs](/src/servers/github/README.md) |
+| Browserbase | ✅ Seamless with Gumloop auth | [Browserbase Docs](/src/servers/browserbase/README.md) |
+| Snowflake | ✅ Seamless with Gumloop auth | [Snowflake Docs](/src/servers/snowflake/README.md) |
+| Simple Tools Server | ✅ No auth required | [Simple Tools Docs](/src/servers/simple-tools-server/README.md) |
 
 ## Contributing
 
@@ -217,7 +217,7 @@ This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - s
 
 Security is the single highest priority for us.
 
-That's why [Gumloop is SOC 2 Type II, GDPR, and HIPAA compliant](https://trust.gumloop.com/), and why for this OSS repo, we're actively rewarding those who responsibly disclose serious vulnerabilities and exploits to security@gumloop.com.
+That's why Peakflo is SOC 2 Type II, and why for this OSS repo, we're actively rewarding those who responsibly disclose serious vulnerabilities and exploits to security@peakflo.com.
 
 ## Community
 

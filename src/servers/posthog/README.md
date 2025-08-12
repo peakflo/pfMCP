@@ -1,6 +1,6 @@
 # PostHog Server
 
-guMCP server implementation for interacting with PostHog Analytics API.
+pfMCP server implementation for interacting with PostHog Analytics API.
 
 ---
 
@@ -151,7 +151,7 @@ This server exposes the following tools for interacting with PostHog:
 - Ensure your PostHog API key has the necessary permissions for the operations you want to perform
 - Event capture and feature flag evaluations use the project API token, which is automatically retrieved during authentication
 - For group analytics, make sure group analytics is enabled in your PostHog instance
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows
 - All API calls include proper error handling and response validation
 
 ---

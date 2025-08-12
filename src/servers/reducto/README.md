@@ -1,6 +1,6 @@
 # Reducto Server
 
-guMCP server implementation for interacting with Reducto's document processing API.
+pfMCP server implementation for interacting with Reducto's document processing API.
 
 ### Prerequisites
 

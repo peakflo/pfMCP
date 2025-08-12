@@ -1,6 +1,6 @@
 # JIRA Server
 
-guMCP server implementation for interacting with Atlassian JIRA Cloud API.
+pfMCP server implementation for interacting with Atlassian JIRA Cloud API.
 
 ---
 
@@ -111,7 +111,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/jira/local
 
 - Ensure your JIRA app has all the required scopes enabled in the Atlassian developer console.
 - If creating a new project, you need administrative permissions in your JIRA instance.
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows.
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows.
 - The `Cloud ID` can be obtained from your Atlassian instance URL or through the accessible resources endpoint.
 
 ---

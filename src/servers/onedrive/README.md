@@ -1,6 +1,6 @@
 # OneDrive Server
 
-guMCP server implementation for interacting with Microsoft OneDrive.
+pfMCP server implementation for interacting with Microsoft OneDrive.
 
 ### Prerequisites
 

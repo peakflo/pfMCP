@@ -1,6 +1,6 @@
 # Shopify Server
 
-guMCP server implementation for interacting with Shopify's Admin API using GraphQL.
+pfMCP server implementation for interacting with Shopify's Admin API using GraphQL.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ guMCP server implementation for interacting with Shopify's Admin API using Graph
 2. Go to **Apps**
 3. Click **Create an app**
 4. Click on **Create app manually**
-5. Enter a name for your app (e.g. "guMCP Integration")
+5. Enter a name for your app (e.g. "pfMCP Integration")
 6. Copy the `client id` and `client secrets`
 7. Click on **Choose Distribution** > **Public distribution** 
 8. Click on **Configuration** > Add your desired **Allowed redirection URL**

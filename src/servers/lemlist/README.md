@@ -1,6 +1,6 @@
 # Lemlist Server
 
-guMCP server implementation for interacting with the Lemlist API, supporting campaign management, scheduling, and outreach automation.
+pfMCP server implementation for interacting with the Lemlist API, supporting campaign management, scheduling, and outreach automation.
 
 ---
 
@@ -121,7 +121,7 @@ python RemoteMCPTestClient.py --endpoint http://localhost:8000/lemlist/local
 
 - Ensure your Lemlist API key has the necessary permissions for the operations you want to perform.
 - All API calls include proper error handling and response validation.
-- This server is designed to integrate with guMCP agents for tool-based LLM workflows.
+- This server is designed to integrate with pfMCP agents for tool-based LLM workflows.
 
 ---
 

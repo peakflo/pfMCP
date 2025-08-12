@@ -1,6 +1,6 @@
 # Attio Server
 
-guMCP server implementation for interacting with Attio.
+pfMCP server implementation for interacting with Attio.
 
 ### Prerequisites
 

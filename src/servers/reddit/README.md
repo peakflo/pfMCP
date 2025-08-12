@@ -1,6 +1,6 @@
 # Reddit Server
 
-guMCP server implementation for interacting with the **Reddit API**.
+pfMCP server implementation for interacting with the **Reddit API**.
 
 ---
 

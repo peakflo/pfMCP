@@ -1,6 +1,6 @@
 # Airtable Server
 
-guMCP server implementation for interacting with Airtable.
+pfMCP server implementation for interacting with Airtable.
 
 ### Prerequisites
 

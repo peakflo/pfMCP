@@ -1,6 +1,6 @@
 # SharePoint Server
 
-guMCP server implementation for interacting with Microsoft SharePoint for list management, document libraries, user administration, file management, and site page management.
+pfMCP server implementation for interacting with Microsoft SharePoint for list management, document libraries, user administration, file management, and site page management.
 
 ---
 

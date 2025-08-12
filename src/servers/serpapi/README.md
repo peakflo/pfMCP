@@ -1,6 +1,6 @@
 # SerpAPI Server
 
-guMCP server implementation for performing Google searches through SerpAPI.
+pfMCP server implementation for performing Google searches through SerpAPI.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # Perplexity Server
 
-guMCP server implementation for interacting with Perplexity AI's API.
+pfMCP server implementation for interacting with Perplexity AI's API.
 
 ### Prerequisites
 
