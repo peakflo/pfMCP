@@ -16,6 +16,7 @@ SERVICE_NAME_MAP = {
     "gdrive": {"nango_service_name": "google-drive", "auth_type": AUTH_TYPE_OAUTH2},
     "gmaps": {"nango_service_name": "google", "auth_type": AUTH_TYPE_OAUTH2},
     "gmeet": {"nango_service_name": "google", "auth_type": AUTH_TYPE_OAUTH2},
+    "notion": {"nango_service_name": "notion", "auth_type": AUTH_TYPE_OAUTH2},
     "peakflo": {
         "nango_service_name": "peakflo",
         "auth_type": AUTH_TYPE_UNAUTHENTICATED,
