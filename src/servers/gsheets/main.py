@@ -206,7 +206,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="lookup-row",
-                description="Find a row by value in a column",
+                description="Find a row by value in a column and return the absolute row number",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -344,16 +344,39 @@ def create_server(user_id, api_key=None):
 
         if name == "lookup-row":
             spreadsheet_id = arguments["spreadsheet_id"]
+            range_a1 = arguments["range"]
+
+            # Determine the starting absolute row from the A1 range (default 1)
+            def parse_start_row(a1_range: str) -> int:
+                # Strip sheet name if present
+                range_part = a1_range.split("!", 1)[-1]
+                # Take left side of the range before ':' if exists
+                left = range_part.split(":", 1)[0]
+                # Find first number occurrence which represents the starting row
+                match = re.search(r"(\d+)", left)
+                if match:
+                    return int(match.group(1))
+                # Handle row-only ranges like "2:2" (left will be '2' above and already matched)
+                # If no number found, the implicit start row is 1
+                return 1
+
+            start_row = parse_start_row(range_a1)
+
             values = (
                 service.spreadsheets()
                 .values()
-                .get(spreadsheetId=spreadsheet_id, range=arguments["range"])
+                .get(spreadsheetId=spreadsheet_id, range=range_a1)
                 .execute()
                 .get("values", [])
             )
-            for row in values:
+
+            for index, row in enumerate(values):
                 if arguments["value"] in row:
-                    return [types.TextContent(type="text", text=f"Found row: {row}")]
+                    absolute_row = start_row + index
+                    # Return as JSON-like text for easier downstream parsing
+                    payload = {"rowNumber": absolute_row, "values": row}
+                    return [types.TextContent(type="text", text=str(payload))]
+
             return [types.TextContent(type="text", text="Value not found.")]
 
         if name == "clear-values":
