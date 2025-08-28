@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 from typing import Dict, List, Any
 
 from src.utils.oauth.util import (
@@ -151,3 +152,26 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
         token_header_builder=build_notion_token_headers,
         api_key=api_key,
     )
+
+
+def extract_page_id_from_url(url: str) -> str:
+    """
+    Extracts the page ID from a Notion URL.
+    
+    Args:
+        url (str): A Notion page URL
+        
+    Returns:
+        str: The page ID extracted from the URL
+        
+    Raises:
+        ValueError: If the URL doesn't contain a valid page ID
+    """
+    # Pattern to match Notion page IDs (32 character hex string)
+    page_id_pattern = r'([a-f0-9]{32})'
+    match = re.search(page_id_pattern, url)
+    
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError("Could not extract page ID from the provided URL")
