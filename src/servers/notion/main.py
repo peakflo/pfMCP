@@ -19,7 +19,10 @@ from mcp.server.models import InitializationOptions
 
 from notion_client import AsyncClient
 from src.auth.factory import create_auth_client
-from src.utils.notion.util import authenticate_and_save_credentials, extract_page_id_from_url
+from src.utils.notion.util import (
+    authenticate_and_save_credentials,
+    extract_page_id_from_url,
+)
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = ["all"]  # Notion doesn't use granular OAuth scopes like Google
@@ -138,7 +141,10 @@ def create_server(user_id, api_key=None):
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "page": {"type": "string", "description": "The page ID or Notion page URL"}
+                        "page": {
+                            "type": "string",
+                            "description": "The page ID or Notion page URL",
+                        }
                     },
                     "required": ["page"],
                 },
@@ -216,14 +222,16 @@ def create_server(user_id, api_key=None):
             elif name == "get_page":
                 # Handle page parameter which can be either page_id or url
                 page_value = arguments["page"]
-                
+
                 # Check if it looks like a URL (contains 'notion.so' or 'http')
-                if "notion.so" in page_value or page_value.startswith(("http://", "https://")):
+                if "notion.so" in page_value or page_value.startswith(
+                    ("http://", "https://")
+                ):
                     page_id = extract_page_id_from_url(page_value)
                 else:
                     # Assume it's a page ID
                     page_id = page_value
-                
+
                 result = await notion.pages.retrieve(page_id=page_id)
             elif name == "create_page":
                 result = await notion.pages.create(

@@ -23,7 +23,7 @@ async def get_credentials(user_id: str, api_key: Optional[str] = None) -> str:
     # If API key is provided directly, use it
     if api_key:
         return api_key
-    
+
     # Otherwise, try to get from stored credentials
     auth_client = create_auth_client()
     credentials_data = auth_client.get_user_credentials("tldv", user_id)
@@ -42,4 +42,3 @@ async def get_credentials(user_id: str, api_key: Optional[str] = None) -> str:
         raise ValueError(err)
 
     return stored_api_key
-

@@ -157,20 +157,20 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
 def extract_page_id_from_url(url: str) -> str:
     """
     Extracts the page ID from a Notion URL.
-    
+
     Args:
         url (str): A Notion page URL
-        
+
     Returns:
         str: The page ID extracted from the URL
-        
+
     Raises:
         ValueError: If the URL doesn't contain a valid page ID
     """
     # Pattern to match Notion page IDs (32 character hex string)
-    page_id_pattern = r'([a-f0-9]{32})'
+    page_id_pattern = r"([a-f0-9]{32})"
     match = re.search(page_id_pattern, url)
-    
+
     if match:
         return match.group(1)
     else:
