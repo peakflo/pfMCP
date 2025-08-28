@@ -1,0 +1,16 @@
+name: "TLDV MCP Server"
+icon: "assets/icon.png"
+description: "Server for interacting with TLDV (Too Long; Didn't View) meeting platform"
+documentation_path: "README.md"
+tools:
+  - name: "get_meeting"
+    description: "Retrieve a meeting by its ID"
+  - name: "get_meetings"
+    description: "Retrieve a list of meetings with optional filtering"
+  - name: "get_transcript"
+    description: "Retrieve the transcript for a specific meeting"
+  - name: "get_highlights"
+    description: "Retrieve the highlights for a specific meeting"
+  - name: "health_check"
+    description: "Check the health status of the TLDV API"
+
