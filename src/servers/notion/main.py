@@ -109,12 +109,12 @@ def create_server(user_id, api_key=None):
         return [
             types.Tool(
                 name="list_all_users",
-                description="List all users",
+                description="List all users in Notion",
                 inputSchema={"type": "object", "properties": {}},
             ),
             types.Tool(
                 name="search_pages",
-                description="Search pages by text",
+                description="Search pages by text in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {"query": {"type": "string"}},
@@ -123,7 +123,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="list_databases",
-                description="List all databases",
+                description="List all databases in Notion",
                 inputSchema={"type": "object", "properties": {}},
             ),
             types.Tool(
@@ -137,7 +137,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get_page",
-                description="Retrieve a page by ID or URL",
+                description="Retrieve a page by ID or URL in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -151,7 +151,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="create_page",
-                description="Create a new page in a database",
+                description="Create a new page in a database in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -163,7 +163,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="append_blocks",
-                description="Append content blocks to a page or block",
+                description="Append content blocks to a page or block in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -175,7 +175,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get_block_children",
-                description="List content blocks of a page or block",
+                description="List content blocks of a page or block in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {"block_id": {"type": "string"}},
