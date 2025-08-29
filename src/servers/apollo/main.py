@@ -64,6 +64,8 @@ async def get_apollo_credentials(user_id, api_key=None):
     # Get credentials for this user
     credentials_data = auth_client.get_user_credentials("apollo", user_id)
 
+    logger.info(f"Apollo credentials data: {credentials_data}")
+
     def handle_missing_credentials():
         error_str = f"Apollo API key not found for user {user_id}."
         if os.environ.get("ENVIRONMENT", "local") == "local":
@@ -75,7 +77,7 @@ async def get_apollo_credentials(user_id, api_key=None):
         handle_missing_credentials()
 
     api_key = (
-        credentials_data.get("api_key")
+        credentials_data.get("api_key") or credentials_data.get("apiKey")
         if not isinstance(credentials_data, str)
         else credentials_data
     )
@@ -169,14 +171,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         },
                     },
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing search results for contacts",
-                    "examples": [
-                        '{"contacts":[{"id":"<ID>","first_name":"Test","last_name":"User"}],"total":1}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing search results for contacts",
+                #     "examples": [
+                #         '{"contacts":[{"id":"<ID>","first_name":"Test","last_name":"User"}],"total":1}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="search_accounts",
@@ -211,14 +213,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         },
                     },
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing search results for accounts",
-                    "examples": [
-                        '{"accounts":[{"id":"<ID>","name":"<Org Name>"}],"total":5}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing search results for accounts",
+                #     "examples": [
+                #         '{"accounts":[{"id":"<ID>","name":"<Org Name>"}],"total":5}'
+                #     ],
+                # },
             ),
             # ENRICHMENT TOOLS
             # Tools for enriching data using Apollo
@@ -278,14 +280,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         },
                     },
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing enriched person data",
-                    "examples": [
-                        '{"id":"<ID>","name":"John Doe","email":"john.doe@example.com","organization_name":"<Org>","linkedin_url":"<URL>"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing enriched person data",
+                #     "examples": [
+                #         '{"id":"<ID>","name":"John Doe","email":"john.doe@example.com","organization_name":"<Org>","linkedin_url":"<URL>"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="enrich_organization",
@@ -300,14 +302,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["domain"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing enriched organization data",
-                    "examples": [
-                        '{"id":"<ID>","name":"<Org>","website":"<URL>","employees":100}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing enriched organization data",
+                #     "examples": [
+                #         '{"id":"<ID>","name":"<Org>","website":"<URL>","employees":100}'
+                #     ],
+                # },
             ),
             # CONTACT MANAGEMENT TOOLS
             # Tools for managing contacts in your Apollo account
@@ -381,14 +383,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["first_name", "last_name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the created contact data",
-                    "examples": [
-                        '{"id":"<ID>","first_name":"Test","last_name":"User","email":"test.user@testorg.com"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the created contact data",
+                #     "examples": [
+                #         '{"id":"<ID>","first_name":"Test","last_name":"User","email":"test.user@testorg.com"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="update_contact",
@@ -464,14 +466,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["contact_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the updated contact data",
-                    "examples": [
-                        '{"id":"<ID>","first_name":"Test","last_name":"User Updated","email":"test.user.updated@testorg.com"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the updated contact data",
+                #     "examples": [
+                #         '{"id":"<ID>","first_name":"Test","last_name":"User Updated","email":"test.user.updated@testorg.com"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="delete_contact",
@@ -486,25 +488,25 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["contact_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings confirming contact deletion",
-                    "examples": ['{"deleted":true,"id":"<ID>"}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings confirming contact deletion",
+                #     "examples": ['{"deleted":true,"id":"<ID>"}'],
+                # },
             ),
             types.Tool(
                 name="list_contact_stages",
                 description="Retrieve the IDs for available contact stages in your Apollo account",
                 inputSchema={"type": "object", "properties": {}},
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing contact stage IDs and names",
-                    "examples": [
-                        '{"contact_stages":[{"id":"<ID>","name":"Stage Name"}]}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing contact stage IDs and names",
+                #     "examples": [
+                #         '{"contact_stages":[{"id":"<ID>","name":"Stage Name"}]}'
+                #     ],
+                # },
             ),
             # ACCOUNT MANAGEMENT TOOLS
             # Tools for managing accounts in your Apollo account
@@ -541,14 +543,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the created account data",
-                    "examples": [
-                        '{"id":"<ID>","name":"Test Organization","domain":"testorg.com"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the created account data",
+                #     "examples": [
+                #         '{"id":"<ID>","name":"Test Organization","domain":"testorg.com"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="update_account",
@@ -587,27 +589,27 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["account_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the updated account data",
-                    "examples": [
-                        '{"id":"<ID>","name":"Test Organization Updated","domain":"testorg-updated.com"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the updated account data",
+                #     "examples": [
+                #         '{"id":"<ID>","name":"Test Organization Updated","domain":"testorg-updated.com"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="list_account_stages",
                 description="Retrieve the IDs for available account stages in your Apollo account",
                 inputSchema={"type": "object", "properties": {}},
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing account stage IDs and names",
-                    "examples": [
-                        '{"account_stages":[{"id":"<ID>","name":"Stage Name"}]}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing account stage IDs and names",
+                #     "examples": [
+                #         '{"account_stages":[{"id":"<ID>","name":"Stage Name"}]}'
+                #     ],
+                # },
             ),
             # DEAL MANAGEMENT TOOLS
             # Tools for managing deals in your Apollo account
@@ -644,12 +646,12 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the created deal data",
-                    "examples": ['{"id":"<ID>","name":"Test Deal","amount":"10000"}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the created deal data",
+                #     "examples": ['{"id":"<ID>","name":"Test Deal","amount":"10000"}'],
+                # },
             ),
             types.Tool(
                 name="update_deal",
@@ -700,14 +702,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     },
                     "required": ["opportunity_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the updated deal data",
-                    "examples": [
-                        '{"id":"<ID>","name":"Test Deal Updated","amount":"15000"}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the updated deal data",
+                #     "examples": [
+                #         '{"id":"<ID>","name":"Test Deal Updated","amount":"15000"}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="list_deals",
@@ -725,23 +727,23 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         },
                     },
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing deal listings",
-                    "examples": ['{"deals":[{"id":"<ID>","name":"Test Deal"}]}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing deal listings",
+                #     "examples": ['{"deals":[{"id":"<ID>","name":"Test Deal"}]}'],
+                # },
             ),
             types.Tool(
                 name="list_deal_stages",
                 description="Retrieve information about every deal stage in your Apollo account",
                 inputSchema={"type": "object", "properties": {}},
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing deal stage IDs and names",
-                    "examples": ['{"deal_stages":[{"id":"<ID>","name":"Stage Name"}]}'],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing deal stage IDs and names",
+                #     "examples": ['{"deal_stages":[{"id":"<ID>","name":"Stage Name"}]}'],
+                # },
             ),
             # TASK AND USER MANAGEMENT TOOLS
             # Tools for managing tasks and users in your Apollo account
@@ -790,14 +792,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         "status",
                     ],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing created task data",
-                    "examples": [
-                        '{"tasks":[{"id":"<ID>","type":"call","status":"scheduled"}]}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing created task data",
+                #     "examples": [
+                #         '{"tasks":[{"id":"<ID>","type":"call","status":"scheduled"}]}'
+                #     ],
+                # },
             ),
             types.Tool(
                 name="list_users",
@@ -815,14 +817,14 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         },
                     },
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing user listings",
-                    "examples": [
-                        '{"users":[{"id":"<ID>","name":"Test User"}],"total":10}'
-                    ],
-                },
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing user listings",
+                #     "examples": [
+                #         '{"users":[{"id":"<ID>","name":"Test User"}],"total":10}'
+                #     ],
+                # },
             ),
         ]
 
