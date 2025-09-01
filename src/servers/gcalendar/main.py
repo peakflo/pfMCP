@@ -395,7 +395,10 @@ def create_server(user_id, api_key=None):
                     try:
                         # Convert to ISO format for API
                         dt = datetime.strptime(start_datetime, "%Y-%m-%d %H:%M")
-                        event["start"] = {"dateTime": dt.isoformat(), "timeZone": "UTC"}
+                        event["start"] = {
+                            "dateTime": dt.isoformat(),
+                            #   "timeZone": "UTC"
+                        }
                     except ValueError:
                         raise ValueError(
                             "Invalid start datetime format. Use YYYY-MM-DD HH:MM"
@@ -408,7 +411,10 @@ def create_server(user_id, api_key=None):
                     try:
                         # Convert to ISO format for API
                         dt = datetime.strptime(end_datetime, "%Y-%m-%d %H:%M")
-                        event["end"] = {"dateTime": dt.isoformat(), "timeZone": "UTC"}
+                        event["end"] = {
+                            "dateTime": dt.isoformat(),
+                            # "timeZone": "UTC"
+                        }
                     except ValueError:
                         raise ValueError(
                             "Invalid end datetime format. Use YYYY-MM-DD HH:MM"
@@ -484,7 +490,7 @@ def create_server(user_id, api_key=None):
                             dt = datetime.strptime(start_datetime, "%Y-%m-%d %H:%M")
                             event["start"] = {
                                 "dateTime": dt.isoformat(),
-                                "timeZone": "UTC",
+                                # "timeZone": "UTC",
                             }
                         except ValueError:
                             raise ValueError(
@@ -503,7 +509,7 @@ def create_server(user_id, api_key=None):
                             dt = datetime.strptime(end_datetime, "%Y-%m-%d %H:%M")
                             event["end"] = {
                                 "dateTime": dt.isoformat(),
-                                "timeZone": "UTC",
+                                # "timeZone": "UTC",
                             }
                         except ValueError:
                             raise ValueError(
