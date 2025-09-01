@@ -514,14 +514,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing contacts",
-                    "examples": [
-                        '[{"total":88,"results":[{"id":"<ID1>","properties":{"email":"alice@example.com","firstname":"Alice","lastname":"Smith","company":"CompanyA"}},{"id":"<ID2>","properties":{"email":"bob@example.com","firstname":"Bob","lastname":"Jones","company":"CompanyB"}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing contacts",
+                #     "examples": [
+                #         '[{"total":88,"results":[{"id":"<ID1>","properties":{"email":"alice@example.com","firstname":"Alice","lastname":"Smith","company":"CompanyA"}},{"id":"<ID2>","properties":{"email":"bob@example.com","firstname":"Bob","lastname":"Jones","company":"CompanyB"}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_contact",
@@ -554,14 +555,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["email"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating a contact",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"email":"test123@example.com","firstname":"Test","lastname":"User","company":"Test Company","jobtitle":"QA Tester"},"_status_code":201}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating a contact",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"email":"test123@example.com","firstname":"Test","lastname":"User","company":"Test Company","jobtitle":"QA Tester"},"_status_code":201}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="update_contact",
@@ -595,14 +597,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["contact_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating a contact",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"company":"Updated Company","jobtitle":"Senior QA Engineer"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating a contact",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"company":"Updated Company","jobtitle":"Senior QA Engineer"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="search_contacts",
@@ -634,14 +637,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["filter_property", "filter_operator", "filter_value"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for searching contacts",
-                    "examples": [
-                        '[{"total":1,"results":[{"id":"<ID>","properties":{"email":"test@example.com"}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for searching contacts",
+                #     "examples": [
+                #         '[{"total":1,"results":[{"id":"<ID>","properties":{"email":"test@example.com"}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="list_companies",
@@ -665,14 +669,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing companies",
-                    "examples": [
-                        '[{"results":[{"id":"<ID1>","properties":{"name":"CompanyA","domain":"companyA.com","industry":"COMPUTER_SOFTWARE"}},{"id":"<ID2>","properties":{"name":"CompanyB","domain":"companyB.com","industry":"COMPUTER_SOFTWARE"}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing companies",
+                #     "examples": [
+                #         '[{"results":[{"id":"<ID1>","properties":{"name":"CompanyA","domain":"companyA.com","industry":"COMPUTER_SOFTWARE"}},{"id":"<ID2>","properties":{"name":"CompanyB","domain":"companyB.com","industry":"COMPUTER_SOFTWARE"}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_company",
@@ -710,14 +715,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating a company",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"name":"Test Company","domain":"testco.com","industry":"COMPUTER_SOFTWARE"},"_status_code":201}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating a company",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"name":"Test Company","domain":"testco.com","industry":"COMPUTER_SOFTWARE"},"_status_code":201}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="update_company",
@@ -756,14 +762,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["company_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating a company",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"description":"Updated description","industry":"COMPUTER_SOFTWARE"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating a company",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"description":"Updated description","industry":"COMPUTER_SOFTWARE"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="list_deals",
@@ -787,14 +794,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing deals",
-                    "examples": [
-                        '[{"results":[{"id":"<ID1>","properties":{"dealname":"Deal A","amount":"5000","dealstage":"qualified"}},{"id":"<ID2>","properties":{"dealname":"Deal B","amount":"10000","dealstage":null}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing deals",
+                #     "examples": [
+                #         '[{"results":[{"id":"<ID1>","properties":{"dealname":"Deal A","amount":"5000","dealstage":"qualified"}},{"id":"<ID2>","properties":{"dealname":"Deal B","amount":"10000","dealstage":null}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_deal",
@@ -831,14 +839,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["dealname"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating a deal",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"dealname":"Test Deal","amount":5000},"_status_code":201}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating a deal",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"dealname":"Test Deal","amount":5000},"_status_code":201}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="update_deal",
@@ -868,14 +877,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["deal_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating a deal",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"amount":"7500","dealstage":"qualifiedtobuy"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating a deal",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"amount":"7500","dealstage":"qualifiedtobuy"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="get_engagements",
@@ -898,12 +908,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["contact_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for getting engagements",
-                    "examples": ['[{"total":0,"results":[],"_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for getting engagements",
+                #     "examples": ['[{"total":0,"results":[],"_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="send_email",
@@ -927,12 +938,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["contact_id", "subject", "body"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for sending an email",
-                    "examples": ['[{"_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for sending an email",
+                #     "examples": ['[{"_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="list_tickets",
@@ -965,14 +977,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing tickets",
-                    "examples": [
-                        '[{"results":[{"id":"<ID>","properties":{"subject":"Test Ticket","content":"...","hs_ticket_priority":"MEDIUM"}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing tickets",
+                #     "examples": [
+                #         '[{"results":[{"id":"<ID>","properties":{"subject":"Test Ticket","content":"...","hs_ticket_priority":"MEDIUM"}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="get_ticket",
@@ -1001,14 +1014,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["ticket_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for getting a ticket",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"subject":"Test Ticket","content":"...","hs_ticket_priority":"MEDIUM"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for getting a ticket",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"subject":"Test Ticket","content":"...","hs_ticket_priority":"MEDIUM"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_ticket",
@@ -1055,14 +1069,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["subject"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating a ticket",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"subject":"Test Ticket","hs_ticket_priority":"MEDIUM"},"_status_code":201}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating a ticket",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"subject":"Test Ticket","hs_ticket_priority":"MEDIUM"},"_status_code":201}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="update_ticket",
@@ -1102,14 +1117,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["ticket_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating a ticket",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"subject":"Updated Ticket","hs_ticket_priority":"HIGH"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating a ticket",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"subject":"Updated Ticket","hs_ticket_priority":"HIGH"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="delete_ticket",
@@ -1124,12 +1140,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["ticket_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for deleting a ticket",
-                    "examples": ['[{"_status_code":204}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for deleting a ticket",
+                #     "examples": ['[{"_status_code":204}]'],
+                # },
             ),
             Tool(
                 name="merge_tickets",
@@ -1148,12 +1165,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["primary_ticket_id", "secondary_ticket_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for merging tickets",
-                    "examples": ['[{"id":"<MERGED_ID>","_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for merging tickets",
+                #     "examples": ['[{"id":"<MERGED_ID>","_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="list_products",
@@ -1181,14 +1199,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing products",
-                    "examples": [
-                        '[{"results":[{"id":"<ID>","properties":{"name":"Product A","price":"99.99"}}],"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing products",
+                #     "examples": [
+                #         '[{"results":[{"id":"<ID>","properties":{"name":"Product A","price":"99.99"}}],"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="get_product",
@@ -1213,14 +1232,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["product_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for getting a product",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"name":"Test Product","description":null,"price":null,"hs_sku":null},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for getting a product",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"name":"Test Product","description":null,"price":null,"hs_sku":null},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_product",
@@ -1259,14 +1279,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["name"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating a product",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"name":"Test Product","price":"99.99"},"_status_code":201}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating a product",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"name":"Test Product","price":"99.99"},"_status_code":201}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="update_product",
@@ -1309,14 +1330,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["product_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating a product",
-                    "examples": [
-                        '[{"id":"<ID>","properties":{"name":"Updated Prod","price":"129.99"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating a product",
+                #     "examples": [
+                #         '[{"id":"<ID>","properties":{"name":"Updated Prod","price":"129.99"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="delete_product",
@@ -1331,12 +1353,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["product_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for deleting a product",
-                    "examples": ['[{"_status_code":204}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for deleting a product",
+                #     "examples": ['[{"_status_code":204}]'],
+                # },
             ),
             Tool(
                 name="get_engagement",
@@ -1351,12 +1374,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["engagement_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for getting an engagement",
-                    "examples": ['[{"engagement":{"id":"<ID>"},"_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for getting an engagement",
+                #     "examples": ['[{"engagement":{"id":"<ID>"},"_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="list_engagements",
@@ -1375,14 +1399,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for listing engagements",
-                    "examples": [
-                        '[{"results":[{"engagement":{"id":"<ID>"}}],"hasMore":true,"offset":<OFFSET>,"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for listing engagements",
+                #     "examples": [
+                #         '[{"results":[{"engagement":{"id":"<ID>"}}],"hasMore":true,"offset":<OFFSET>,"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="get_recent_engagements",
@@ -1405,12 +1430,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for getting recent engagements",
-                    "examples": ['[{"total":0,"results":[],"_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for getting recent engagements",
+                #     "examples": ['[{"total":0,"results":[],"_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="get_call_dispositions",
@@ -1420,20 +1446,21 @@ def create_server(user_id, api_key=None):
                     "properties": {},
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "label": {"type": "string"},
-                        },
-                    },
-                    "description": "Array of JSON objects containing call disposition IDs and labels",
-                    "examples": [
-                        '[{"id":"<UUID1>","label":"Busy"},{"id":"<UUID2>","label":"Connected"}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {
+                #         "type": "object",
+                #         "properties": {
+                #             "id": {"type": "string"},
+                #             "label": {"type": "string"},
+                #         },
+                #     },
+                #     "description": "Array of JSON objects containing call disposition IDs and labels",
+                #     "examples": [
+                #         '[{"id":"<UUID1>","label":"Busy"},{"id":"<UUID2>","label":"Connected"}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="create_engagement",
@@ -1484,12 +1511,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["type"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for creating an engagement",
-                    "examples": ['[{"_status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for creating an engagement",
+                #     "examples": ['[{"_status_code":200}]'],
+                # },
             ),
             Tool(
                 name="update_engagement",
@@ -1520,14 +1548,15 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["engagement_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for updating an engagement",
-                    "examples": [
-                        '[{"_engagement":{"id":"<ID>","bodyPreview":"Updated note"},"_status_code":200}]'
-                    ],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for updating an engagement",
+                #     "examples": [
+                #         '[{"_engagement":{"id":"<ID>","bodyPreview":"Updated note"},"_status_code":200}]'
+                #     ],
+                # },
             ),
             Tool(
                 name="delete_engagement",
@@ -1542,12 +1571,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["engagement_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for deleting an engagement",
-                    "examples": ['[{"_status_code":204}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for deleting an engagement",
+                #     "examples": ['[{"_status_code":204}]'],
+                # },
             ),
             Tool(
                 name="merge_contacts",
@@ -1566,12 +1596,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": ["primary_contact_id", "secondary_contact_id"],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for merging contacts",
-                    "examples": ['[{"id":"<ID>","status_code":200}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for merging contacts",
+                #     "examples": ['[{"id":"<ID>","status_code":200}]'],
+                # },
             ),
             Tool(
                 name="gdpr_delete_contact",
@@ -1590,12 +1621,13 @@ def create_server(user_id, api_key=None):
                     },
                     "required": [],
                 },
-                outputSchema={
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of JSON strings containing the API response for GDPR deletion of a contact",
-                    "examples": ['[{"_status_code":204}]'],
-                },
+                # TODO: uncomment after this is resolved: https://github.com/modelcontextprotocol/modelcontextprotocol/pull/881
+                # outputSchema={
+                #     "type": "array",
+                #     "items": {"type": "string"},
+                #     "description": "Array of JSON strings containing the API response for GDPR deletion of a contact",
+                #     "examples": ['[{"_status_code":204}]'],
+                # },
             ),
         ]
 
