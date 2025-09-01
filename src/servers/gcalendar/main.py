@@ -231,11 +231,11 @@ def create_server(user_id, api_key=None):
                         "summary": {"type": "string", "description": "Event title"},
                         "start_datetime": {
                             "type": "string",
-                            "description": "Start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD)",
+                            "description": "Start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone",
                         },
                         "end_datetime": {
                             "type": "string",
-                            "description": "End date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD)",
+                            "description": "End date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone",
                         },
                         "description": {
                             "type": "string",
@@ -274,11 +274,11 @@ def create_server(user_id, api_key=None):
                         },
                         "start_datetime": {
                             "type": "string",
-                            "description": "New start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) (optional)",
+                            "description": "New start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone (optional)",
                         },
                         "end_datetime": {
                             "type": "string",
-                            "description": "New end date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) (optional)",
+                            "description": "New end date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone (optional)",
                         },
                         "description": {
                             "type": "string",
