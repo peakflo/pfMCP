@@ -2,6 +2,7 @@
 # This maps the service names used in MCP to their equivalents in Nango
 
 AUTH_TYPE_OAUTH2 = "oauth2"
+AUTH_TYPE_TBA = "tba"
 AUTH_TYPE_UNAUTHENTICATED = "unauthenticated"
 
 SERVICE_NAME_MAP = {
@@ -23,7 +24,7 @@ SERVICE_NAME_MAP = {
     },
     "netsuite": {
         "nango_service_name": "netsuite-tba",
-        "auth_type": AUTH_TYPE_OAUTH2,
+        "auth_type": AUTH_TYPE_TBA,
     },
     # # Add more mappings as needed
 }
