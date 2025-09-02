@@ -175,9 +175,9 @@ The following table provides an overview of the current servers implemented in p
 | Shopify | ⚠️ Coming soon | [Shopify Docs](/src/servers/shopify/README.md) |
 | DocuSign | ⚠️ Coming soon | [DocuSign Docs](/src/servers/docusign/README.md) |
 | Patreon | ⚠️ Coming soon | [Patreon Docs](/src/servers/patreon/README.md) |
-| PostHog | ✅ Seamless with Gumloop auth | [PostHog Docs](/src/servers/posthog/README.md) |
+| PostHog | ✅ Seamless with Nango auth | [PostHog Docs](/src/servers/posthog/README.md) |
 | Salesforce | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Salesforce Docs](/src/servers/salesforce/README.md) |
-| NetSuite | ✅ Seamless with OAuth 1.0a auth | [NetSuite Docs](/src/servers/netsuite/README.md) |
+| NetSuite | ✅ Seamless with Nango auth | [NetSuite Docs](/src/servers/netsuite/README.md) |
 | **Search Tools** |  |  |
 | Perplexity | ✅ Seamless with Gumloop auth | [Perplexity Docs](/src/servers/perplexity/README.md) |
 | Ahrefs | ✅ Seamless with Gumloop auth | [Ahrefs Docs](/src/servers/ahrefs/README.md) |
