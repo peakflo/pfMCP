@@ -21,5 +21,9 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "peakflo",
         "auth_type": AUTH_TYPE_UNAUTHENTICATED,
     },
+    "netsuite": {
+        "nango_service_name": "netsuite-tba",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }
