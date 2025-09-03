@@ -66,7 +66,7 @@ async def make_peakflo_request(name, arguments, token):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
-    tenantId = arguments['tenantId']
+    tenantId = arguments["tenantId"]
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
         arguments.pop("tenantId")
