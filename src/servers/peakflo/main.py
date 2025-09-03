@@ -66,13 +66,17 @@ async def make_peakflo_request(name, arguments, token):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
+    tenantId = arguments["tenantId"]
+    # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
+    if "tenantId" in arguments:
+        arguments.pop("tenantId")
     if name == "create_invoice":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices"
         message = "Invoice created successfully"
     elif name == "update_invoice":
         method = "PUT"
-        url = f"{PEAKFLO_V1_BASE_URL}/invoices/{arguments['externalId']}"
+        url = f"{PEAKFLO_V1_BASE_URL}/internal/invoices/{arguments['externalId']}/{tenantId}"
         message = "Invoice updated successfully"
     elif name == "read_vendor":
         method = "GET"
