@@ -82,6 +82,10 @@ update_invoice_schema = {
             "type": "string",
             "description": "External reference ID for the invoice",
         },
+        "tenantId": {
+            "type": "string",
+            "description": "Tenant ID",
+        },
         "customerRef": {
             "type": "string",
             "description": "Customer reference identifier",
@@ -137,6 +141,7 @@ update_invoice_schema = {
     },
     "required": [
         "externalId",
+        "tenantId",
         "customerRef",
         "issueDate",
         "dueDate",
