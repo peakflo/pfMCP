@@ -76,7 +76,7 @@ async def make_peakflo_request(name, arguments, token):
         message = "Invoice created successfully"
     elif name == "update_invoice":
         method = "PUT"
-        url = f"{PEAKFLO_V1_BASE_URL}/vp-invoices/{arguments['externalId']}/{tenantId}"
+        url = f"{PEAKFLO_V1_BASE_URL}/internal/invoices/{arguments['externalId']}/{tenantId}"
         message = "Invoice updated successfully"
     elif name == "read_vendor":
         method = "GET"
