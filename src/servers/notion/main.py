@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -18,7 +19,10 @@ from mcp.server.models import InitializationOptions
 
 from notion_client import AsyncClient
 from src.auth.factory import create_auth_client
-from src.utils.notion.util import authenticate_and_save_credentials
+from src.utils.notion.util import (
+    authenticate_and_save_credentials,
+    extract_page_id_from_url,
+)
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = ["all"]  # Notion doesn't use granular OAuth scopes like Google
@@ -105,12 +109,12 @@ def create_server(user_id, api_key=None):
         return [
             types.Tool(
                 name="list_all_users",
-                description="List all users",
+                description="List all users in Notion",
                 inputSchema={"type": "object", "properties": {}},
             ),
             types.Tool(
                 name="search_pages",
-                description="Search pages by text",
+                description="Search pages by text in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {"query": {"type": "string"}},
@@ -119,7 +123,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="list_databases",
-                description="List all databases",
+                description="List all databases in Notion",
                 inputSchema={"type": "object", "properties": {}},
             ),
             types.Tool(
@@ -133,16 +137,21 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get_page",
-                description="Retrieve a page by ID",
+                description="Retrieve a page by ID or URL in Notion",
                 inputSchema={
                     "type": "object",
-                    "properties": {"page_id": {"type": "string"}},
-                    "required": ["page_id"],
+                    "properties": {
+                        "page": {
+                            "type": "string",
+                            "description": "The page ID or Notion page URL",
+                        }
+                    },
+                    "required": ["page"],
                 },
             ),
             types.Tool(
                 name="create_page",
-                description="Create a new page in a database",
+                description="Create a new page in a database in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -154,7 +163,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="append_blocks",
-                description="Append content blocks to a page or block",
+                description="Append content blocks to a page or block in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -166,7 +175,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get_block_children",
-                description="List content blocks of a page or block",
+                description="List content blocks of a page or block in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {"block_id": {"type": "string"}},
@@ -211,7 +220,19 @@ def create_server(user_id, api_key=None):
                     database_id=arguments["database_id"]
                 )
             elif name == "get_page":
-                result = await notion.pages.retrieve(page_id=arguments["page_id"])
+                # Handle page parameter which can be either page_id or url
+                page_value = arguments["page"]
+
+                # Check if it looks like a URL (contains 'notion.so' or 'http')
+                if "notion.so" in page_value or page_value.startswith(
+                    ("http://", "https://")
+                ):
+                    page_id = extract_page_id_from_url(page_value)
+                else:
+                    # Assume it's a page ID
+                    page_id = page_value
+
+                result = await notion.pages.retrieve(page_id=page_id)
             elif name == "create_page":
                 result = await notion.pages.create(
                     parent={"database_id": arguments["database_id"]},

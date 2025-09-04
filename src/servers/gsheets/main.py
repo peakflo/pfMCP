@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 # Add both project root and src directory to Python path
 # Get the project root directory and add to path
@@ -21,6 +21,7 @@ This module handles:
 
 import base64
 import logging
+import json
 from pathlib import Path
 
 import mcp.types as types
@@ -42,7 +43,10 @@ logging.basicConfig(
 logger = logging.getLogger("gsheets-server")
 
 SERVICE_NAME = Path(__file__).parent.name
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
 
 def extract_spreadsheet_id(sheet_url: str) -> str:
@@ -119,6 +123,20 @@ async def create_sheets_service(user_id, api_key=None):
     return build("sheets", "v4", credentials=credentials)
 
 
+async def create_drive_service(user_id, api_key=None):
+    """Create a new Drive service instance for this request
+
+    Args:
+        user_id (str): The identifier of the user for whom the service is created.
+        api_key (Optional[str]): Optional API key if needed.
+
+    Returns:
+        googleapiclient.discovery.Resource: Authorized Drive API client.
+    """
+    credentials = await get_credentials(user_id, api_key=api_key)
+    return build("drive", "v3", credentials=credentials)
+
+
 def create_server(user_id, api_key=None):
     """Create a new server instance with optional user context
 
@@ -138,8 +156,8 @@ def create_server(user_id, api_key=None):
     async def handle_list_tools() -> list[types.Tool]:
         return [
             types.Tool(
-                name="create-sheet",
-                description="Create a new Google Sheets",
+                name="create-spreadsheet",
+                description="Create a new Google Spreadsheet",
                 inputSchema={
                     "type": "object",
                     "properties": {"title": {"type": "string"}},
@@ -147,8 +165,93 @@ def create_server(user_id, api_key=None):
                 },
             ),
             types.Tool(
-                name="get-spreadsheet-info",
-                description="Get spreadsheet metadata",
+                name="get-sheet-data",
+                description="Get data from a specific sheet in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "range": {"type": "string"},
+                        "include_grid_data": {"type": "boolean"},
+                    },
+                    "required": ["spreadsheet_url", "sheet"],
+                },
+            ),
+            types.Tool(
+                name="get-sheet-formulas",
+                description="Get formulas from a specific sheet in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "range": {"type": "string"},
+                    },
+                    "required": ["spreadsheet_url", "sheet"],
+                },
+            ),
+            types.Tool(
+                name="update-cells",
+                description="Update cells in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "range": {"type": "string"},
+                        "data": {
+                            "type": "array",
+                            "items": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                    "required": ["spreadsheet_url", "sheet", "range", "data"],
+                },
+            ),
+            types.Tool(
+                name="batch-update-cells",
+                description="Batch update multiple ranges in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "ranges": {"type": "object"},
+                    },
+                    "required": ["spreadsheet_url", "sheet", "ranges"],
+                },
+            ),
+            types.Tool(
+                name="add-rows",
+                description="Add rows to a sheet in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "count": {"type": "integer"},
+                        "start_row": {"type": "integer"},
+                    },
+                    "required": ["spreadsheet_url", "sheet", "count"],
+                },
+            ),
+            types.Tool(
+                name="add-columns",
+                description="Add columns to a sheet in a Google Spreadsheet",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "sheet": {"type": "string"},
+                        "count": {"type": "integer"},
+                        "start_column": {"type": "integer"},
+                    },
+                    "required": ["spreadsheet_url", "sheet", "count"],
+                },
+            ),
+            types.Tool(
+                name="list-sheets",
+                description="List all sheets in a Google Spreadsheet",
                 inputSchema={
                     "type": "object",
                     "properties": {"spreadsheet_url": {"type": "string"}},
@@ -156,41 +259,121 @@ def create_server(user_id, api_key=None):
                 },
             ),
             types.Tool(
-                name="get-sheet-names",
-                description="List sheet names in spreadsheet",
-                inputSchema={
-                    "type": "object",
-                    "properties": {"spreadsheet_url": {"type": "string"}},
-                    "required": ["spreadsheet_url"],
-                },
-            ),
-            types.Tool(
-                name="batch-get",
-                description="Get values from multiple ranges",
+                name="create-sheet",
+                description="Create a new sheet tab in an existing Google Spreadsheet",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "spreadsheet_url": {"type": "string"},
-                        "ranges": {"type": "array", "items": {"type": "string"}},
+                        "title": {"type": "string"},
                     },
-                    "required": ["spreadsheet_url", "ranges"],
+                    "required": ["spreadsheet_url", "title"],
                 },
             ),
             types.Tool(
-                name="batch-update",
-                description="Update values in multiple ranges",
+                name="copy-sheet",
+                description="Copy a sheet from one spreadsheet to another in Google Sheets",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "source_spreadsheet_url": {"type": "string"},
+                        "source_sheet": {"type": "string"},
+                        "destination_spreadsheet_url": {"type": "string"},
+                        "destination_sheet": {"type": "string"},
+                    },
+                    "required": [
+                        "source_spreadsheet_url",
+                        "source_sheet",
+                        "destination_spreadsheet_url",
+                        "destination_sheet",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="rename-sheet",
+                description="Rename a sheet in a Google Spreadsheet",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "spreadsheet_url": {"type": "string"},
-                        "data": {"type": "array", "items": {"type": "object"}},
+                        "sheet": {"type": "string"},
+                        "new_name": {"type": "string"},
                     },
-                    "required": ["spreadsheet_url", "data"],
+                    "required": ["spreadsheet_url", "sheet", "new_name"],
+                },
+            ),
+            types.Tool(
+                name="get-multiple-sheet-data",
+                description="Get data from multiple specific ranges in Google Spreadsheets",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "queries": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "spreadsheet_url": {"type": "string"},
+                                    "sheet": {"type": "string"},
+                                    "range": {"type": "string"},
+                                },
+                                "required": ["spreadsheet_url", "sheet", "range"],
+                            },
+                        },
+                    },
+                    "required": ["queries"],
+                },
+            ),
+            types.Tool(
+                name="get-multiple-spreadsheet-summary",
+                description="Get a summary of multiple Google Spreadsheets",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_urls": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "rows_to_fetch": {"type": "integer"},
+                    },
+                    "required": ["spreadsheet_urls"],
+                },
+            ),
+            types.Tool(
+                name="list-spreadsheets",
+                description="List all spreadsheets in Google Drive",
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            ),
+            types.Tool(
+                name="share-spreadsheet",
+                description="Share a Google Spreadsheet with multiple users",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "spreadsheet_url": {"type": "string"},
+                        "recipients": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "email_address": {"type": "string"},
+                                    "role": {"type": "string"},
+                                },
+                                "required": ["email_address", "role"],
+                            },
+                        },
+                        "send_notification": {"type": "boolean"},
+                    },
+                    "required": ["spreadsheet_url", "recipients"],
                 },
             ),
             types.Tool(
                 name="append-values",
-                description="Append values to a sheet",
+                description="Append values to a sheet in Google Sheets",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -205,21 +388,8 @@ def create_server(user_id, api_key=None):
                 },
             ),
             types.Tool(
-                name="lookup-row",
-                description="Find a row by value in a column and return the absolute row number",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "spreadsheet_url": {"type": "string"},
-                        "range": {"type": "string"},
-                        "value": {"type": "string"},
-                    },
-                    "required": ["spreadsheet_url", "range", "value"],
-                },
-            ),
-            types.Tool(
                 name="clear-values",
-                description="Clear a sheet range",
+                description="Clear a sheet range in Google Sheets",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -227,23 +397,6 @@ def create_server(user_id, api_key=None):
                         "range": {"type": "string"},
                     },
                     "required": ["spreadsheet_url", "range"],
-                },
-            ),
-            types.Tool(
-                name="copy-sheet",
-                description="Copy a sheet from one spreadsheet to another",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "source_spreadsheet_id": {"type": "string"},
-                        "source_sheet_id": {"type": "integer"},
-                        "destination_spreadsheet_id": {"type": "string"},
-                    },
-                    "required": [
-                        "source_spreadsheet_id",
-                        "source_sheet_id",
-                        "destination_spreadsheet_id",
-                    ],
                 },
             ),
         ]
@@ -269,62 +422,674 @@ def create_server(user_id, api_key=None):
             f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
         )
 
-        service = await create_sheets_service(server.user_id, server.api_key)
+        sheets_service = await create_sheets_service(server.user_id, server.api_key)
+        drive_service = await create_drive_service(server.user_id, server.api_key)
 
+        # Extract spreadsheet IDs from URLs where needed
         if "spreadsheet_url" in arguments:
             arguments["spreadsheet_id"] = extract_spreadsheet_id(
                 arguments["spreadsheet_url"]
             )
-
-        if name == "create-sheet":
-            title = arguments.get("title", "New Spreadsheet")
-            body = {"properties": {"title": title}}
-            response = service.spreadsheets().create(body=body).execute()
-            sheet_url = (
-                f"https://docs.google.com/spreadsheets/d/{response['spreadsheetId']}"
+        if "source_spreadsheet_url" in arguments:
+            arguments["source_spreadsheet_id"] = extract_spreadsheet_id(
+                arguments["source_spreadsheet_url"]
             )
+        if "destination_spreadsheet_url" in arguments:
+            arguments["destination_spreadsheet_id"] = extract_spreadsheet_id(
+                arguments["destination_spreadsheet_url"]
+            )
+
+        if name == "create-spreadsheet":
+            title = arguments.get("title", "New Spreadsheet")
+            file_body = {
+                "name": title,
+                "mimeType": "application/vnd.google-apps.spreadsheet",
+            }
+            spreadsheet = (
+                drive_service.files()
+                .create(supportsAllDrives=True, body=file_body, fields="id, name")
+                .execute()
+            )
+
+            spreadsheet_id = spreadsheet.get("id")
+            sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+
             return [
                 types.TextContent(
                     type="text",
-                    text=(
-                        f"Created new spreadsheet: {response['properties']['title']}\nURL: {sheet_url}"
+                    text=json.dumps(
+                        {
+                            "spreadsheetId": spreadsheet_id,
+                            "title": spreadsheet.get("name", title),
+                            "url": sheet_url,
+                        },
+                        indent=2,
                     ),
                 )
             ]
 
-        if name == "get-spreadsheet-info":
+        if name == "get-sheet-data":
             spreadsheet_id = arguments["spreadsheet_id"]
-            info = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-            return [types.TextContent(type="text", text=str(info))]
+            sheet = arguments["sheet"]
+            range_str = arguments.get("range")
+            include_grid_data = arguments.get("include_grid_data", False)
 
-        if name == "get-sheet-names":
-            spreadsheet_id = arguments["spreadsheet_id"]
-            info = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-            names = [s["properties"]["title"] for s in info["sheets"]]
-            return [types.TextContent(type="text", text="\n".join(names))]
+            # Construct the range
+            if range_str:
+                full_range = f"{sheet}!{range_str}"
+            else:
+                full_range = sheet
 
-        if name == "batch-get":
+            if include_grid_data:
+                result = (
+                    sheets_service.spreadsheets()
+                    .get(
+                        spreadsheetId=spreadsheet_id,
+                        ranges=[full_range],
+                        includeGridData=True,
+                    )
+                    .execute()
+                )
+            else:
+                values_result = (
+                    sheets_service.spreadsheets()
+                    .values()
+                    .get(spreadsheetId=spreadsheet_id, range=full_range)
+                    .execute()
+                )
+
+                result = {
+                    "spreadsheetId": spreadsheet_id,
+                    "valueRanges": [
+                        {"range": full_range, "values": values_result.get("values", [])}
+                    ],
+                }
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "get-sheet-formulas":
             spreadsheet_id = arguments["spreadsheet_id"]
+            sheet = arguments["sheet"]
+            range_str = arguments.get("range")
+
+            # Construct the range
+            if range_str:
+                full_range = f"{sheet}!{range_str}"
+            else:
+                full_range = sheet
+
             result = (
-                service.spreadsheets()
+                sheets_service.spreadsheets()
                 .values()
-                .batchGet(spreadsheetId=spreadsheet_id, ranges=arguments["ranges"])
+                .get(
+                    spreadsheetId=spreadsheet_id,
+                    range=full_range,
+                    valueRenderOption="FORMULA",
+                )
                 .execute()
             )
-            return [types.TextContent(type="text", text=str(result))]
 
-        if name == "batch-update":
+            formulas = result.get("values", [])
+            return [types.TextContent(type="text", text=json.dumps(formulas, indent=2))]
+
+        if name == "update-cells":
             spreadsheet_id = arguments["spreadsheet_id"]
-            body = {"valueInputOption": "RAW", "data": arguments["data"]}
-            service.spreadsheets().values().batchUpdate(
-                spreadsheetId=spreadsheet_id, body=body
-            ).execute()
-            return [types.TextContent(type="text", text="Batch update successful.")]
+            sheet = arguments["sheet"]
+            range_str = arguments["range"]
+            data = arguments["data"]
+
+            full_range = f"{sheet}!{range_str}"
+            value_range_body = {"values": data}
+
+            result = (
+                sheets_service.spreadsheets()
+                .values()
+                .update(
+                    spreadsheetId=spreadsheet_id,
+                    range=full_range,
+                    valueInputOption="USER_ENTERED",
+                    body=value_range_body,
+                )
+                .execute()
+            )
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "batch-update-cells":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            sheet = arguments["sheet"]
+            ranges = arguments["ranges"]
+
+            data = []
+            for range_str, values in ranges.items():
+                full_range = f"{sheet}!{range_str}"
+                data.append({"range": full_range, "values": values})
+
+            batch_body = {"valueInputOption": "USER_ENTERED", "data": data}
+
+            result = (
+                sheets_service.spreadsheets()
+                .values()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=batch_body)
+                .execute()
+            )
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "add-rows":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            sheet = arguments["sheet"]
+            count = arguments["count"]
+            start_row = arguments.get("start_row")
+
+            # Get sheet ID
+            spreadsheet = (
+                sheets_service.spreadsheets()
+                .get(spreadsheetId=spreadsheet_id)
+                .execute()
+            )
+            sheet_id = None
+
+            for s in spreadsheet["sheets"]:
+                if s["properties"]["title"] == sheet:
+                    sheet_id = s["properties"]["sheetId"]
+                    break
+
+            if sheet_id is None:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"error": f"Sheet '{sheet}' not found"}, indent=2
+                        ),
+                    )
+                ]
+
+            request_body = {
+                "requests": [
+                    {
+                        "insertDimension": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "dimension": "ROWS",
+                                "startIndex": start_row if start_row is not None else 0,
+                                "endIndex": (start_row if start_row is not None else 0)
+                                + count,
+                            },
+                            "inheritFromBefore": start_row is not None
+                            and start_row > 0,
+                        }
+                    }
+                ]
+            }
+
+            result = (
+                sheets_service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                .execute()
+            )
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "add-columns":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            sheet = arguments["sheet"]
+            count = arguments["count"]
+            start_column = arguments.get("start_column")
+
+            # Get sheet ID
+            spreadsheet = (
+                sheets_service.spreadsheets()
+                .get(spreadsheetId=spreadsheet_id)
+                .execute()
+            )
+            sheet_id = None
+
+            for s in spreadsheet["sheets"]:
+                if s["properties"]["title"] == sheet:
+                    sheet_id = s["properties"]["sheetId"]
+                    break
+
+            if sheet_id is None:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"error": f"Sheet '{sheet}' not found"}, indent=2
+                        ),
+                    )
+                ]
+
+            request_body = {
+                "requests": [
+                    {
+                        "insertDimension": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "dimension": "COLUMNS",
+                                "startIndex": (
+                                    start_column if start_column is not None else 0
+                                ),
+                                "endIndex": (
+                                    start_column if start_column is not None else 0
+                                )
+                                + count,
+                            },
+                            "inheritFromBefore": start_column is not None
+                            and start_column > 0,
+                        }
+                    }
+                ]
+            }
+
+            result = (
+                sheets_service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                .execute()
+            )
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "list-sheets":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            spreadsheet = (
+                sheets_service.spreadsheets()
+                .get(spreadsheetId=spreadsheet_id)
+                .execute()
+            )
+            sheet_names = [
+                sheet["properties"]["title"] for sheet in spreadsheet["sheets"]
+            ]
+            return [
+                types.TextContent(type="text", text=json.dumps(sheet_names, indent=2))
+            ]
+
+        if name == "create-sheet":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            title = arguments["title"]
+
+            request_body = {
+                "requests": [{"addSheet": {"properties": {"title": title}}}]
+            }
+
+            result = (
+                sheets_service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                .execute()
+            )
+
+            new_sheet_props = result["replies"][0]["addSheet"]["properties"]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "sheetId": new_sheet_props["sheetId"],
+                            "title": new_sheet_props["title"],
+                            "index": new_sheet_props.get("index"),
+                            "spreadsheetId": spreadsheet_id,
+                        },
+                        indent=2,
+                    ),
+                )
+            ]
+
+        if name == "copy-sheet":
+            source_spreadsheet_id = arguments["source_spreadsheet_id"]
+            source_sheet = arguments["source_sheet"]
+            destination_spreadsheet_id = arguments["destination_spreadsheet_id"]
+            destination_sheet = arguments["destination_sheet"]
+
+            # Get source sheet ID
+            src = (
+                sheets_service.spreadsheets()
+                .get(spreadsheetId=source_spreadsheet_id)
+                .execute()
+            )
+            src_sheet_id = None
+
+            for s in src["sheets"]:
+                if s["properties"]["title"] == source_sheet:
+                    src_sheet_id = s["properties"]["sheetId"]
+                    break
+
+            if src_sheet_id is None:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"error": f"Source sheet '{source_sheet}' not found"},
+                            indent=2,
+                        ),
+                    )
+                ]
+
+            # Copy the sheet
+            copy_result = (
+                sheets_service.spreadsheets()
+                .sheets()
+                .copyTo(
+                    spreadsheetId=source_spreadsheet_id,
+                    sheetId=src_sheet_id,
+                    body={"destinationSpreadsheetId": destination_spreadsheet_id},
+                )
+                .execute()
+            )
+
+            # Rename if needed
+            if "title" in copy_result and copy_result["title"] != destination_sheet:
+                copy_sheet_id = copy_result["sheetId"]
+                rename_request = {
+                    "requests": [
+                        {
+                            "updateSheetProperties": {
+                                "properties": {
+                                    "sheetId": copy_sheet_id,
+                                    "title": destination_sheet,
+                                },
+                                "fields": "title",
+                            }
+                        }
+                    ]
+                }
+
+                rename_result = (
+                    sheets_service.spreadsheets()
+                    .batchUpdate(
+                        spreadsheetId=destination_spreadsheet_id, body=rename_request
+                    )
+                    .execute()
+                )
+
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"copy": copy_result, "rename": rename_result}, indent=2
+                        ),
+                    )
+                ]
+
+            return [
+                types.TextContent(
+                    type="text", text=json.dumps({"copy": copy_result}, indent=2)
+                )
+            ]
+
+        if name == "rename-sheet":
+            spreadsheet_id = arguments["spreadsheet_id"]
+            sheet = arguments["sheet"]
+            new_name = arguments["new_name"]
+
+            # Get sheet ID
+            spreadsheet_data = (
+                sheets_service.spreadsheets()
+                .get(spreadsheetId=spreadsheet_id)
+                .execute()
+            )
+            sheet_id = None
+
+            for s in spreadsheet_data["sheets"]:
+                if s["properties"]["title"] == sheet:
+                    sheet_id = s["properties"]["sheetId"]
+                    break
+
+            if sheet_id is None:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"error": f"Sheet '{sheet}' not found"}, indent=2
+                        ),
+                    )
+                ]
+
+            request_body = {
+                "requests": [
+                    {
+                        "updateSheetProperties": {
+                            "properties": {"sheetId": sheet_id, "title": new_name},
+                            "fields": "title",
+                        }
+                    }
+                ]
+            }
+
+            result = (
+                sheets_service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                .execute()
+            )
+
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "get-multiple-sheet-data":
+            queries = arguments["queries"]
+            results = []
+
+            for query in queries:
+                spreadsheet_id = extract_spreadsheet_id(query["spreadsheet_url"])
+                sheet = query["sheet"]
+                range_str = query["range"]
+
+                try:
+                    full_range = f"{sheet}!{range_str}"
+                    result = (
+                        sheets_service.spreadsheets()
+                        .values()
+                        .get(spreadsheetId=spreadsheet_id, range=full_range)
+                        .execute()
+                    )
+
+                    values = result.get("values", [])
+                    results.append({**query, "data": values})
+                except Exception as e:
+                    results.append({**query, "error": str(e)})
+
+            return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+
+        if name == "get-multiple-spreadsheet-summary":
+            spreadsheet_urls = arguments["spreadsheet_urls"]
+            rows_to_fetch = arguments.get("rows_to_fetch", 5)
+            summaries = []
+
+            for spreadsheet_url in spreadsheet_urls:
+                spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+                summary_data = {
+                    "spreadsheet_url": spreadsheet_url,
+                    "spreadsheet_id": spreadsheet_id,
+                    "title": None,
+                    "sheets": [],
+                    "error": None,
+                }
+
+                try:
+                    spreadsheet = (
+                        sheets_service.spreadsheets()
+                        .get(
+                            spreadsheetId=spreadsheet_id,
+                            fields="properties.title,sheets(properties(title,sheetId))",
+                        )
+                        .execute()
+                    )
+
+                    summary_data["title"] = spreadsheet.get("properties", {}).get(
+                        "title", "Unknown Title"
+                    )
+
+                    sheet_summaries = []
+                    for sheet in spreadsheet.get("sheets", []):
+                        sheet_title = sheet.get("properties", {}).get("title")
+                        sheet_id = sheet.get("properties", {}).get("sheetId")
+                        sheet_summary = {
+                            "title": sheet_title,
+                            "sheet_id": sheet_id,
+                            "headers": [],
+                            "first_rows": [],
+                            "error": None,
+                        }
+
+                        if sheet_title:
+                            try:
+                                max_row = max(1, rows_to_fetch)
+                                range_to_get = f"{sheet_title}!A1:{max_row}"
+
+                                result = (
+                                    sheets_service.spreadsheets()
+                                    .values()
+                                    .get(
+                                        spreadsheetId=spreadsheet_id, range=range_to_get
+                                    )
+                                    .execute()
+                                )
+
+                                values = result.get("values", [])
+
+                                if values:
+                                    sheet_summary["headers"] = values[0]
+                                    if len(values) > 1:
+                                        sheet_summary["first_rows"] = values[1:max_row]
+                                else:
+                                    sheet_summary["headers"] = []
+                                    sheet_summary["first_rows"] = []
+                            except Exception as sheet_e:
+                                sheet_summary["error"] = (
+                                    f"Error fetching data for sheet {sheet_title}: {sheet_e}"
+                                )
+                        else:
+                            sheet_summary["error"] = "Sheet title not found"
+
+                        sheet_summaries.append(sheet_summary)
+
+                    summary_data["sheets"] = sheet_summaries
+
+                except Exception as e:
+                    summary_data["error"] = (
+                        f"Error fetching spreadsheet {spreadsheet_id}: {e}"
+                    )
+
+                summaries.append(summary_data)
+
+            return [
+                types.TextContent(type="text", text=json.dumps(summaries, indent=2))
+            ]
+
+        if name == "list-spreadsheets":
+            query = "mimeType='application/vnd.google-apps.spreadsheet'"
+
+            results = (
+                drive_service.files()
+                .list(
+                    q=query,
+                    spaces="drive",
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
+                    fields="files(id, name)",
+                    orderBy="modifiedTime desc",
+                )
+                .execute()
+            )
+
+            spreadsheets = results.get("files", [])
+            formatted_results = []
+
+            for sheet in spreadsheets:
+                sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet['id']}"
+                formatted_results.append(
+                    {"id": sheet["id"], "title": sheet["name"], "url": sheet_url}
+                )
+
+            return [
+                types.TextContent(
+                    type="text", text=json.dumps(formatted_results, indent=2)
+                )
+            ]
+
+        if name == "share-spreadsheet":
+            spreadsheet_id = arguments[
+                "spreadsheet_url"
+            ]  # Changed from spreadsheet_id to spreadsheet_url
+            recipients = arguments["recipients"]
+            send_notification = arguments.get("send_notification", True)
+            successes = []
+            failures = []
+
+            for recipient in recipients:
+                email_address = recipient.get("email_address")
+                role = recipient.get("role", "writer")
+
+                if not email_address:
+                    failures.append(
+                        {
+                            "email_address": None,
+                            "error": "Missing email_address in recipient entry.",
+                        }
+                    )
+                    continue
+
+                if role not in ["reader", "commenter", "writer"]:
+                    failures.append(
+                        {
+                            "email_address": email_address,
+                            "error": f"Invalid role '{role}'. Must be 'reader', 'commenter', or 'writer'.",
+                        }
+                    )
+                    continue
+
+                permission = {
+                    "type": "user",
+                    "role": role,
+                    "emailAddress": email_address,
+                }
+
+                try:
+                    result = (
+                        drive_service.permissions()
+                        .create(
+                            fileId=spreadsheet_id,
+                            body=permission,
+                            sendNotificationEmail=send_notification,
+                            fields="id",
+                        )
+                        .execute()
+                    )
+                    successes.append(
+                        {
+                            "email_address": email_address,
+                            "role": role,
+                            "permissionId": result.get("id"),
+                        }
+                    )
+                except Exception as e:
+                    error_details = str(e)
+                    if hasattr(e, "content"):
+                        try:
+                            error_content = json.loads(e.content)
+                            error_details = error_content.get("error", {}).get(
+                                "message", error_details
+                            )
+                        except json.JSONDecodeError:
+                            pass
+                    failures.append(
+                        {
+                            "email_address": email_address,
+                            "error": f"Failed to share: {error_details}",
+                        }
+                    )
+
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {"successes": successes, "failures": failures}, indent=2
+                    ),
+                )
+            ]
 
         if name == "append-values":
             spreadsheet_id = arguments["spreadsheet_id"]
             result = (
-                service.spreadsheets()
+                sheets_service.spreadsheets()
                 .values()
                 .append(
                     spreadsheetId=spreadsheet_id,
@@ -338,73 +1103,31 @@ def create_server(user_id, api_key=None):
             return [
                 types.TextContent(
                     type="text",
-                    text=f"Appended {updates.get('updatedRows', '?')} rows.",
+                    text=json.dumps(
+                        {
+                            "message": f"Appended {updates.get('updatedRows', '?')} rows.",
+                            "result": result,
+                        },
+                        indent=2,
+                    ),
                 )
             ]
 
-        if name == "lookup-row":
-            spreadsheet_id = arguments["spreadsheet_id"]
-            range_a1 = arguments["range"]
-
-            # Determine the starting absolute row from the A1 range (default 1)
-            def parse_start_row(a1_range: str) -> int:
-                # Strip sheet name if present
-                range_part = a1_range.split("!", 1)[-1]
-                # Take left side of the range before ':' if exists
-                left = range_part.split(":", 1)[0]
-                # Find first number occurrence which represents the starting row
-                match = re.search(r"(\d+)", left)
-                if match:
-                    return int(match.group(1))
-                # Handle row-only ranges like "2:2" (left will be '2' above and already matched)
-                # If no number found, the implicit start row is 1
-                return 1
-
-            start_row = parse_start_row(range_a1)
-
-            values = (
-                service.spreadsheets()
-                .values()
-                .get(spreadsheetId=spreadsheet_id, range=range_a1)
-                .execute()
-                .get("values", [])
-            )
-
-            for index, row in enumerate(values):
-                if arguments["value"] in row:
-                    absolute_row = start_row + index
-                    # Return as JSON-like text for easier downstream parsing
-                    payload = {"rowNumber": absolute_row, "values": row}
-                    return [types.TextContent(type="text", text=str(payload))]
-
-            return [types.TextContent(type="text", text="Value not found.")]
-
         if name == "clear-values":
             spreadsheet_id = arguments["spreadsheet_id"]
-            service.spreadsheets().values().clear(
-                spreadsheetId=spreadsheet_id, range=arguments["range"], body={}
-            ).execute()
-            return [types.TextContent(type="text", text="Range cleared successfully.")]
-
-        if name == "copy-sheet":
-            response = (
-                service.spreadsheets()
-                .sheets()
-                .copyTo(
-                    spreadsheetId=arguments["source_spreadsheet_id"],
-                    sheetId=arguments["source_sheet_id"],
-                    body={
-                        "destinationSpreadsheetId": arguments[
-                            "destination_spreadsheet_id"
-                        ]
-                    },
-                )
+            result = (
+                sheets_service.spreadsheets()
+                .values()
+                .clear(spreadsheetId=spreadsheet_id, range=arguments["range"], body={})
                 .execute()
             )
-            dest_id = response.get("spreadsheetId", "")
             return [
                 types.TextContent(
-                    type="text", text=f"Sheet copied to spreadsheet ID: {dest_id}"
+                    type="text",
+                    text=json.dumps(
+                        {"message": "Range cleared successfully.", "result": result},
+                        indent=2,
+                    ),
                 )
             ]
 
