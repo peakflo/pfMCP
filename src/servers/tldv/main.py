@@ -316,8 +316,7 @@ def get_initialization_options() -> InitializationOptions:
         server_name=SERVICE_NAME,
         server_version="1.0.0",
         capabilities=server.get_capabilities(
-            notification_options=NotificationOptions(),
-            experimental_capabilities={}
+            notification_options=NotificationOptions(), experimental_capabilities={}
         ),
     )
 
