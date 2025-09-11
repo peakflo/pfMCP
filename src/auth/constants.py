@@ -2,6 +2,7 @@
 # This maps the service names used in MCP to their equivalents in Nango
 
 AUTH_TYPE_OAUTH2 = "oauth2"
+AUTH_TYPE_API_KEY = "API_KEY"
 AUTH_TYPE_TBA = "tba"
 AUTH_TYPE_UNAUTHENTICATED = "unauthenticated"
 
