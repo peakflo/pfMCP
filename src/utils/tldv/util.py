@@ -40,7 +40,7 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
         logger.error(err)
         raise ValueError(err)
 
-    stored_api_key = credentials_data.get("api_key")
+    stored_api_key = credentials_data.get("API_KEY")
     if not stored_api_key:
         err = f"TLDV API key not found in credentials for user {user_id}."
         logger.error(err)
