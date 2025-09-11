@@ -303,6 +303,25 @@ async def handle_read_resource(
     raise ValueError(f"Unknown resource: {uri}")
 
 
+def create_server(user_id: str, api_key: str | None = None) -> Server:
+    """Create a server instance for the given user and API key"""
+    # The server instance is already created globally, but we need to return it
+    # In a real implementation, you might want to create a new instance per user
+    return server
+
+
+def get_initialization_options() -> InitializationOptions:
+    """Get initialization options for the server"""
+    return InitializationOptions(
+        server_name=SERVICE_NAME,
+        server_version="1.0.0",
+        capabilities=server.get_capabilities(
+            notification_options=NotificationOptions(),
+            experimental_capabilities={}
+        ),
+    )
+
+
 if __name__ == "__main__":
     import asyncio
 
