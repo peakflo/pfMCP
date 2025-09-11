@@ -39,7 +39,7 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
         err += " Please run with 'auth' argument first or provide an API key."
         logger.error(err)
         raise ValueError(err)
-
+    print('credentials_data', credentials_data)
     stored_api_key = credentials_data.get("API_KEY")
     if not stored_api_key:
         err = f"TLDV API key not found in credentials for user {user_id}."
