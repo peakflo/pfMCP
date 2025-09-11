@@ -34,6 +34,10 @@ class NangoStandardConnectionCredentials(TypedDict):
     refresh_token: Optional[str]
 
 
+class NangoApiKeyConnectionCredentials(TypedDict):
+    apiKey: str
+
+
 class NangoAuthClient(BaseAuthClient[CredentialsT]):
     """
     Implementation of BaseAuthClient that uses Nango's infrastructure.
@@ -149,10 +153,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             elif auth_type == AUTH_TYPE_API_KEY:
                 # Return the credentials data as a dictionary
                 # The caller is responsible for converting to the appropriate credentials type
-                logger.info(
-                    f"[get_user_credentials] type api key response: {response.json()}"
-                )
-                credentials: NangoStandardConnectionCredentials = response.json().get(
+                credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
                 )
                 return credentials
