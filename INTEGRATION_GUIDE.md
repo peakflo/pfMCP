@@ -185,9 +185,9 @@ src/
        if not api_key:
            raise ValueError("API key is required")
        
-       # Save credentials
+       # Save credentials (use API_KEY for Nango compatibility)
        auth_client = create_auth_client()
-       credentials = {"api_key": api_key}
+       credentials = {"API_KEY": api_key}
        auth_client.save_user_credentials(service_name, user_id, credentials)
        
        return credentials
@@ -208,7 +208,7 @@ src/
            logger.error(err)
            raise ValueError(err)
 
-       stored_api_key = credentials_data.get("api_key")
+       stored_api_key = credentials_data.get("API_KEY")
        if not stored_api_key:
            err = f"Service API key not found in credentials for user {user_id}."
            logger.error(err)
@@ -696,20 +696,20 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
 For services that use API keys:
 
 ```python
-def authenticate_and_save_credentials(
-    user_id: str, service_name: str, scopes: List[str]
-) -> Dict[str, Any]:
-    """Authenticate with service and save credentials"""
-    api_key = input("Enter your API key: ").strip()
-    
-    if not api_key:
-        raise ValueError("API key is required")
-    
-    auth_client = create_auth_client()
-    credentials = {"api_key": api_key}
-    auth_client.save_user_credentials(service_name, user_id, credentials)
-    
-    return credentials
+   def authenticate_and_save_credentials(
+       user_id: str, service_name: str, scopes: List[str]
+   ) -> Dict[str, Any]:
+       """Authenticate with service and save credentials"""
+       api_key = input("Enter your API key: ").strip()
+       
+       if not api_key:
+           raise ValueError("API key is required")
+       
+       auth_client = create_auth_client()
+       credentials = {"API_KEY": api_key}
+       auth_client.save_user_credentials(service_name, user_id, credentials)
+       
+       return credentials
 ```
 
 ### Error Handling in Tool Implementation
