@@ -87,112 +87,139 @@ src/
 
 3. **Create utility module** (`src/utils/your-service-name/util.py`):
    ```python
-   import os
-   from typing import Optional
-   from src.auth.factory import create_auth_client
+   import logging
+   from typing import Dict, List, Any
+
    from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-   async def get_credentials(user_id: str, api_key: Optional[str] = None) -> str:
-       """Get authenticated credentials for the service"""
-       if api_key:
-           return api_key
-           
-       auth_client = create_auth_client()
-       credentials = auth_client.get_user_credentials("your-service-name", user_id)
-       
-       if not credentials:
-           # Run OAuth flow if no credentials exist
-           credentials = await run_oauth_flow("your-service-name", user_id)
-           auth_client.save_user_credentials("your-service-name", user_id, credentials)
-       
-       # Refresh token if needed
-       credentials = await refresh_token_if_needed("your-service-name", user_id, credentials)
-       
-       return credentials.get("access_token")
+   # Service OAuth endpoints
+   SERVICE_OAUTH_AUTHORIZE_URL = "https://api.service.com/oauth/authorize"
+   SERVICE_OAUTH_TOKEN_URL = "https://api.service.com/oauth/token"
+
+   logger = logging.getLogger(__name__)
+
+   def build_service_auth_params(
+       oauth_config: Dict[str, Any], redirect_uri: str, scopes: List[str]
+   ) -> Dict[str, str]:
+       """Build the authorization parameters for service OAuth."""
+       return {
+           "response_type": "code",
+           "client_id": oauth_config.get("client_id"),
+           "scope": " ".join(scopes),
+           "redirect_uri": redirect_uri,
+       }
+
+   def build_service_token_data(
+       oauth_config: Dict[str, Any], redirect_uri: str, scopes: List[str], auth_code: str
+   ) -> Dict[str, str]:
+       """Build the token request data for service OAuth."""
+       return {
+           "grant_type": "authorization_code",
+           "client_id": oauth_config.get("client_id"),
+           "client_secret": oauth_config.get("client_secret"),
+           "code": auth_code,
+           "redirect_uri": redirect_uri,
+       }
+
+   def process_service_token_response(token_response: Dict[str, Any]) -> Dict[str, Any]:
+       """Process the OAuth token response returned from service."""
+       if "access_token" not in token_response:
+           raise ValueError(f"Token exchange failed: {token_response}")
+
+       return {
+           "access_token": token_response.get("access_token"),
+           "refresh_token": token_response.get("refresh_token"),
+           "scope": token_response.get("scope"),
+           "token_type": token_response.get("token_type"),
+       }
+
+   def authenticate_and_save_credentials(
+       user_id: str, service_name: str, scopes: List[str]
+   ) -> Dict[str, Any]:
+       """Authenticate with service and save credentials"""
+       return run_oauth_flow(
+           service_name=service_name,
+           user_id=user_id,
+           scopes=scopes,
+           auth_url_base=SERVICE_OAUTH_AUTHORIZE_URL,
+           token_url=SERVICE_OAUTH_TOKEN_URL,
+           auth_params_builder=build_service_auth_params,
+           token_data_builder=build_service_token_data,
+           process_token_response=process_service_token_response,
+       )
+
+   async def get_credentials(user_id: str, service_name: str, api_key: str = None) -> str:
+       """Get service credentials (access token)."""
+       return await refresh_token_if_needed(
+           user_id=user_id,
+           service_name=service_name,
+           token_url=SERVICE_OAUTH_TOKEN_URL,
+           token_data_builder=lambda oauth_config, refresh_token, credentials: {
+               "grant_type": "refresh_token",
+               "refresh_token": refresh_token,
+               "client_secret": oauth_config.get("client_secret"),
+           },
+           process_token_response=process_service_token_response,
+           api_key=api_key,
+       )
    ```
 
 ### For API Key Services
 
 1. **Create utility module** (`src/utils/your-service-name/util.py`):
    ```python
-   import os
-   from typing import Optional
+   import logging
+   from typing import Dict, List, Any
+
    from src.auth.factory import create_auth_client
 
-   async def get_credentials(user_id: str, api_key: Optional[str] = None) -> str:
-       """Get API key for the service"""
+   logger = logging.getLogger(__name__)
+
+   def authenticate_and_save_credentials(
+       user_id: str, service_name: str, scopes: List[str]
+   ) -> Dict[str, Any]:
+       """Authenticate with service and save credentials"""
+       # For API key services, we prompt for the API key
+       api_key = input("Enter your API key: ").strip()
+       
+       if not api_key:
+           raise ValueError("API key is required")
+       
+       # Save credentials
+       auth_client = create_auth_client()
+       credentials = {"api_key": api_key}
+       auth_client.save_user_credentials(service_name, user_id, credentials)
+       
+       return credentials
+
+   async def get_credentials(user_id: str, service_name: str, api_key: str = None) -> str:
+       """Get service credentials (API key)."""
+       # If API key is provided directly, use it
        if api_key:
            return api_key
-           
+
+       # Otherwise, try to get from stored credentials
        auth_client = create_auth_client()
-       credentials = auth_client.get_user_credentials("your-service-name", user_id)
-       
-       if not credentials:
-           raise ValueError("No credentials found. Please authenticate first.")
-           
-       return credentials.get("api_key")
+       credentials_data = auth_client.get_user_credentials(service_name, user_id)
+
+       if not credentials_data:
+           err = f"Service credentials not found for user {user_id}."
+           err += " Please run with 'auth' argument first or provide an API key."
+           logger.error(err)
+           raise ValueError(err)
+
+       stored_api_key = credentials_data.get("api_key")
+       if not stored_api_key:
+           err = f"Service API key not found in credentials for user {user_id}."
+           logger.error(err)
+           raise ValueError(err)
+
+       return stored_api_key
    ```
 
-## Step 3: Create API Client
+## Step 3: Create API Client Function
 
-Create an API client class in your main server file:
-
-```python
-import aiohttp
-import asyncio
-from typing import Optional, Dict, Any
-
-class YourServiceApiClient:
-    """API Client for Your Service"""
-
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "https://api.yourservice.com/v1"
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-    async def request(
-        self,
-        endpoint: str,
-        method: str = "GET",
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make a request to the API with retry logic"""
-        max_retries = 3
-        retry_delay = 1.0
-
-        for attempt in range(max_retries + 1):
-            try:
-                async with aiohttp.ClientSession() as session:
-                    url = f"{self.base_url}{endpoint}"
-                    
-                    async with session.request(
-                        method=method, url=url, headers=self.headers, json=data, params=params
-                    ) as response:
-                        if response.status >= 400:
-                            error_text = await response.text()
-                            raise Exception(f"API request failed: {response.status} - {error_text}")
-
-                        return await response.json()
-
-            except Exception as e:
-                if attempt == max_retries:
-                    raise e
-                await asyncio.sleep(retry_delay)
-                retry_delay *= 2
-
-    # Add your specific API methods here
-    async def get_items(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Get items from the service"""
-        return await self.request("/items", params=params)
-
-    async def create_item(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new item"""
-        return await self.request("/items", method="POST", data=data)
-```
+Create an API client function in your main server file (this is now integrated into the server implementation):
 
 ## Step 4: Implement MCP Server
 
@@ -201,10 +228,7 @@ Create the main server implementation:
 ```python
 import os
 import sys
-import logging
-import json
-from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Iterable
 
 # Add project paths
 project_root = os.path.abspath(
@@ -213,151 +237,188 @@ project_root = os.path.abspath(
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-import mcp.types as types
+import logging
+from pathlib import Path
+
+import aiohttp
+from mcp.types import (
+    AnyUrl,
+    Resource,
+    TextContent,
+    Tool,
+    ImageContent,
+    EmbeddedResource,
+)
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
-from src.auth.factory import create_auth_client
-from src.utils.your_service_name.util import get_credentials
+from src.utils.your_service_name.util import authenticate_and_save_credentials, get_credentials
 
 # Configuration
 SERVICE_NAME = Path(__file__).parent.name
+BASE_URL = "https://api.yourservice.com/v1"
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(SERVICE_NAME)
 
-# Create server instance
-server = Server(SERVICE_NAME)
+async def create_api_client(user_id, api_key=None):
+    """
+    Create a new API client instance using the stored credentials.
 
-async def get_api_client(user_id: str, api_key: Optional[str] = None) -> YourServiceApiClient:
-    """Get authenticated API client"""
-    api_key = await get_credentials(user_id, api_key)
-    return YourServiceApiClient(api_key)
+    Args:
+        user_id (str): The user ID associated with the credentials.
+        api_key (str, optional): Optional override for authentication.
 
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """List all available tools"""
-    return [
-        types.Tool(
-            name="get_items",
-            description="Retrieve items from the service",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "limit": {
-                        "type": "integer",
-                        "description": "Number of items to retrieve",
-                        "minimum": 1,
-                        "maximum": 100,
-                        "default": 50,
-                    },
-                    "offset": {
-                        "type": "integer",
-                        "description": "Number of items to skip",
-                        "minimum": 0,
-                        "default": 0,
+    Returns:
+        dict: API client configuration with credentials initialized.
+    """
+    token = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
+    return {
+        "api_key": token,
+        "base_url": BASE_URL,
+        "headers": {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+    }
+
+def create_server(user_id, api_key=None):
+    """
+    Initialize and configure the Your Service MCP server.
+
+    Args:
+        user_id (str): The user ID associated with the current session.
+        api_key (str, optional): Optional API key override.
+
+    Returns:
+        Server: Configured MCP server instance with registered tools.
+    """
+    server = Server("your-service-server")
+
+    server.user_id = user_id
+    server.api_key = api_key
+
+    @server.list_tools()
+    async def handle_list_tools() -> list[Tool]:
+        """
+        Return a list of available tools.
+
+        Returns:
+            list[Tool]: List of tool definitions supported by this server.
+        """
+        return [
+            Tool(
+                name="get_items",
+                description="Retrieve items from the service",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Number of items to retrieve",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 50,
+                        },
+                        "offset": {
+                            "type": "integer",
+                            "description": "Number of items to skip",
+                            "minimum": 0,
+                            "default": 0,
+                        },
                     },
                 },
-            },
-            outputSchema={
-                "type": "object",
-                "properties": {
-                    "items": {
-                        "type": "array",
-                        "items": {"type": "object"},
-                        "description": "Array of items from the service"
+            ),
+            Tool(
+                name="create_item",
+                description="Create a new item in the service",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the item to create",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Description of the item",
+                        },
                     },
-                    "total": {
-                        "type": "integer",
-                        "description": "Total number of items available"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="create_item",
-            description="Create a new item in the service",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Name of the item to create",
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Description of the item",
-                    },
+                    "required": ["name"],
                 },
-                "required": ["name"],
-            },
-            outputSchema={
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "description": "Unique identifier of the created item"
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Name of the created item"
-                    },
-                    "status": {
-                        "type": "string",
-                        "description": "Status of the created item"
+            ),
+        ]
+
+    @server.call_tool()
+    async def handle_call_tool(
+        name: str, arguments: dict | None
+    ) -> list[TextContent | ImageContent | EmbeddedResource]:
+        """
+        Handle tool invocation from the MCP system.
+
+        Args:
+            name (str): The name of the tool being called.
+            arguments (dict | None): Parameters passed to the tool.
+
+        Returns:
+            list[Union[TextContent, ImageContent, EmbeddedResource]]:
+                Output content from tool execution.
+        """
+        logger.info(
+            f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
+        )
+
+        if arguments is None:
+            arguments = {}
+
+        client_config = await create_api_client(server.user_id, api_key=server.api_key)
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                if name == "get_items":
+                    url = f"{client_config['base_url']}/items"
+                    params = {}
+                    if arguments.get("limit"):
+                        params["limit"] = arguments["limit"]
+                    if arguments.get("offset"):
+                        params["offset"] = arguments["offset"]
+                    
+                    async with session.get(url, headers=client_config['headers'], params=params) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(f"API request failed: {response.status} - {error_text}")
+                        result = await response.json()
+
+                elif name == "create_item":
+                    if not arguments.get("name"):
+                        raise ValueError("name is required")
+                    
+                    url = f"{client_config['base_url']}/items"
+                    data = {
+                        "name": arguments["name"],
+                        "description": arguments.get("description", ""),
                     }
-                }
-            }
-        ),
-    ]
+                    
+                    async with session.post(url, headers=client_config['headers'], json=data) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(f"API request failed: {response.status} - {error_text}")
+                        result = await response.json()
 
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None, user_id: str, api_key: str | None = None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Handle tool calls"""
-    try:
-        client = await get_api_client(user_id, api_key)
+                else:
+                    return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        if name == "get_items":
-            params = {}
-            if arguments:
-                if arguments.get("limit"):
-                    params["limit"] = arguments["limit"]
-                if arguments.get("offset"):
-                    params["offset"] = arguments["offset"]
+            return [TextContent(type="text", text=str(result))]
 
-            result = await client.get_items(params)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+        except Exception as e:
+            logger.error(f"API error: {e}")
+            return [TextContent(type="text", text=f"Error: {str(e)}")]
 
-        elif name == "create_item":
-            if not arguments or not arguments.get("name"):
-                raise ValueError("name is required")
-
-            data = {
-                "name": arguments["name"],
-                "description": arguments.get("description", ""),
-            }
-
-            result = await client.create_item(data)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        else:
-            raise ValueError(f"Unknown tool: {name}")
-
-    except Exception as e:
-        logger.error(f"Error in tool {name}: {str(e)}")
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-@server.list_resources()
-async def handle_list_resources() -> list[types.Resource]:
-    """List available resources"""
-    return []
-
-@server.read_resource()
-async def handle_read_resource(
-    uri: str, user_id: str, api_key: str | None = None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Read a resource"""
-    raise ValueError(f"Unknown resource: {uri}")
+    return server
 ```
 
 ## Step 5: Add Required Functions
@@ -365,43 +426,37 @@ async def handle_read_resource(
 Add the required functions for server discovery:
 
 ```python
-def create_server(user_id: str, api_key: str | None = None) -> Server:
-    """Create a server instance for the given user and API key"""
-    return server
+server = create_server
 
-def get_initialization_options() -> InitializationOptions:
-    """Get initialization options for the server"""
+
+def get_initialization_options(server_instance: Server) -> InitializationOptions:
+    """
+    Define the initialization options for the MCP server.
+
+    Args:
+        server_instance (Server): The server instance to describe.
+
+    Returns:
+        InitializationOptions: MCP-compatible initialization configuration.
+    """
     return InitializationOptions(
-        server_name=SERVICE_NAME,
+        server_name="your-service-server",
         server_version="1.0.0",
-        capabilities=server.get_capabilities(
+        capabilities=server_instance.get_capabilities(
             notification_options=NotificationOptions(),
-            experimental_capabilities={}
+            experimental_capabilities={},
         ),
     )
 
+
 if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        # Check if auth argument is provided
-        if len(sys.argv) > 1 and sys.argv[1] == "auth":
-            if len(sys.argv) < 3:
-                print("Usage: python main.py auth <user_id>")
-                sys.exit(1)
-
-            user_id = sys.argv[2]
-            
-            # For OAuth services, run the OAuth flow
-            from src.utils.your_service_name.util import get_credentials
-            await get_credentials(user_id)
-            print(f"Credentials saved for user {user_id}")
-            return
-
-        # Run the server
-        await server.run()
-
-    asyncio.run(main())
+    if sys.argv[1].lower() == "auth":
+        user_id = "local"
+        authenticate_and_save_credentials(user_id, SERVICE_NAME, [])
+    else:
+        print("Usage:")
+        print("  python main.py auth - Run authentication flow for a user")
+        print("Note: To run the server normally, use the guMCP server framework.")
 ```
 
 ## Step 6: Create Tests
@@ -411,7 +466,7 @@ Create a test file (`tests/servers/your_service_name/test.py`):
 ```python
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.servers.your_service_name.main import server, get_api_client
+from src.servers.your_service_name.main import create_server
 
 # Test data
 MOCK_ITEMS = {
@@ -450,42 +505,29 @@ TOOL_TESTS = [
     },
 ]
 
-# Resource Tests
-RESOURCE_TESTS = [
-    # Add resource tests if your service supports resources
-]
-
 @pytest.mark.asyncio
 async def test_tools():
     """Test all tools with mocked API responses"""
-    with patch('src.servers.your_service_name.main.get_api_client') as mock_get_client:
-        # Mock the API client
-        mock_client = AsyncMock()
-        mock_client.get_items.return_value = MOCK_ITEMS
-        mock_client.create_item.return_value = MOCK_CREATED_ITEM
-        mock_get_client.return_value = mock_client
+    with patch('src.servers.your_service_name.main.create_api_client') as mock_get_client:
+        # Mock the API client config
+        mock_client_config = {
+            "api_key": "test_key",
+            "base_url": "https://api.test.com/v1",
+            "headers": {"Authorization": "Bearer test_key", "Content-Type": "application/json"}
+        }
+        mock_get_client.return_value = mock_client_config
 
+        # Create server instance
+        server = create_server("test_user")
+        
         for test in TOOL_TESTS:
             result = await server.call_tool(
                 test["name"], 
-                test["arguments"], 
-                "test_user"
+                test["arguments"]
             )
             
             assert len(result) == 1
             assert result[0].type == "text"
-            
-            # Parse the JSON response
-            import json
-            response_data = json.loads(result[0].text)
-            
-            # Verify the response structure matches expected output
-            if test["name"] == "get_items":
-                assert "items" in response_data
-                assert "total" in response_data
-            elif test["name"] == "create_item":
-                assert "id" in response_data
-                assert "name" in response_data
 
 @pytest.mark.asyncio
 async def test_authentication():
@@ -493,8 +535,9 @@ async def test_authentication():
     with patch('src.utils.your_service_name.util.get_credentials') as mock_get_creds:
         mock_get_creds.return_value = "test_api_key"
         
-        client = await get_api_client("test_user")
-        assert client.api_key == "test_api_key"
+        from src.servers.your_service_name.main import create_api_client
+        client_config = await create_api_client("test_user")
+        assert client_config["api_key"] == "test_api_key"
 
 if __name__ == "__main__":
     pytest.main([__file__])
@@ -608,7 +651,7 @@ All errors are returned as human-readable messages to help with debugging.
 
 2. **Test authentication**:
    ```bash
-   python src/servers/your_service_name/main.py auth test_user
+   python src/servers/your_service_name/main.py auth
    ```
 
 3. **Run tests**:
@@ -629,52 +672,59 @@ All errors are returned as human-readable messages to help with debugging.
 
 ### OAuth with Refresh Tokens
 
-For services that support refresh tokens:
+For services that support refresh tokens, use the `refresh_token_if_needed` utility:
 
 ```python
-async def get_credentials(user_id: str, api_key: Optional[str] = None) -> str:
-    """Get credentials with automatic token refresh"""
-    if api_key:
-        return api_key
-        
+async def get_credentials(user_id: str, service_name: str, api_key: str = None) -> str:
+    """Get service credentials with automatic token refresh."""
+    return await refresh_token_if_needed(
+        user_id=user_id,
+        service_name=service_name,
+        token_url=SERVICE_OAUTH_TOKEN_URL,
+        token_data_builder=lambda oauth_config, refresh_token, credentials: {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_secret": oauth_config.get("client_secret"),
+        },
+        process_token_response=process_service_token_response,
+        api_key=api_key,
+    )
+```
+
+### API Key Authentication
+
+For services that use API keys:
+
+```python
+def authenticate_and_save_credentials(
+    user_id: str, service_name: str, scopes: List[str]
+) -> Dict[str, Any]:
+    """Authenticate with service and save credentials"""
+    api_key = input("Enter your API key: ").strip()
+    
+    if not api_key:
+        raise ValueError("API key is required")
+    
     auth_client = create_auth_client()
-    credentials = auth_client.get_user_credentials("your-service-name", user_id)
+    credentials = {"api_key": api_key}
+    auth_client.save_user_credentials(service_name, user_id, credentials)
     
-    if not credentials:
-        credentials = await run_oauth_flow("your-service-name", user_id)
-        auth_client.save_user_credentials("your-service-name", user_id, credentials)
-    
-    # Check if token needs refresh
-    if credentials.get("expires_at") and credentials["expires_at"] < time.time():
-        credentials = await refresh_token_if_needed("your-service-name", user_id, credentials)
-        auth_client.save_user_credentials("your-service-name", user_id, credentials)
-    
-    return credentials.get("access_token")
+    return credentials
 ```
 
-### Pagination Support
-
-For APIs that support pagination:
+### Error Handling in Tool Implementation
 
 ```python
-async def get_items_paginated(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
-    """Get items with pagination support"""
-    params = {"limit": limit, "offset": offset}
-    return await self.request("/items", params=params)
-```
-
-### Error Handling with Retries
-
-```python
-async def request_with_retry(self, endpoint: str, max_retries: int = 3) -> Dict[str, Any]:
-    """Make request with exponential backoff retry"""
-    for attempt in range(max_retries + 1):
-        try:
-            return await self.request(endpoint)
-        except Exception as e:
-            if attempt == max_retries:
-                raise e
-            await asyncio.sleep(2 ** attempt)  # Exponential backoff
+try:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=client_config['headers']) as response:
+            if response.status >= 400:
+                error_text = await response.text()
+                raise Exception(f"API request failed: {response.status} - {error_text}")
+            result = await response.json()
+except Exception as e:
+    logger.error(f"API error: {e}")
+    return [TextContent(type="text", text=f"Error: {str(e)}")]
 ```
 
 ## Troubleshooting
