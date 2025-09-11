@@ -5,7 +5,12 @@ import requests
 import jwt
 from typing import Optional, Dict, Any, TypeVar, Generic, TypedDict
 
-from auth.constants import SERVICE_NAME_MAP, AUTH_TYPE_OAUTH2, AUTH_TYPE_UNAUTHENTICATED, AUTH_TYPE_API_KEY
+from auth.constants import (
+    SERVICE_NAME_MAP,
+    AUTH_TYPE_OAUTH2,
+    AUTH_TYPE_UNAUTHENTICATED,
+    AUTH_TYPE_API_KEY,
+)
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
 
