@@ -5,7 +5,12 @@ import requests
 import jwt
 from typing import Optional, Dict, Any, TypeVar, Generic, TypedDict
 
-from auth.constants import SERVICE_NAME_MAP, AUTH_TYPE_OAUTH2, AUTH_TYPE_UNAUTHENTICATED
+from auth.constants import (
+    SERVICE_NAME_MAP,
+    AUTH_TYPE_OAUTH2,
+    AUTH_TYPE_UNAUTHENTICATED,
+    AUTH_TYPE_API_KEY,
+)
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
 
@@ -27,6 +32,10 @@ class NangoStandardConnectionCredentials(TypedDict):
     access_token: str
     expires_at: float
     refresh_token: Optional[str]
+
+
+class NangoApiKeyConnectionCredentials(TypedDict):
+    apiKey: str
 
 
 class NangoAuthClient(BaseAuthClient[CredentialsT]):
@@ -138,6 +147,13 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 # Return the credentials data as a dictionary
                 # The caller is responsible for converting to the appropriate credentials type
                 credentials: NangoStandardConnectionCredentials = response.json().get(
+                    "credentials"
+                )
+                return credentials
+            elif auth_type == AUTH_TYPE_API_KEY:
+                # Return the credentials data as a dictionary
+                # The caller is responsible for converting to the appropriate credentials type
+                credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
                 )
                 return credentials

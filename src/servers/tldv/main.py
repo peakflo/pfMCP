@@ -1,12 +1,6 @@
 import os
 import sys
-import logging
-import json
-import asyncio
-from pathlib import Path
-from typing import Optional, Dict, Any, List
-import aiohttp
-from datetime import datetime
+from typing import Optional, Iterable
 
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
@@ -15,12 +9,23 @@ project_root = os.path.abspath(
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-import mcp.types as types
+import logging
+from pathlib import Path
+
+import aiohttp
+from mcp.types import (
+    AnyUrl,
+    Resource,
+    TextContent,
+    Tool,
+    ImageContent,
+    EmbeddedResource,
+)
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
-from src.auth.factory import create_auth_client
-from src.utils.tldv.util import get_credentials
+from src.utils.tldv.util import authenticate_and_save_credentials, get_credentials
 
 SERVICE_NAME = Path(__file__).parent.name
 BASE_URL = "https://pasta.tldv.io/v1alpha1"
@@ -32,303 +37,302 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
-class TldvApiClient:
-    """TLDV API Client for making authenticated requests"""
+async def create_tldv_client(user_id, api_key=None):
+    """
+    Create a new TLDV client instance using the stored API credentials.
 
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = BASE_URL
-        self.headers = {
-            "x-api-key": self.api_key,
+    Args:
+        user_id (str): The user ID associated with the credentials.
+        api_key (str, optional): Optional override for authentication.
+
+    Returns:
+        dict: TLDV API client configuration with credentials initialized.
+    """
+    token = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
+    return {
+        "api_key": token,
+        "base_url": BASE_URL,
+        "headers": {
+            "x-api-key": token,
             "Content-Type": "application/json",
-        }
+        },
+    }
 
-    async def request(
-        self,
-        endpoint: str,
-        method: str = "GET",
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make a request to the TLDV API with retry logic"""
-        max_retries = 3
-        retry_delay = 1.0
-        max_retry_delay = 2.0
 
-        for attempt in range(max_retries + 1):
-            try:
-                async with aiohttp.ClientSession() as session:
-                    url = f"{self.base_url}{endpoint}"
+def create_server(user_id, api_key=None):
+    """
+    Initialize and configure the TLDV MCP server.
 
-                    if params:
-                        # Convert params to URL query string
-                        query_params = []
-                        for key, value in params.items():
-                            if value is not None:
-                                if isinstance(value, bool):
-                                    query_params.append(f"{key}={str(value).lower()}")
-                                else:
-                                    query_params.append(f"{key}={value}")
-                        if query_params:
-                            url += "?" + "&".join(query_params)
+    Args:
+        user_id (str): The user ID associated with the current session.
+        api_key (str, optional): Optional API key override.
 
-                    async with session.request(
-                        method=method, url=url, headers=self.headers, json=data
+    Returns:
+        Server: Configured MCP server instance with registered tools.
+    """
+    server = Server("tldv-server")
+
+    server.user_id = user_id
+    server.api_key = api_key
+
+    @server.list_tools()
+    async def handle_list_tools() -> list[Tool]:
+        """
+        Return a list of available TLDV tools.
+
+        Returns:
+            list[Tool]: List of tool definitions supported by this server.
+        """
+        return [
+            Tool(
+                name="get_meeting",
+                description="Retrieve a meeting by its ID",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "meeting_id": {
+                            "type": "string",
+                            "description": "The unique identifier of the meeting",
+                        }
+                    },
+                    "required": ["meeting_id"],
+                },
+            ),
+            Tool(
+                name="get_meetings",
+                description="Retrieve a list of meetings with optional filtering",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query to filter meetings",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number for pagination",
+                            "minimum": 1,
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Number of results per page",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 50,
+                        },
+                        "from": {
+                            "type": "string",
+                            "description": "Start date for filtering (ISO 8601 format)",
+                        },
+                        "to": {
+                            "type": "string",
+                            "description": "End date for filtering (ISO 8601 format)",
+                        },
+                        "onlyParticipated": {
+                            "type": "boolean",
+                            "description": "Only return meetings where the user participated",
+                        },
+                        "meetingType": {
+                            "type": "string",
+                            "enum": ["internal", "external"],
+                            "description": "Filter meetings by type (internal/external)",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="get_transcript",
+                description="Retrieve the transcript for a specific meeting",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "meeting_id": {
+                            "type": "string",
+                            "description": "The unique identifier of the meeting",
+                        }
+                    },
+                    "required": ["meeting_id"],
+                },
+            ),
+            Tool(
+                name="get_highlights",
+                description="Retrieve the highlights for a specific meeting",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "meeting_id": {
+                            "type": "string",
+                            "description": "The unique identifier of the meeting",
+                        }
+                    },
+                    "required": ["meeting_id"],
+                },
+            ),
+            Tool(
+                name="health_check",
+                description="Check the health status of the TLDV API",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+        ]
+
+    @server.call_tool()
+    async def handle_call_tool(
+        name: str, arguments: dict | None
+    ) -> list[TextContent | ImageContent | EmbeddedResource]:
+        """
+        Handle TLDV tool invocation from the MCP system.
+
+        Args:
+            name (str): The name of the tool being called.
+            arguments (dict | None): Parameters passed to the tool.
+
+        Returns:
+            list[Union[TextContent, ImageContent, EmbeddedResource]]:
+                Output content from tool execution.
+        """
+        logger.info(
+            f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
+        )
+
+        if arguments is None:
+            arguments = {}
+
+        client_config = await create_tldv_client(server.user_id, api_key=server.api_key)
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                if name == "get_meeting":
+                    meeting_id = arguments.get("meeting_id")
+                    if not meeting_id:
+                        raise ValueError("meeting_id is required")
+
+                    url = f"{client_config['base_url']}/meetings/{meeting_id}"
+                    async with session.get(
+                        url, headers=client_config["headers"]
                     ) as response:
                         if response.status >= 400:
                             error_text = await response.text()
-                            logger.error(
-                                f"API request failed: {response.status} - {error_text}"
-                            )
                             raise Exception(
                                 f"API request failed: {response.status} - {error_text}"
                             )
-
                         result = await response.json()
-                        return result
 
-            except Exception as e:
-                if attempt == max_retries:
-                    raise e
+                elif name == "get_meetings":
+                    url = f"{client_config['base_url']}/meetings"
+                    params = {}
+                    if arguments.get("query"):
+                        params["query"] = arguments["query"]
+                    if arguments.get("page"):
+                        params["page"] = arguments["page"]
+                    if arguments.get("limit"):
+                        params["limit"] = arguments["limit"]
+                    if arguments.get("from"):
+                        params["from"] = arguments["from"]
+                    if arguments.get("to"):
+                        params["to"] = arguments["to"]
+                    if arguments.get("onlyParticipated") is not None:
+                        params["onlyParticipated"] = arguments["onlyParticipated"]
+                    if arguments.get("meetingType"):
+                        params["meetingType"] = arguments["meetingType"]
 
-                logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{max_retries + 1}): {str(e)}"
-                )
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, max_retry_delay)
+                    async with session.get(
+                        url, headers=client_config["headers"], params=params
+                    ) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"API request failed: {response.status} - {error_text}"
+                            )
+                        result = await response.json()
 
-    async def get_meeting(self, meeting_id: str) -> Dict[str, Any]:
-        """Get a meeting by ID"""
-        return await self.request(f"/meetings/{meeting_id}")
+                elif name == "get_transcript":
+                    meeting_id = arguments.get("meeting_id")
+                    if not meeting_id:
+                        raise ValueError("meeting_id is required")
 
-    async def get_meetings(
-        self, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Get a list of meetings with optional filtering"""
-        return await self.request("/meetings", params=params)
+                    url = (
+                        f"{client_config['base_url']}/meetings/{meeting_id}/transcript"
+                    )
+                    async with session.get(
+                        url, headers=client_config["headers"]
+                    ) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"API request failed: {response.status} - {error_text}"
+                            )
+                        result = await response.json()
 
-    async def get_transcript(self, meeting_id: str) -> Dict[str, Any]:
-        """Get the transcript for a specific meeting"""
-        return await self.request(f"/meetings/{meeting_id}/transcript")
+                elif name == "get_highlights":
+                    meeting_id = arguments.get("meeting_id")
+                    if not meeting_id:
+                        raise ValueError("meeting_id is required")
 
-    async def get_highlights(self, meeting_id: str) -> Dict[str, Any]:
-        """Get the highlights for a specific meeting"""
-        return await self.request(f"/meetings/{meeting_id}/highlights")
+                    url = (
+                        f"{client_config['base_url']}/meetings/{meeting_id}/highlights"
+                    )
+                    async with session.get(
+                        url, headers=client_config["headers"]
+                    ) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"API request failed: {response.status} - {error_text}"
+                            )
+                        result = await response.json()
 
-    async def health_check(self) -> Dict[str, Any]:
-        """Check the health status of the API"""
-        return await self.request("/health")
+                elif name == "health_check":
+                    url = f"{client_config['base_url']}/health"
+                    async with session.get(
+                        url, headers=client_config["headers"]
+                    ) as response:
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"API request failed: {response.status} - {error_text}"
+                            )
+                        result = await response.json()
+
+                else:
+                    return [TextContent(type="text", text=f"Unknown tool: {name}")]
+
+            return [TextContent(type="text", text=str(result))]
+
+        except Exception as e:
+            logger.error(f"TLDV API error: {e}")
+            return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+    return server
 
 
-async def get_tldv_client(user_id: str, api_key: Optional[str] = None) -> TldvApiClient:
-    """Get authenticated TLDV API client"""
-    api_key = await get_credentials(user_id, api_key)
-    return TldvApiClient(api_key)
+server = create_server
 
 
-# Create server instance
-server = Server(SERVICE_NAME)
+def get_initialization_options(server_instance: Server) -> InitializationOptions:
+    """
+    Define the initialization options for the TLDV MCP server.
 
+    Args:
+        server_instance (Server): The server instance to describe.
 
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """List all available tools"""
-    return [
-        types.Tool(
-            name="get_meeting",
-            description="Retrieve a meeting by its ID",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "meeting_id": {
-                        "type": "string",
-                        "description": "The unique identifier of the meeting",
-                    }
-                },
-                "required": ["meeting_id"],
-            },
+    Returns:
+        InitializationOptions: MCP-compatible initialization configuration.
+    """
+    return InitializationOptions(
+        server_name="tldv-server",
+        server_version="1.0.0",
+        capabilities=server_instance.get_capabilities(
+            notification_options=NotificationOptions(),
+            experimental_capabilities={},
         ),
-        types.Tool(
-            name="get_meetings",
-            description="Retrieve a list of meetings with optional filtering",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query to filter meetings",
-                    },
-                    "page": {
-                        "type": "integer",
-                        "description": "Page number for pagination",
-                        "minimum": 1,
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Number of results per page",
-                        "minimum": 1,
-                        "maximum": 100,
-                        "default": 50,
-                    },
-                    "from": {
-                        "type": "string",
-                        "description": "Start date for filtering (ISO 8601 format)",
-                    },
-                    "to": {
-                        "type": "string",
-                        "description": "End date for filtering (ISO 8601 format)",
-                    },
-                    "onlyParticipated": {
-                        "type": "boolean",
-                        "description": "Only return meetings where the user participated",
-                    },
-                    "meetingType": {
-                        "type": "string",
-                        "enum": ["internal", "external"],
-                        "description": "Filter meetings by type (internal/external)",
-                    },
-                },
-            },
-        ),
-        types.Tool(
-            name="get_transcript",
-            description="Retrieve the transcript for a specific meeting",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "meeting_id": {
-                        "type": "string",
-                        "description": "The unique identifier of the meeting",
-                    }
-                },
-                "required": ["meeting_id"],
-            },
-        ),
-        types.Tool(
-            name="get_highlights",
-            description="Retrieve the highlights for a specific meeting",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "meeting_id": {
-                        "type": "string",
-                        "description": "The unique identifier of the meeting",
-                    }
-                },
-                "required": ["meeting_id"],
-            },
-        ),
-        types.Tool(
-            name="health_check", description="Check the health status of the TLDV API"
-        ),
-    ]
-
-
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None, user_id: str, api_key: str | None = None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Handle tool calls"""
-    try:
-        client = await get_tldv_client(user_id, api_key)
-
-        if name == "get_meeting":
-            meeting_id = arguments.get("meeting_id")
-            if not meeting_id:
-                raise ValueError("meeting_id is required")
-
-            result = await client.get_meeting(meeting_id)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        elif name == "get_meetings":
-            # Build query parameters
-            params = {}
-            if arguments.get("query"):
-                params["query"] = arguments["query"]
-            if arguments.get("page"):
-                params["page"] = arguments["page"]
-            if arguments.get("limit"):
-                params["limit"] = arguments["limit"]
-            if arguments.get("from"):
-                params["from"] = arguments["from"]
-            if arguments.get("to"):
-                params["to"] = arguments["to"]
-            if arguments.get("onlyParticipated") is not None:
-                params["onlyParticipated"] = arguments["onlyParticipated"]
-            if arguments.get("meetingType"):
-                params["meetingType"] = arguments["meetingType"]
-
-            result = await client.get_meetings(params)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        elif name == "get_transcript":
-            meeting_id = arguments.get("meeting_id")
-            if not meeting_id:
-                raise ValueError("meeting_id is required")
-
-            result = await client.get_transcript(meeting_id)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        elif name == "get_highlights":
-            meeting_id = arguments.get("meeting_id")
-            if not meeting_id:
-                raise ValueError("meeting_id is required")
-
-            result = await client.get_highlights(meeting_id)
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        elif name == "health_check":
-            result = await client.health_check()
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        else:
-            raise ValueError(f"Unknown tool: {name}")
-
-    except Exception as e:
-        logger.error(f"Error in tool {name}: {str(e)}")
-        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-
-@server.list_resources()
-async def handle_list_resources() -> list[types.Resource]:
-    """List available resources"""
-    return []
-
-
-@server.read_resource()
-async def handle_read_resource(
-    uri: str, user_id: str, api_key: str | None = None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Read a resource"""
-    raise ValueError(f"Unknown resource: {uri}")
+    )
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        # Check if auth argument is provided
-        if len(sys.argv) > 1 and sys.argv[1] == "auth":
-            if len(sys.argv) < 3:
-                print("Usage: python main.py auth <user_id>")
-                sys.exit(1)
-
-            user_id = sys.argv[2]
-            api_key = input("Enter your TLDV API key: ").strip()
-
-            if not api_key:
-                print("API key is required")
-                sys.exit(1)
-
-            # Save credentials
-            auth_client = create_auth_client(api_key=api_key)
-            auth_client.save_user_credentials(
-                SERVICE_NAME, user_id, {"api_key": api_key}
-            )
-            print(f"Credentials saved for user {user_id}")
-            return
-
-        # Run the server
-        await server.run()
-
-    asyncio.run(main())
+    if sys.argv[1].lower() == "auth":
+        user_id = "local"
+        authenticate_and_save_credentials(user_id, SERVICE_NAME, [])
+    else:
+        print("Usage:")
+        print("  python main.py auth - Run authentication flow for a user")
+        print("Note: To run the server normally, use the guMCP server framework.")

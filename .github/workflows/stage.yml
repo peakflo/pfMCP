@@ -42,4 +42,4 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --no-allow-unauthenticated
+          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --memory=1Gi --no-allow-unauthenticated
