@@ -1,4 +1,5 @@
 import os
+from memory_profiler import profile
 import sys
 from typing import Optional, List, Dict, Any
 
@@ -48,7 +49,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-
+@profile
 def extract_spreadsheet_id(sheet_url: str) -> str:
     """Extracts the spreadsheetId from a Google Sheets URL.
 
@@ -66,7 +67,7 @@ def extract_spreadsheet_id(sheet_url: str) -> str:
         return match.group(1)
     raise ValueError("Invalid Google Sheets URL: could not extract spreadsheetId")
 
-
+@profile
 async def get_credentials(user_id, api_key=None):
     """Get credentials for the specified user
 
@@ -108,7 +109,7 @@ async def get_credentials(user_id, api_key=None):
 
     handle_missing_credentials()
 
-
+@profile
 async def create_sheets_service(user_id, api_key=None):
     """Create a new Sheets service instance for this request
 
@@ -122,7 +123,7 @@ async def create_sheets_service(user_id, api_key=None):
     credentials = await get_credentials(user_id, api_key=api_key)
     return build("sheets", "v4", credentials=credentials)
 
-
+@profile
 async def create_drive_service(user_id, api_key=None):
     """Create a new Drive service instance for this request
 
@@ -136,7 +137,7 @@ async def create_drive_service(user_id, api_key=None):
     credentials = await get_credentials(user_id, api_key=api_key)
     return build("drive", "v3", credentials=credentials)
 
-
+@profile
 def create_server(user_id, api_key=None):
     """Create a new server instance with optional user context
 
@@ -1138,7 +1139,7 @@ def create_server(user_id, api_key=None):
 
 server = create_server
 
-
+@profile
 def get_initialization_options(server_instance: Server) -> InitializationOptions:
     """Get the initialization options for the server
 
