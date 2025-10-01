@@ -349,6 +349,7 @@ yarl==1.18.3
     # via aiohttp
 zeep==4.3.1
     # via simple-salesforce
+memory_profiler==0.60.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
