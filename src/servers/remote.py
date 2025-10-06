@@ -6,6 +6,8 @@ from pathlib import Path
 import threading
 import contextlib
 import time
+import json
+from memory_profiler import profile
 from typing import Dict, Any, AsyncIterator
 from starlette.routing import Route, Mount
 from starlette.applications import Starlette
@@ -44,7 +46,6 @@ def debug_session_store(event: str, session_id: str = None):
         event: Description of the event that triggered this debug log
         session_id: Optional specific session to look for. If None, shows all sessions.
     """
-    import json
 
     debug_data = {
         "event": event,
@@ -118,6 +119,7 @@ def create_metrics_app():
     return app
 
 
+@profile
 def create_server_for_session(server_name: str, session_key_encoded: str) -> Server:
     """Create a stateless MCP server for a specific session"""
 
@@ -164,6 +166,7 @@ def create_starlette_app():
     for server_name in servers.keys():
         # Create a session manager factory for this server
         def create_session_manager_for_server(name):
+            @profile
             def session_manager_factory(scope: Scope):
                 # Extract session_key from the path
                 path_parts = scope["path"].strip("/").split("/")
