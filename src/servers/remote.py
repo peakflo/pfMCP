@@ -166,7 +166,6 @@ def create_starlette_app():
     for server_name in servers.keys():
         # Create a session manager factory for this server
         def create_session_manager_for_server(name):
-            @profile
             def session_manager_factory(scope: Scope):
                 # Extract session_key from the path
                 path_parts = scope["path"].strip("/").split("/")
