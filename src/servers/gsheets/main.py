@@ -159,6 +159,7 @@ def create_server(user_id, api_key=None):
     server.api_key = api_key
 
     @server.list_tools()
+    @profile
     async def handle_list_tools() -> list[types.Tool]:
         return [
             types.Tool(
@@ -408,6 +409,7 @@ def create_server(user_id, api_key=None):
         ]
 
     @server.call_tool()
+    @profile
     async def handle_call_tool(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:

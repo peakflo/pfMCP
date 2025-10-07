@@ -39,6 +39,7 @@ connection_total = Counter(
 METRICS_PORT = 9091
 
 
+@profile
 def debug_session_store(event: str, session_id: str = None):
     """Debug session management state with structured JSON logging
 
@@ -57,6 +58,7 @@ def debug_session_store(event: str, session_id: str = None):
     logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
 
 
+@profile
 def discover_servers():
     """Discover and load all servers from the servers directory"""
     # Get the path to the servers directory
@@ -102,9 +104,11 @@ def discover_servers():
     logger.info(f"Discovered {len(servers)} servers")
 
 
+@profile
 def create_metrics_app():
     """Create a separate Starlette app just for metrics"""
 
+    @profile
     async def metrics_endpoint(request):
         """Prometheus metrics endpoint"""
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
@@ -154,6 +158,7 @@ def create_server_for_session(server_name: str, session_key_encoded: str) -> Ser
     return server
 
 
+@profile
 def create_starlette_app():
     """Create a Starlette app with stateless MCP servers"""
 
@@ -165,6 +170,7 @@ def create_starlette_app():
 
     for server_name in servers.keys():
         # Create a session manager factory for this server
+        @profile
         def create_session_manager_for_server(name):
             @profile
             def session_manager_factory(scope: Scope):
@@ -190,7 +196,9 @@ def create_starlette_app():
         session_managers[server_name] = create_session_manager_for_server(server_name)
 
     # Create handlers for each server
+    @profile
     def create_server_handler(server_name: str):
+        @profile
         async def handle_server_request(
             scope: Scope, receive: Receive, send: Send
         ) -> None:
@@ -217,6 +225,7 @@ def create_starlette_app():
         logger.info(f"Added stateless routes for server: {server_name}")
 
     # Health checks
+    @profile
     async def root_handler(request):
         """Root endpoint that returns a simple 200 OK response"""
         return JSONResponse(
@@ -230,6 +239,7 @@ def create_starlette_app():
 
     routes.append(Route("/", endpoint=root_handler))
 
+    @profile
     async def health_check(request):
         """Health check endpoint"""
         return JSONResponse(
@@ -239,6 +249,7 @@ def create_starlette_app():
     routes.append(Route("/health_check", endpoint=health_check))
 
     @contextlib.asynccontextmanager
+    @profile
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         """Application lifespan context manager"""
         logger.info("Application started with stateless MCP servers!")
@@ -256,6 +267,7 @@ def create_starlette_app():
     return app
 
 
+@profile
 def run_metrics_server(host, port):
     """Run a separate metrics server on the specified port"""
     metrics_app = create_metrics_app()
@@ -263,6 +275,7 @@ def run_metrics_server(host, port):
     uvicorn.run(metrics_app, host=host, port=port)
 
 
+@profile
 def main():
     """Main entry point for the Starlette server"""
     parser = argparse.ArgumentParser(description="guMCP Stateless Server")
