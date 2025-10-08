@@ -119,7 +119,7 @@ def create_metrics_app():
     return app
 
 
-@profile
+# @profile
 def create_server_for_session(server_name: str, session_key_encoded: str) -> Server:
     """Create a stateless MCP server for a specific session"""
 

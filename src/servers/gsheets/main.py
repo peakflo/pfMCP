@@ -50,7 +50,7 @@ SCOPES = [
 ]
 
 
-@profile
+# @profile
 def extract_spreadsheet_id(sheet_url: str) -> str:
     """Extracts the spreadsheetId from a Google Sheets URL.
 
@@ -69,7 +69,7 @@ def extract_spreadsheet_id(sheet_url: str) -> str:
     raise ValueError("Invalid Google Sheets URL: could not extract spreadsheetId")
 
 
-@profile
+# @profile
 async def get_credentials(user_id, api_key=None):
     """Get credentials for the specified user
 
@@ -112,7 +112,7 @@ async def get_credentials(user_id, api_key=None):
     handle_missing_credentials()
 
 
-@profile
+# @profile
 async def create_sheets_service(user_id, api_key=None):
     """Create a new Sheets service instance for this request
 
@@ -127,7 +127,7 @@ async def create_sheets_service(user_id, api_key=None):
     return build("sheets", "v4", credentials=credentials)
 
 
-@profile
+# @profile
 async def create_drive_service(user_id, api_key=None):
     """Create a new Drive service instance for this request
 
@@ -142,7 +142,7 @@ async def create_drive_service(user_id, api_key=None):
     return build("drive", "v3", credentials=credentials)
 
 
-@profile
+# @profile
 def create_server(user_id, api_key=None):
     """Create a new server instance with optional user context
 
@@ -159,7 +159,7 @@ def create_server(user_id, api_key=None):
     server.api_key = api_key
 
     @server.list_tools()
-    @profile
+    # @profile
     async def handle_list_tools() -> list[types.Tool]:
         return [
             types.Tool(
@@ -409,7 +409,7 @@ def create_server(user_id, api_key=None):
         ]
 
     @server.call_tool()
-    @profile
+    # @profile
     async def handle_call_tool(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
@@ -1139,7 +1139,7 @@ def create_server(user_id, api_key=None):
 server = create_server
 
 
-@profile
+# @profile
 def get_initialization_options(server_instance: Server) -> InitializationOptions:
     """Get the initialization options for the server
 
