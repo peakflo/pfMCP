@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD python -m memory_profiler --backend tracemalloc ./src/servers/main.py --port ${PORT}
+CMD python ./src/servers/main.py --port ${PORT}
