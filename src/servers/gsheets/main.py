@@ -446,7 +446,6 @@ def create_server(user_id, api_key=None):
 
         sheets_service = await create_sheets_service(server.user_id, server.api_key)
         drive_service = await create_drive_service(server.user_id, server.api_key)
-        spread_sheets = sheets_service.spreadsheets()
 
         try:
             if name == "create-spreadsheet":
@@ -491,14 +490,19 @@ def create_server(user_id, api_key=None):
                     full_range = sheet
 
                 if include_grid_data:
-                    result = spread_sheets.get(
-                        spreadsheetId=spreadsheet_id,
-                        ranges=[full_range],
-                        includeGridData=True,
-                    ).execute()
+                    result = (
+                        sheets_service.spreadsheets()
+                        .get(
+                            spreadsheetId=spreadsheet_id,
+                            ranges=[full_range],
+                            includeGridData=True,
+                        )
+                        .execute()
+                    )
                 else:
                     values_result = (
-                        spread_sheets.values()
+                        sheets_service.spreadsheets()
+                        .values()
                         .get(spreadsheetId=spreadsheet_id, range=full_range)
                         .execute()
                     )
@@ -529,7 +533,8 @@ def create_server(user_id, api_key=None):
                     full_range = sheet
 
                 result = (
-                    spread_sheets.values()
+                    sheets_service.spreadsheets()
+                    .values()
                     .get(
                         spreadsheetId=spreadsheet_id,
                         range=full_range,
@@ -553,7 +558,8 @@ def create_server(user_id, api_key=None):
                 value_range_body = {"values": data}
 
                 result = (
-                    spread_sheets.values()
+                    sheets_service.spreadsheets()
+                    .values()
                     .update(
                         spreadsheetId=spreadsheet_id,
                         range=full_range,
@@ -580,7 +586,8 @@ def create_server(user_id, api_key=None):
                 batch_body = {"valueInputOption": "USER_ENTERED", "data": data}
 
                 result = (
-                    spread_sheets.values()
+                    sheets_service.spreadsheets()
+                    .values()
                     .batchUpdate(spreadsheetId=spreadsheet_id, body=batch_body)
                     .execute()
                 )
@@ -596,7 +603,11 @@ def create_server(user_id, api_key=None):
                 start_row = arguments.get("start_row")
 
                 # Get sheet ID
-                spreadsheet = spread_sheets.get(spreadsheetId=spreadsheet_id).execute()
+                spreadsheet = (
+                    sheets_service.spreadsheets()
+                    .get(spreadsheetId=spreadsheet_id)
+                    .execute()
+                )
                 sheet_id = None
 
                 for s in spreadsheet["sheets"]:
@@ -636,9 +647,11 @@ def create_server(user_id, api_key=None):
                     ]
                 }
 
-                result = spread_sheets.batchUpdate(
-                    spreadsheetId=spreadsheet_id, body=request_body
-                ).execute()
+                result = (
+                    sheets_service.spreadsheets()
+                    .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                    .execute()
+                )
 
                 return [
                     types.TextContent(type="text", text=json.dumps(result, indent=2))
@@ -651,7 +664,11 @@ def create_server(user_id, api_key=None):
                 start_column = arguments.get("start_column")
 
                 # Get sheet ID
-                spreadsheet = spread_sheets.get(spreadsheetId=spreadsheet_id).execute()
+                spreadsheet = (
+                    sheets_service.spreadsheets()
+                    .get(spreadsheetId=spreadsheet_id)
+                    .execute()
+                )
                 sheet_id = None
 
                 for s in spreadsheet["sheets"]:
@@ -691,9 +708,11 @@ def create_server(user_id, api_key=None):
                     ]
                 }
 
-                result = spread_sheets.batchUpdate(
-                    spreadsheetId=spreadsheet_id, body=request_body
-                ).execute()
+                result = (
+                    sheets_service.spreadsheets()
+                    .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                    .execute()
+                )
 
                 return [
                     types.TextContent(type="text", text=json.dumps(result, indent=2))
@@ -701,7 +720,11 @@ def create_server(user_id, api_key=None):
 
             if name == "list-sheets":
                 spreadsheet_id = arguments["spreadsheet_id"]
-                spreadsheet = spread_sheets.get(spreadsheetId=spreadsheet_id).execute()
+                spreadsheet = (
+                    sheets_service.spreadsheets()
+                    .get(spreadsheetId=spreadsheet_id)
+                    .execute()
+                )
                 sheet_names = [
                     sheet["properties"]["title"] for sheet in spreadsheet["sheets"]
                 ]
@@ -719,9 +742,11 @@ def create_server(user_id, api_key=None):
                     "requests": [{"addSheet": {"properties": {"title": title}}}]
                 }
 
-                result = spread_sheets.batchUpdate(
-                    spreadsheetId=spreadsheet_id, body=request_body
-                ).execute()
+                result = (
+                    sheets_service.spreadsheets()
+                    .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                    .execute()
+                )
 
                 new_sheet_props = result["replies"][0]["addSheet"]["properties"]
                 return [
@@ -746,7 +771,11 @@ def create_server(user_id, api_key=None):
                 destination_sheet = arguments["destination_sheet"]
 
                 # Get source sheet ID
-                src = spread_sheets.get(spreadsheetId=source_spreadsheet_id).execute()
+                src = (
+                    sheets_service.spreadsheets()
+                    .get(spreadsheetId=source_spreadsheet_id)
+                    .execute()
+                )
                 src_sheet_id = None
 
                 for s in src["sheets"]:
@@ -767,7 +796,8 @@ def create_server(user_id, api_key=None):
 
                 # Copy the sheet
                 copy_result = (
-                    spread_sheets.sheets()
+                    sheets_service.spreadsheets()
+                    .sheets()
                     .copyTo(
                         spreadsheetId=source_spreadsheet_id,
                         sheetId=src_sheet_id,
@@ -793,9 +823,14 @@ def create_server(user_id, api_key=None):
                         ]
                     }
 
-                    rename_result = spread_sheets.batchUpdate(
-                        spreadsheetId=destination_spreadsheet_id, body=rename_request
-                    ).execute()
+                    rename_result = (
+                        sheets_service.spreadsheets()
+                        .batchUpdate(
+                            spreadsheetId=destination_spreadsheet_id,
+                            body=rename_request,
+                        )
+                        .execute()
+                    )
 
                     return [
                         types.TextContent(
@@ -818,9 +853,11 @@ def create_server(user_id, api_key=None):
                 new_name = arguments["new_name"]
 
                 # Get sheet ID
-                spreadsheet_data = spread_sheets.get(
-                    spreadsheetId=spreadsheet_id
-                ).execute()
+                spreadsheet_data = (
+                    sheets_service.spreadsheets()
+                    .get(spreadsheetId=spreadsheet_id)
+                    .execute()
+                )
                 sheet_id = None
 
                 for s in spreadsheet_data["sheets"]:
@@ -849,9 +886,11 @@ def create_server(user_id, api_key=None):
                     ]
                 }
 
-                result = spread_sheets.batchUpdate(
-                    spreadsheetId=spreadsheet_id, body=request_body
-                ).execute()
+                result = (
+                    sheets_service.spreadsheets()
+                    .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+                    .execute()
+                )
 
                 return [
                     types.TextContent(type="text", text=json.dumps(result, indent=2))
@@ -869,7 +908,8 @@ def create_server(user_id, api_key=None):
                     try:
                         full_range = f"{sheet}!{range_str}"
                         result = (
-                            spread_sheets.values()
+                            sheets_service.spreadsheets()
+                            .values()
                             .get(spreadsheetId=spreadsheet_id, range=full_range)
                             .execute()
                         )
@@ -899,10 +939,14 @@ def create_server(user_id, api_key=None):
                     }
 
                     try:
-                        spreadsheet = spread_sheets.get(
-                            spreadsheetId=spreadsheet_id,
-                            fields="properties.title,sheets(properties(title,sheetId))",
-                        ).execute()
+                        spreadsheet = (
+                            sheets_service.spreadsheets()
+                            .get(
+                                spreadsheetId=spreadsheet_id,
+                                fields="properties.title,sheets(properties(title,sheetId))",
+                            )
+                            .execute()
+                        )
 
                         summary_data["title"] = spreadsheet.get("properties", {}).get(
                             "title", "Unknown Title"
@@ -926,7 +970,8 @@ def create_server(user_id, api_key=None):
                                     range_to_get = f"{sheet_title}!A1:{max_row}"
 
                                     result = (
-                                        spread_sheets.values()
+                                        sheets_service.spreadsheets()
+                                        .values()
                                         .get(
                                             spreadsheetId=spreadsheet_id,
                                             range=range_to_get,
@@ -1082,7 +1127,8 @@ def create_server(user_id, api_key=None):
             if name == "append-values":
                 spreadsheet_id = arguments["spreadsheet_id"]
                 result = (
-                    spread_sheets.values()
+                    sheets_service.spreadsheets()
+                    .values()
                     .append(
                         spreadsheetId=spreadsheet_id,
                         range=arguments["range"],
@@ -1108,7 +1154,8 @@ def create_server(user_id, api_key=None):
             if name == "clear-values":
                 spreadsheet_id = arguments["spreadsheet_id"]
                 result = (
-                    spread_sheets.values()
+                    sheets_service.spreadsheets()
+                    .values()
                     .clear(
                         spreadsheetId=spreadsheet_id, range=arguments["range"], body={}
                     )
@@ -1129,7 +1176,6 @@ def create_server(user_id, api_key=None):
 
             raise ValueError(f"Unknown tool: {name}")
         finally:
-            spread_sheets.close()
             sheets_service.close()
             drive_service.close()
 
