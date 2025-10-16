@@ -1,3 +1,4 @@
+import gc
 import os
 from memory_profiler import profile
 import sys
@@ -1178,6 +1179,7 @@ def create_server(user_id, api_key=None):
         finally:
             sheets_service.close()
             drive_service.close()
+            gc.collect()
 
     return server
 
