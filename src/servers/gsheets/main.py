@@ -1,3 +1,4 @@
+import gc
 import os
 from memory_profiler import profile
 import sys
@@ -164,7 +165,7 @@ def create_server(user_id, api_key=None):
         return [
             types.Tool(
                 name="create-spreadsheet",
-                description="Create a new Google Spreadsheet",
+                description='Create a new Google Spreadsheet with the specified title. Returns the spreadsheet ID, title, and URL for the newly created spreadsheet.\n\nExample parameters:\n- title: \'My Project Budget\'\n- title: \'Q4 Sales Report\'\n\nOutput format (JSON):\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "title": "My Project Budget",\n  "url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {"title": {"type": "string"}},
@@ -173,7 +174,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get-sheet-data",
-                description="Get data from a specific sheet in a Google Spreadsheet",
+                description='Get data from a specific sheet in a Google Spreadsheet. Returns cell values as a 2D array. Use include_grid_data=true for detailed cell information including formatting.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- range: \'A1:C10\' (optional, defaults to entire sheet)\n- include_grid_data: false (optional, defaults to false)\n\nOutput format (JSON) - include_grid_data=false:\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "valueRanges": [\n    {\n      "range": "Sheet1!A1:C3",\n      "values": [\n        ["Name", "Age", "City"],\n        ["John", "25", "New York"],\n        ["Jane", "30", "Los Angeles"]\n      ]\n    }\n  ]\n}\n\nOutput format (JSON) - include_grid_data=true:\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "sheets": [\n    {\n      "properties": {"title": "Sheet1"},\n      "data": [\n        {\n          "rowData": [\n            {\n              "values": [\n                {"formattedValue": "Name", "userEnteredFormat": {...}},\n                {"formattedValue": "Age", "userEnteredFormat": {...}}\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -187,7 +188,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get-sheet-formulas",
-                description="Get formulas from a specific sheet in a Google Spreadsheet",
+                description='Get formulas from a specific sheet in a Google Spreadsheet. Returns the raw formulas as they appear in the cells, not the calculated values.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- range: \'A1:C10\' (optional, defaults to entire sheet)\n\nOutput format (JSON):\n[\n  ["=SUM(A2:A10)", "=AVERAGE(B2:B10)", "=COUNT(C2:C10)"],\n  ["=A1*2", "=B1+10", "=C1-5"],\n  ["=IF(A2>100,\\"High\\",\\"Low\\")", "=VLOOKUP(B2,Sheet2!A:B,2,FALSE)", ""]\n]',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -200,7 +201,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="update-cells",
-                description="Update cells in a Google Spreadsheet",
+                description="Update cells in a Google Spreadsheet with new values. Data is provided as a 2D array where each inner array represents a row.\n\nExample parameters:\n- spreadsheet_url: 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'\n- sheet: 'Sheet1'\n- range: 'A1:C3'\n- data: [['Name', 'Age', 'City'], ['John', '25', 'New York'], ['Jane', '30', 'Los Angeles']]\n\nOutput format (JSON):\n{\n  \"spreadsheetId\": \"1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\",\n  \"updatedRange\": \"Sheet1!A1:C3\",\n  \"updatedRows\": 3,\n  \"updatedColumns\": 3,\n  \"updatedCells\": 9\n}",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -217,7 +218,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="batch-update-cells",
-                description="Batch update multiple ranges in a Google Spreadsheet",
+                description='Batch update multiple ranges in a Google Spreadsheet in a single operation. More efficient than multiple individual updates.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- ranges: {\n    \'A1:B2\': [[\'Header1\', \'Header2\'], [\'Value1\', \'Value2\']],\n    \'D1:E2\': [[\'Total\', \'Average\'], [\'100\', \'50\']]\n  }\n\nOutput format (JSON):\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "totalUpdatedRows": 4,\n  "totalUpdatedColumns": 4,\n  "totalUpdatedCells": 8,\n  "responses": [\n    {\n      "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n      "updatedRange": "Sheet1!A1:B2",\n      "updatedRows": 2,\n      "updatedColumns": 2,\n      "updatedCells": 4\n    },\n    {\n      "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n      "updatedRange": "Sheet1!D1:E2",\n      "updatedRows": 2,\n      "updatedColumns": 2,\n      "updatedCells": 4\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -230,7 +231,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="add-rows",
-                description="Add rows to a sheet in a Google Spreadsheet",
+                description='Add empty rows to a sheet in a Google Spreadsheet. Rows are inserted at the specified position, shifting existing rows down.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- count: 5 (number of rows to add)\n- start_row: 3 (optional, row index where to insert, 0-based, defaults to 0)\n\nOutput format (JSON):\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "replies": [\n    {\n      "insertDimension": {\n        "insertedRows": 5\n      }\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -244,7 +245,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="add-columns",
-                description="Add columns to a sheet in a Google Spreadsheet",
+                description='Add empty columns to a sheet in a Google Spreadsheet. Columns are inserted at the specified position, shifting existing columns right.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- count: 3 (number of columns to add)\n- start_column: 2 (optional, column index where to insert, 0-based, defaults to 0)\n\nOutput format (JSON):\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "replies": [\n    {\n      "insertDimension": {\n        "insertedColumns": 3\n      }\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -258,7 +259,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="list-sheets",
-                description="List all sheets in a Google Spreadsheet",
+                description='List all sheet tabs in a Google Spreadsheet. Returns an array of sheet names.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n\nOutput format (JSON):\n[\n  "Sheet1",\n  "Data Analysis",\n  "Summary",\n  "Charts"\n]',
                 inputSchema={
                     "type": "object",
                     "properties": {"spreadsheet_url": {"type": "string"}},
@@ -267,7 +268,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="create-sheet",
-                description="Create a new sheet tab in an existing Google Spreadsheet",
+                description='Create a new sheet tab in an existing Google Spreadsheet. The new sheet will be added as the last tab.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- title: \'New Analysis\'\n\nOutput format (JSON):\n{\n  "sheetId": 1234567890,\n  "title": "New Analysis",\n  "index": 3,\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -279,7 +280,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="copy-sheet",
-                description="Copy a sheet from one spreadsheet to another in Google Sheets",
+                description='Copy a sheet from one Google Spreadsheet to another. The copied sheet will include all data, formulas, and formatting.\n\nExample parameters:\n- source_spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- source_sheet: \'Data\'\n- destination_spreadsheet_url: \'https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- destination_sheet: \'Data Copy\'\n\nOutput format (JSON):\n{\n  "copy": {\n    "sheetId": 1234567890,\n    "title": "Data Copy"\n  },\n  "rename": {\n    "spreadsheetId": "2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "replies": [\n      {\n        "updateSheetProperties": {\n          "properties": {\n            "sheetId": 1234567890,\n            "title": "Data Copy"\n          }\n        }\n      }\n    ]\n  }\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -298,7 +299,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="rename-sheet",
-                description="Rename a sheet in a Google Spreadsheet",
+                description='Rename a sheet tab in a Google Spreadsheet. The sheet name must be unique within the spreadsheet.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- sheet: \'Sheet1\'\n- new_name: \'Data Analysis\'\n\nOutput format (JSON):\n{\n  "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n  "replies": [\n    {\n      "updateSheetProperties": {\n        "properties": {\n          "sheetId": 0,\n          "title": "Data Analysis"\n        }\n      }\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -311,7 +312,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get-multiple-sheet-data",
-                description="Get data from multiple specific ranges in Google Spreadsheets",
+                description='Get data from multiple specific ranges across different Google Spreadsheets in a single operation. More efficient than multiple individual get-sheet-data calls.\n\nExample parameters:\n- queries: [\n    {\n      "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n      "sheet": "Sheet1",\n      "range": "A1:C5"\n    },\n    {\n      "spreadsheet_url": "https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n      "sheet": "Data",\n      "range": "B1:D10"\n    }\n  ]\n\nOutput format (JSON):\n[\n  {\n    "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "sheet": "Sheet1",\n    "range": "A1:C5",\n    "data": [\n      ["Name", "Age", "City"],\n      ["John", "25", "New York"],\n      ["Jane", "30", "Los Angeles"]\n    ]\n  },\n  {\n    "spreadsheet_url": "https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "sheet": "Data",\n    "range": "B1:D10",\n    "error": "Sheet \'Data\' not found"\n  }\n]',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -333,7 +334,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="get-multiple-spreadsheet-summary",
-                description="Get a summary of multiple Google Spreadsheets",
+                description='Get a comprehensive summary of multiple Google Spreadsheets including sheet names, headers, and sample data. Useful for quickly understanding the structure of multiple spreadsheets.\n\nExample parameters:\n- spreadsheet_urls: [\n    \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\',\n    \'https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n  ]\n- rows_to_fetch: 5 (optional, number of sample rows to fetch per sheet, defaults to 5)\n\nOutput format (JSON):\n[\n  {\n    "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "spreadsheet_id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "title": "Project Budget",\n    "sheets": [\n      {\n        "title": "Sheet1",\n        "sheet_id": 0,\n        "headers": ["Category", "Amount", "Date"],\n        "first_rows": [\n          ["Office Supplies", "150.00", "2024-01-15"],\n          ["Travel", "300.00", "2024-01-20"]\n        ],\n        "error": null\n      }\n    ],\n    "error": null\n  },\n  {\n    "spreadsheet_url": "https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "spreadsheet_id": "2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "title": "Sales Report",\n    "sheets": [],\n    "error": "Error fetching spreadsheet: Permission denied"\n  }\n]',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -348,7 +349,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="list-spreadsheets",
-                description="List all spreadsheets in Google Drive",
+                description='List all Google Spreadsheets accessible to the authenticated user in Google Drive. Results are ordered by modification time (most recent first).\n\nExample parameters:\n- No parameters required\n\nOutput format (JSON):\n[\n  {\n    "id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "title": "Project Budget 2024",\n    "url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"\n  },\n  {\n    "id": "2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "title": "Sales Report Q4",\n    "url": "https://docs.google.com/spreadsheets/d/2CxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"\n  },\n  {\n    "id": "3DxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "title": "Team Meeting Notes",\n    "url": "https://docs.google.com/spreadsheets/d/3DxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"\n  }\n]',
                 inputSchema={
                     "type": "object",
                     "properties": {},
@@ -357,7 +358,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="share-spreadsheet",
-                description="Share a Google Spreadsheet with multiple users",
+                description='Share a Google Spreadsheet with multiple users by granting them specific access roles. Supports reader, commenter, and writer permissions.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- recipients: [\n    {\n      "email_address": "john.doe@company.com",\n      "role": "writer"\n    },\n    {\n      "email_address": "jane.smith@company.com",\n      "role": "reader"\n    },\n    {\n      "email_address": "reviewer@company.com",\n      "role": "commenter"\n    }\n  ]\n- send_notification: true (optional, defaults to true)\n\nValid roles: \'reader\' (view only), \'commenter\' (view and comment), \'writer\' (edit)\n\nOutput format (JSON):\n{\n  "successes": [\n    {\n      "email_address": "john.doe@company.com",\n      "role": "writer",\n      "permissionId": "12345678901234567890"\n    },\n    {\n      "email_address": "jane.smith@company.com",\n      "role": "reader",\n      "permissionId": "09876543210987654321"\n    }\n  ],\n  "failures": [\n    {\n      "email_address": "invalid@email.com",\n      "error": "Failed to share: User not found"\n    }\n  ]\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -380,7 +381,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="append-values",
-                description="Append values to a sheet in Google Sheets",
+                description='Append new rows of data to the end of a sheet in Google Sheets. Data is added after the last row with content.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- range: \'A:C\' (column range to append to)\n- values: [\n    [\'Alice\', \'28\', \'Chicago\'],\n    [\'Bob\', \'35\', \'Miami\'],\n    [\'Charlie\', \'42\', \'Seattle\']\n  ]\n\nOutput format (JSON):\n{\n  "message": "Appended 3 rows.",\n  "result": {\n    "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "tableRange": "Sheet1!A1:C10",\n    "updates": {\n      "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n      "updatedRange": "Sheet1!A8:C10",\n      "updatedRows": 3,\n      "updatedColumns": 3,\n      "updatedCells": 9\n    }\n  }\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -396,7 +397,7 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="clear-values",
-                description="Clear a sheet range in Google Sheets",
+                description='Clear all values and formulas from a specified range in a Google Sheets. This removes cell content but preserves formatting.\n\nExample parameters:\n- spreadsheet_url: \'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms\'\n- range: \'A1:C10\' (range to clear)\n\nOutput format (JSON):\n{\n  "message": "Range cleared successfully.",\n  "result": {\n    "spreadsheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",\n    "clearedRange": "Sheet1!A1:C10"\n  }\n}',
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -1178,6 +1179,7 @@ def create_server(user_id, api_key=None):
         finally:
             sheets_service.close()
             drive_service.close()
+            gc.collect()
 
     return server
 
