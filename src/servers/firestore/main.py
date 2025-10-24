@@ -97,14 +97,16 @@ def convert_input_to_value(value):
     elif isinstance(value, float):
         return {"doubleValue": value}
     elif isinstance(value, list):
-        return {"arrayValue": {"values": [convert_input_to_value(item) for item in value]}}
+        return {
+            "arrayValue": {"values": [convert_input_to_value(item) for item in value]}
+        }
     else:
         return {"stringValue": str(value)}
 
 
 def firestore_document_to_json(doc):
     """Convert Firestore document to JSON format"""
-    if hasattr(doc, 'to_dict'):
+    if hasattr(doc, "to_dict"):
         return doc.to_dict()
     return doc
 
@@ -112,32 +114,37 @@ def firestore_document_to_json(doc):
 def convert_firestore_to_serializable(obj):
     """Convert Firestore objects to JSON serializable format"""
     try:
-        if hasattr(obj, 'to_dict'):
+        if hasattr(obj, "to_dict"):
             return obj.to_dict()
-        elif hasattr(obj, 'path'):
+        elif hasattr(obj, "path"):
             # DocumentReference or CollectionReference
             return str(obj.path)
-        elif hasattr(obj, 'to_rfc3339'):
+        elif hasattr(obj, "to_rfc3339"):
             # Firestore Timestamp objects (DatetimeWithNanoseconds)
             return obj.to_rfc3339()
-        elif hasattr(obj, 'timestamp') and callable(getattr(obj, 'timestamp')):
+        elif hasattr(obj, "timestamp") and callable(getattr(obj, "timestamp")):
             # Other Firestore datetime objects - check if timestamp is callable
             try:
                 return obj.timestamp().isoformat()
             except (AttributeError, TypeError):
                 # If timestamp() fails, try other methods
-                if hasattr(obj, 'isoformat'):
+                if hasattr(obj, "isoformat"):
                     return obj.isoformat()
                 return str(obj)
         elif isinstance(obj, dict):
-            return {key: convert_firestore_to_serializable(value) for key, value in obj.items()}
+            return {
+                key: convert_firestore_to_serializable(value)
+                for key, value in obj.items()
+            }
         elif isinstance(obj, list):
             return [convert_firestore_to_serializable(item) for item in obj]
         else:
             return obj
     except Exception as e:
         # Log the error and return string representation as fallback
-        logger.warning(f"Failed to convert object {type(obj)} to serializable format: {e}")
+        logger.warning(
+            f"Failed to convert object {type(obj)} to serializable format: {e}"
+        )
         return str(obj)
 
 
@@ -146,30 +153,45 @@ def process_document_data(data, client):
     if isinstance(data, dict):
         processed = {}
         for key, value in data.items():
-            if isinstance(value, dict) and '_type' in value and '_value' in value:
+            if isinstance(value, dict) and "_type" in value and "_value" in value:
                 # Handle complex field types
-                field_type = value['_type']
-                field_value = value['_value']
-                
-                if field_type == 'timestamp':
+                field_type = value["_type"]
+                field_value = value["_value"]
+
+                if field_type == "timestamp":
                     # Convert ISO string to datetime object
                     try:
                         from datetime import datetime
-                        if 'T' in field_value and ('Z' in field_value or '+' in field_value or '-' in field_value[-6:]):
-                            processed[key] = datetime.fromisoformat(field_value.replace('Z', '+00:00'))
+
+                        if "T" in field_value and (
+                            "Z" in field_value
+                            or "+" in field_value
+                            or "-" in field_value[-6:]
+                        ):
+                            processed[key] = datetime.fromisoformat(
+                                field_value.replace("Z", "+00:00")
+                            )
                         else:
                             processed[key] = datetime.fromisoformat(field_value)
-                        logger.info(f"Converted timestamp field '{key}' with value '{field_value}'")
+                        logger.info(
+                            f"Converted timestamp field '{key}' with value '{field_value}'"
+                        )
                     except (ValueError, TypeError) as e:
-                        logger.warning(f"Failed to convert timestamp field '{key}': {e}. Using as string.")
+                        logger.warning(
+                            f"Failed to convert timestamp field '{key}': {e}. Using as string."
+                        )
                         processed[key] = field_value
-                elif field_type == 'reference':
+                elif field_type == "reference":
                     # Create DocumentReference
                     try:
                         processed[key] = client.document(field_value)
-                        logger.info(f"Converted reference field '{key}' with path '{field_value}'")
+                        logger.info(
+                            f"Converted reference field '{key}' with path '{field_value}'"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to create reference field '{key}': {e}. Using as string.")
+                        logger.warning(
+                            f"Failed to create reference field '{key}': {e}. Using as string."
+                        )
                         processed[key] = field_value
                 else:
                     # Unknown type, use as-is
@@ -184,12 +206,14 @@ def process_document_data(data, client):
         return data
 
 
-async def create_firestore_client(user_id, api_key=None, project_id=None, use_emulator=False):
+async def create_firestore_client(
+    user_id, api_key=None, project_id=None, use_emulator=False
+):
     """Create a Firestore client"""
     try:
         # Get Google OAuth2 credentials
         credentials = await get_credentials(user_id, SERVICE_NAME, api_key)
-        
+
         # Try to get project_id from auth client metadata
         final_project_id = project_id
         metadata = {}
@@ -197,39 +221,51 @@ async def create_firestore_client(user_id, api_key=None, project_id=None, use_em
         if not final_project_id:
             try:
                 from src.auth.factory import create_auth_client
+
                 auth_client = create_auth_client(api_key=api_key)
-                credentials_data = auth_client.get_user_credentials(SERVICE_NAME, user_id)
-                
+                credentials_data = auth_client.get_user_credentials(
+                    SERVICE_NAME, user_id
+                )
+
                 if credentials_data and isinstance(credentials_data, dict):
                     # Extract project ID from metadata (now included in credentials)
                     if "metadata" in credentials_data:
                         metadata = credentials_data.get("metadata", {})
-                        final_project_id = metadata.get("projectId") or metadata.get("project_id")
-                        logger.info(f"Extracted project_id from metadata: {final_project_id}")
+                        final_project_id = metadata.get("projectId") or metadata.get(
+                            "project_id"
+                        )
+                        logger.info(
+                            f"Extracted project_id from metadata: {final_project_id}"
+                        )
                         logger.info(f"Available metadata: {metadata}")
             except Exception as e:
                 logger.warning(f"Failed to extract project_id from metadata: {e}")
-        
+
         # Fallback to Application Default Credentials project
         if not final_project_id:
             try:
                 from google.auth import default
+
                 _, default_project = default()
                 final_project_id = default_project
-                logger.info(f"Using project_id from Application Default Credentials: {final_project_id}")
+                logger.info(
+                    f"Using project_id from Application Default Credentials: {final_project_id}"
+                )
             except Exception:
-                logger.warning("No project_id found in metadata or Application Default Credentials")
-        
+                logger.warning(
+                    "No project_id found in metadata or Application Default Credentials"
+                )
+
         if use_emulator:
-            os.environ['FIRESTORE_EMULATOR_HOST'] = 'localhost:8080'
-        
+            os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8080"
+
         # Create Firestore client with OAuth2 credentials
         client = firestore.Client(project=final_project_id, credentials=credentials)
-        
+
         # Store metadata in client for potential future use (non-breaking)
         if metadata:
             client._metadata = metadata
-        
+
         return client
     except Exception as e:
         logger.error(f"Failed to create Firestore client: {str(e)}")
@@ -255,10 +291,10 @@ def create_server(user_id, api_key=None):
         try:
             client = await create_firestore_client(server.user_id, server.api_key)
             collections = client.collections()
-            
+
             # List collections
             resources = []
-            
+
             for collection in collections:
                 logger.info(f"Found collection: {collection.id}")
                 resource = Resource(
@@ -267,7 +303,7 @@ def create_server(user_id, api_key=None):
                     description=f"Firestore collection: {collection.id}",
                 )
                 resources.append(resource)
-            
+
             logger.info(f"Total collections found: {len(resources)}")
             return resources
         except Exception as e:
@@ -285,24 +321,24 @@ def create_server(user_id, api_key=None):
 
         try:
             client = await create_firestore_client(server.user_id, server.api_key)
-            
+
             # Extract collection path from URI
             collection_path = uri_str.replace("firestore://", "")
-            
+
             # Query the collection
             docs = client.collection(collection_path).limit(10).stream()
-            
+
             # Convert documents to JSON
             documents = []
             for doc in docs:
                 doc_data = doc.to_dict()
-                doc_data['_id'] = doc.id
+                doc_data["_id"] = doc.id
                 # Convert any DocumentReference objects to strings
                 doc_data = convert_firestore_to_serializable(doc_data)
                 documents.append(doc_data)
-            
+
             formatted_data = json.dumps(documents, indent=2)
-            
+
             return [
                 ReadResourceContents(
                     content=formatted_data, mime_type="application/json"
@@ -555,9 +591,9 @@ def create_server(user_id, api_key=None):
 
         try:
             client = await create_firestore_client(
-                server.user_id, 
+                server.user_id,
                 server.api_key,
-                use_emulator=arguments.get("use_emulator", False)
+                use_emulator=arguments.get("use_emulator", False),
             )
 
             if name == "query_collection":
@@ -589,28 +625,54 @@ def create_server(user_id, api_key=None):
                     if value is not None:
                         # Convert string timestamps to Firestore Timestamp objects
                         processed_value = value
-                        
+
                         # Check if this is a date_value (explicit timestamp field)
-                        is_date_value = 'date_value' in compare_value and compare_value['date_value'] is not None
-                        
-                        if isinstance(value, str) and (is_date_value or any(timestamp_indicator in field.lower() for timestamp_indicator in ['_at', 'time', 'date', 'created', 'updated', 'modified'])):
+                        is_date_value = (
+                            "date_value" in compare_value
+                            and compare_value["date_value"] is not None
+                        )
+
+                        if isinstance(value, str) and (
+                            is_date_value
+                            or any(
+                                timestamp_indicator in field.lower()
+                                for timestamp_indicator in [
+                                    "_at",
+                                    "time",
+                                    "date",
+                                    "created",
+                                    "updated",
+                                    "modified",
+                                ]
+                            )
+                        ):
                             try:
                                 from datetime import datetime
-                                
+
                                 # Try to parse ISO 8601 format
-                                if 'T' in value and ('Z' in value or '+' in value or '-' in value[-6:]):
-                                    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                                if "T" in value and (
+                                    "Z" in value or "+" in value or "-" in value[-6:]
+                                ):
+                                    dt = datetime.fromisoformat(
+                                        value.replace("Z", "+00:00")
+                                    )
                                     processed_value = dt
-                                    logger.info(f"Converted {'date_value' if is_date_value else 'timestamp string'} '{value}' to datetime object for field '{field}'")
+                                    logger.info(
+                                        f"Converted {'date_value' if is_date_value else 'timestamp string'} '{value}' to datetime object for field '{field}'"
+                                    )
                                 else:
                                     # Try to parse as regular datetime
                                     dt = datetime.fromisoformat(value)
                                     processed_value = dt
-                                    logger.info(f"Converted {'date_value' if is_date_value else 'datetime string'} '{value}' to datetime object for field '{field}'")
+                                    logger.info(
+                                        f"Converted {'date_value' if is_date_value else 'datetime string'} '{value}' to datetime object for field '{field}'"
+                                    )
                             except (ValueError, TypeError) as e:
-                                logger.warning(f"Failed to convert {'date_value' if is_date_value else 'timestamp string'} '{value}' for field '{field}': {e}. Using as string.")
+                                logger.warning(
+                                    f"Failed to convert {'date_value' if is_date_value else 'timestamp string'} '{value}' for field '{field}': {e}. Using as string."
+                                )
                                 processed_value = value
-                        
+
                         # Map Firestore operators
                         if op == "EQUAL":
                             query = query.where(field, "==", processed_value)
@@ -625,9 +687,13 @@ def create_server(user_id, api_key=None):
                         elif op == "GREATER_THAN_OR_EQUAL":
                             query = query.where(field, ">=", processed_value)
                         elif op == "ARRAY_CONTAINS":
-                            query = query.where(field, "array_contains", processed_value)
+                            query = query.where(
+                                field, "array_contains", processed_value
+                            )
                         elif op == "ARRAY_CONTAINS_ANY":
-                            query = query.where(field, "array_contains_any", processed_value)
+                            query = query.where(
+                                field, "array_contains_any", processed_value
+                            )
                         elif op == "IN":
                             query = query.where(field, "in", processed_value)
                         elif op == "NOT_IN":
@@ -638,7 +704,9 @@ def create_server(user_id, api_key=None):
                     order_by = order.get("orderBy")
                     direction = order.get("orderByDirection", "ASCENDING")
                     if direction == "DESCENDING":
-                        query = query.order_by(order_by, direction=firestore.Query.DESCENDING)
+                        query = query.order_by(
+                            order_by, direction=firestore.Query.DESCENDING
+                        )
                     else:
                         query = query.order_by(order_by)
 
@@ -647,12 +715,12 @@ def create_server(user_id, api_key=None):
 
                 # Execute query
                 docs = query.stream()
-                
+
                 # Convert to JSON
                 documents = []
                 for doc in docs:
                     doc_data = doc.to_dict()
-                    doc_data['_id'] = doc.id
+                    doc_data["_id"] = doc.id
                     # Convert any DocumentReference objects to strings
                     doc_data = convert_firestore_to_serializable(doc_data)
                     documents.append(doc_data)
@@ -672,7 +740,7 @@ def create_server(user_id, api_key=None):
                     raise ValueError("Must supply document path.")
 
                 # Remove leading slash if present
-                if document_path.startswith('/'):
+                if document_path.startswith("/"):
                     document_path = document_path[1:]
 
                 # Get the document
@@ -681,7 +749,7 @@ def create_server(user_id, api_key=None):
 
                 if doc.exists:
                     doc_data = doc.to_dict()
-                    doc_data['_id'] = doc.id
+                    doc_data["_id"] = doc.id
                     # Convert any DocumentReference objects to strings
                     doc_data = convert_firestore_to_serializable(doc_data)
                     return [
@@ -700,7 +768,7 @@ def create_server(user_id, api_key=None):
 
             elif name == "list_collections":
                 database = arguments.get("database", "(default)")
-                
+
                 # List collections
                 collections = client.collections()
                 collection_names = [col.id for col in collections]
@@ -719,9 +787,11 @@ def create_server(user_id, api_key=None):
 
                 if not collection_path:
                     raise ValueError("Must supply collection path.")
-                
+
                 if not document_data or len(document_data) == 0:
-                    raise ValueError("document_data cannot be empty. You must provide actual field names and values to create a document.")
+                    raise ValueError(
+                        "document_data cannot be empty. You must provide actual field names and values to create a document."
+                    )
 
                 # Process document data to handle complex field types
                 processed_data = process_document_data(document_data, client)
@@ -733,7 +803,11 @@ def create_server(user_id, api_key=None):
                     result = {"id": document_id, "path": doc_ref.path, "created": True}
                 else:
                     doc_ref = client.collection(collection_path).add(processed_data)
-                    result = {"id": doc_ref[1].id, "path": doc_ref[1].path, "created": True}
+                    result = {
+                        "id": doc_ref[1].id,
+                        "path": doc_ref[1].path,
+                        "created": True,
+                    }
 
                 return [
                     TextContent(
@@ -748,12 +822,14 @@ def create_server(user_id, api_key=None):
 
                 if not document_path:
                     raise ValueError("Must supply document path.")
-                
+
                 if not document_data or len(document_data) == 0:
-                    raise ValueError("document_data cannot be empty. You must provide actual field names and values to update a document.")
+                    raise ValueError(
+                        "document_data cannot be empty. You must provide actual field names and values to update a document."
+                    )
 
                 # Remove leading slash if present
-                if document_path.startswith('/'):
+                if document_path.startswith("/"):
                     document_path = document_path[1:]
 
                 # Process document data to handle complex field types

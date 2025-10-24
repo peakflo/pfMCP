@@ -150,9 +150,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials: NangoStandardConnectionCredentials = response.json().get(
                     "credentials"
                 )
-                metadata = response.json().get(
-                    "metadata", {}
-                )
+                metadata = response.json().get("metadata", {})
                 credentials["metadata"] = metadata
                 return credentials
             elif auth_type == AUTH_TYPE_API_KEY:
