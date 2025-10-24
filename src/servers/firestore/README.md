@@ -1,21 +1,27 @@
 # Firestore MCP Server
 
-This MCP server provides integration with Google Cloud Firestore, allowing you to query collections, retrieve documents, and manage Firestore databases through the Model Context Protocol.
+This MCP server provides comprehensive integration with Google Cloud Firestore, allowing you to query collections, retrieve documents, create new records, update existing data, and manage Firestore databases through the Model Context Protocol.
 
 ## Features
 
 - **Query Collections**: Query Firestore collections with complex filters, ordering, and limits
 - **Get Documents**: Retrieve individual documents by their path
+- **Create Documents**: Add new documents to collections with support for complex field types
+- **Update Documents**: Modify existing documents with partial updates
 - **List Collections**: Discover available collections in your Firestore database
+- **Complex Field Types**: Support for timestamps and document references
 - **Emulator Support**: Work with Firestore emulator for development and testing
 
 ## Authentication
 
-This server requires Google Cloud credentials to access Firestore. You can authenticate using:
+This server supports multiple authentication methods for Google Cloud Firestore:
 
-1. **Service Account Key**: Download a JSON key file from Google Cloud Console
-2. **Application Default Credentials**: Use `gcloud auth application-default login`
-3. **Environment Variables**: Set `GOOGLE_APPLICATION_CREDENTIALS` to point to your service account key
+1. **Nango OAuth2**: Seamless authentication through Nango services
+2. **Service Account Key**: Download a JSON key file from Google Cloud Console
+3. **Application Default Credentials**: Use `gcloud auth application-default login`
+4. **Environment Variables**: Set `GOOGLE_APPLICATION_CREDENTIALS` to point to your service account key
+
+The server automatically extracts project ID from authentication metadata when using Nango OAuth2.
 
 ## Tools
 
@@ -69,6 +75,66 @@ Retrieve a single document by its path.
 }
 ```
 
+### create_document
+
+Create a new document in a Firestore collection with support for complex field types.
+
+**Parameters:**
+- `collection_path` (required): Path to the collection (e.g., "users", "orders")
+- `document_data` (required): Document data with field names and values (cannot be empty)
+- `document_id` (optional): Custom document ID (auto-generated if not provided)
+- `database` (optional): Database ID (defaults to "(default)")
+- `use_emulator` (optional): Use Firestore emulator (default: false)
+
+**Example:**
+```json
+{
+  "collection_path": "users",
+  "document_data": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "age": 30,
+    "created_at": {
+      "_type": "timestamp",
+      "_value": "2023-10-23T19:30:16Z"
+    },
+    "profile": {
+      "bio": "Software developer",
+      "location": "San Francisco"
+    }
+  }
+}
+```
+
+### update_document
+
+Update an existing document in Firestore with partial updates.
+
+**Parameters:**
+- `document_path` (required): Full path to the document (e.g., "users/user123")
+- `document_data` (required): Document data to update (cannot be empty)
+- `database` (optional): Database ID (defaults to "(default)")
+- `use_emulator` (optional): Use Firestore emulator (default: false)
+
+**Example:**
+```json
+{
+  "document_path": "users/user123",
+  "document_data": {
+    "email": "newemail@example.com",
+    "age": 31,
+    "updated_at": {
+      "_type": "timestamp",
+      "_value": "2023-10-23T19:30:16Z"
+    },
+    "profile": {
+      "bio": "Updated bio",
+      "location": "New York"
+    }
+  }
+}
+```
+
 ### list_collections
 
 List all collections in the database.
@@ -94,13 +160,53 @@ The following operators are supported for filtering:
 
 ## Value Types
 
-When specifying `compare_value`, use the appropriate type property:
+### Query Filter Values
+
+When specifying `compare_value` in filters, use the appropriate type property:
 
 - `string_value`: For string comparisons
 - `boolean_value`: For boolean comparisons
 - `integer_value`: For integer comparisons
 - `double_value`: For floating-point comparisons
 - `string_array_value`: For array of strings
+- `date_value`: For timestamp comparisons (ISO 8601 format)
+
+### Complex Field Types in Documents
+
+When creating or updating documents, use special syntax for complex field types:
+
+#### Timestamps
+```json
+{
+  "created_at": {
+    "_type": "timestamp",
+    "_value": "2023-10-23T19:30:16Z"
+  }
+}
+```
+
+#### Document References
+```json
+{
+  "user_id": {
+    "_type": "reference",
+    "_value": "users/123"
+  }
+}
+```
+
+#### Nested Objects
+```json
+{
+  "profile": {
+    "name": "John Doe",
+    "settings": {
+      "theme": "dark",
+      "notifications": true
+    }
+  }
+}
+```
 
 ## Emulator Support
 
@@ -127,7 +233,7 @@ pip install google-cloud-firestore
 # Run authentication
 python main.py auth
 
-# The server will be available through the guMCP framework
+# The server will be available through the pfMCP framework
 ```
 
 ## Security Notes
@@ -163,6 +269,68 @@ python main.py auth
 }
 ```
 
+### Query with timestamp filtering
+```json
+{
+  "collection_path": "orders",
+  "filters": [
+    {
+      "field": "created_at",
+      "op": "GREATER_THAN",
+      "compare_value": {"date_value": "2023-10-23T00:00:00Z"}
+    }
+  ],
+  "order": {
+    "orderBy": "created_at",
+    "orderByDirection": "DESCENDING"
+  }
+}
+```
+
+### Create a new user with complex fields
+```json
+{
+  "collection_path": "users",
+  "document_data": {
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "age": 28,
+    "created_at": {
+      "_type": "timestamp",
+      "_value": "2023-10-23T19:30:16Z"
+    },
+    "profile": {
+      "bio": "Software engineer",
+      "location": "Seattle",
+      "skills": ["Python", "JavaScript", "Go"]
+    },
+    "settings": {
+      "theme": "dark",
+      "notifications": true
+    }
+  }
+}
+```
+
+### Update user information
+```json
+{
+  "document_path": "users/user123",
+  "document_data": {
+    "email": "newemail@example.com",
+    "age": 29,
+    "updated_at": {
+      "_type": "timestamp",
+      "_value": "2023-10-23T20:15:30Z"
+    },
+    "profile": {
+      "bio": "Senior software engineer",
+      "location": "San Francisco"
+    }
+  }
+}
+```
+
 ### Get a specific document
 ```json
 {
@@ -174,3 +342,21 @@ python main.py auth
 ```json
 {}
 ```
+
+## Best Practices
+
+### Document Data Requirements
+- **Never send empty document_data**: Always include actual field names and values
+- **Use meaningful field names**: Choose descriptive names like `created_at`, `user_id`, `status`
+- **Include timestamps**: Add `created_at` and `updated_at` fields for tracking
+- **Validate data**: Ensure required fields are present before creating/updating
+
+### Complex Field Types
+- **Use timestamp syntax**: `{_type: "timestamp", _value: "ISO_string"}` for dates
+- **Use reference syntax**: `{_type: "reference", _value: "path/to/doc"}` for references
+- **Nest objects naturally**: Use regular JSON objects for nested data structures
+
+### Query Optimization
+- **Use appropriate limits**: Set reasonable limits (10-100) for performance
+- **Index your fields**: Ensure queried fields have Firestore indexes
+- **Filter early**: Apply filters before ordering for better performance

@@ -126,7 +126,7 @@ The following table provides an overview of the current servers implemented in p
 | Google Calendar | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GCalendar Docs](/src/servers/gcalendar/README.md) |
 | Google Maps | ⚠️ Coming soon | [GMaps Docs](/src/servers/gmaps/README.md) |
 | Google Meet | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GMeet Docs](/src/servers/gmeet/README.md) |
-| Google Firestore | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Firestore Docs](/src/servers/firestore/README.md) |
+| Google Firestore | ✅ Seamless with Nango auth | [Firestore Docs](/src/servers/firestore/README.md) |
 | YouTube | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [YouTube Docs](/src/servers/youtube/README.md) |
 | **Communication Tools** |  |  |
 | Slack | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Slack Docs](/src/servers/slack/README.md) |
