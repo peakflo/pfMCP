@@ -131,6 +131,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             headers = {"Authorization": f"Bearer {self.secret_key}"}
 
             response = requests.get(url, headers=headers)
+
             if response.status_code == 404:
                 logger.info(
                     f"No connection found for {service_name} connection {connection_id}"
@@ -149,6 +150,10 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials: NangoStandardConnectionCredentials = response.json().get(
                     "credentials"
                 )
+                metadata = response.json().get(
+                    "metadata", {}
+                )
+                credentials["metadata"] = metadata
                 return credentials
             elif auth_type == AUTH_TYPE_API_KEY:
                 # Return the credentials data as a dictionary

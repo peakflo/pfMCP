@@ -1,0 +1,26 @@
+name: "Firestore guMCP Server"
+icon: "assets/icon.png"
+description: "Interact with Google Cloud Firestore databases and collections"
+documentation_path: "README.md"
+resources:
+  - name: "collection"
+    description: "Firestore collections containing documents"
+    required_scopes:
+      - "https://www.googleapis.com/auth/cloud-platform"
+  - name: "document"
+    description: "Firestore documents with fields and data"
+    required_scopes:
+      - "https://www.googleapis.com/auth/cloud-platform"
+tools:
+  - name: "query_collection"
+    description: "Query Firestore collection with filters and ordering"
+    required_scopes:
+      - "https://www.googleapis.com/auth/cloud-platform"
+  - name: "get_document"
+    description: "Get a single document by its path"
+    required_scopes:
+      - "https://www.googleapis.com/auth/cloud-platform"
+  - name: "list_collections"
+    description: "List all collections in the database"
+    required_scopes:
+      - "https://www.googleapis.com/auth/cloud-platform"

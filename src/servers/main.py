@@ -6,12 +6,12 @@ import sys
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("gumcp-server")
+logger = logging.getLogger("pfmcp-server")
 
 
 def main():
-    """Parse arguments and launch the guMCP server"""
-    parser = argparse.ArgumentParser(description="guMCP Server")
+    """Parse arguments and launch the pfmcp-server"""
+    parser = argparse.ArgumentParser(description="pfmcp-server")
     parser.add_argument("--host", default="0.0.0.0", help="Host for server")
     parser.add_argument("--port", type=int, default=8000, help="Port for server")
 
