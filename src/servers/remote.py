@@ -92,21 +92,11 @@ def discover_servers():
                         }
                         logger.info(f"Loaded server: {server_name}")
                     else:
-                        missing_attrs = []
-                        if not hasattr(server_module, "create_server"):
-                            missing_attrs.append("create_server")
-                        if not hasattr(server_module, "get_initialization_options"):
-                            missing_attrs.append("get_initialization_options")
                         logger.warning(
-                            f"Server {server_name} is missing required attributes: {', '.join(missing_attrs)}"
+                            f"Server {server_name} does not have required create_server or get_initialization_options"
                         )
                 except Exception as e:
-                    import traceback
-
-                    logger.error(
-                        f"Failed to load server {server_name}: {e}\n"
-                        f"Traceback: {''.join(traceback.format_exception(type(e), e, e.__traceback__))}"
-                    )
+                    logger.error(f"Failed to load server {server_name}: {e}")
 
     logger.info(f"Discovered {len(servers)} servers")
 
@@ -177,11 +167,9 @@ def create_starlette_app():
         def create_session_manager_for_server(name):
             def session_manager_factory(scope: Scope):
                 # Extract session_key from the path
-                # Note: Mount strips the prefix, so path is already relative to /{server_name}
-                # For /firestore/UUID, after Mount, path becomes /UUID
                 path_parts = scope["path"].strip("/").split("/")
-                if len(path_parts) >= 1 and path_parts[0]:
-                    session_key_encoded = path_parts[0]
+                if len(path_parts) >= 2 and path_parts[0] == name:
+                    session_key_encoded = path_parts[1]
 
                     # Create server for this session
                     server = create_server_for_session(name, session_key_encoded)
