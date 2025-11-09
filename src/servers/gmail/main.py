@@ -735,6 +735,8 @@ def create_server(user_id, api_key=None):
                     TextContent(type="text", text=f"Failed to forward email: {str(e)}")
                 ]
 
+
+
         elif name == "update_email":
             if not arguments or "email_id" not in arguments:
                 raise ValueError("Missing email_id parameter")

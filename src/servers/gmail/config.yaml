@@ -11,3 +11,4 @@ tools:
     description: "Forward an email to recipients, preserving original content and attachments"
   - name: "update_email"
     description: "Update email labels (mark as read/unread, move to folders)"
+
