@@ -22,10 +22,7 @@ def authenticate_and_save_credentials(user_id, service_name, scopes):
     # Create and run flow
     flow = InstalledAppFlow.from_client_config(oauth_config, scopes)
     credentials = flow.run_local_server(
-        port=8080,
-        prompt="consent",
-        access_type="offline",
-        open_browser=True
+        port=8080, prompt="consent", access_type="offline", open_browser=True
     )
 
     # Save credentials using auth client
@@ -65,5 +62,3 @@ async def get_credentials(user_id, service_name, api_key=None):
         return Credentials(token=token)
 
     handle_missing_credentials()
-
-

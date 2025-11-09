@@ -56,18 +56,22 @@ logger = logging.getLogger(SERVICE_NAME)
 def parse_email_body(payload):
     """Extract email body from Gmail API payload"""
     body = {"text": "", "html": ""}
-    
+
     if "parts" in payload:
         # Multipart message
         for part in payload["parts"]:
             mime_type = part.get("mimeType", "")
-            
+
             if mime_type == "text/plain":
                 if "data" in part.get("body", {}):
-                    body["text"] = urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+                    body["text"] = urlsafe_b64decode(part["body"]["data"]).decode(
+                        "utf-8", errors="replace"
+                    )
             elif mime_type == "text/html":
                 if "data" in part.get("body", {}):
-                    body["html"] = urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+                    body["html"] = urlsafe_b64decode(part["body"]["data"]).decode(
+                        "utf-8", errors="replace"
+                    )
             elif mime_type.startswith("multipart/"):
                 # Recursively parse nested multipart
                 nested_body = parse_email_body(part)
@@ -79,19 +83,21 @@ def parse_email_body(payload):
         # Single part message
         if "body" in payload and "data" in payload["body"]:
             mime_type = payload.get("mimeType", "")
-            data = urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="replace")
+            data = urlsafe_b64decode(payload["body"]["data"]).decode(
+                "utf-8", errors="replace"
+            )
             if mime_type == "text/plain":
                 body["text"] = data
             elif mime_type == "text/html":
                 body["html"] = data
-    
+
     return body
 
 
 def get_attachments_info(payload):
     """Extract attachment information from Gmail API payload"""
     attachments = []
-    
+
     if "parts" in payload:
         for part in payload["parts"]:
             if part.get("filename"):
@@ -106,7 +112,7 @@ def get_attachments_info(payload):
             elif "parts" in part:
                 nested_attachments = get_attachments_info(part)
                 attachments.extend(nested_attachments)
-    
+
     return attachments
 
 
@@ -126,7 +132,9 @@ def download_attachment(gmail_service, user_id, message_id, attachment_id):
         return None
 
 
-def create_message_with_attachments(to, subject, body, cc=None, bcc=None, attachments=None):
+def create_message_with_attachments(
+    to, subject, body, cc=None, bcc=None, attachments=None
+):
     """Create a MIME message with optional attachments"""
     if attachments:
         message = email.mime.multipart.MIMEMultipart()
@@ -139,7 +147,7 @@ def create_message_with_attachments(to, subject, body, cc=None, bcc=None, attach
         if bcc:
             message["bcc"] = bcc
         return message
-    
+
     # For multipart messages
     message["to"] = to
     message["subject"] = subject
@@ -147,40 +155,46 @@ def create_message_with_attachments(to, subject, body, cc=None, bcc=None, attach
         message["cc"] = cc
     if bcc:
         message["bcc"] = bcc
-    
+
     # Attach the body
     message.attach(email.mime.text.MIMEText(body, "plain"))
-    
+
     # Attach files
     if attachments:
         for attachment in attachments:
             filename = attachment.get("filename", "attachment")
             content = attachment.get("content")  # Base64 encoded content
             mime_type = attachment.get("mimeType", "application/octet-stream")
-            
+
             if not content:
                 continue
-            
+
             # Decode base64 content
             try:
                 file_data = base64.b64decode(content)
             except Exception as e:
                 logger.error(f"Error decoding attachment {filename}: {str(e)}")
                 continue
-            
+
             # Determine main type and subtype
-            main_type, sub_type = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
-            
+            main_type, sub_type = (
+                mime_type.split("/", 1)
+                if "/" in mime_type
+                else ("application", "octet-stream")
+            )
+
             if main_type == "text":
-                part = email.mime.text.MIMEText(file_data.decode("utf-8", errors="replace"), _subtype=sub_type)
+                part = email.mime.text.MIMEText(
+                    file_data.decode("utf-8", errors="replace"), _subtype=sub_type
+                )
             else:
                 part = email.mime.base.MIMEBase(main_type, sub_type)
                 part.set_payload(file_data)
                 email.encoders.encode_base64(part)
-            
+
             part.add_header("Content-Disposition", f"attachment; filename={filename}")
             message.attach(part)
-    
+
     return message
 
 
@@ -545,7 +559,7 @@ def create_server(user_id, api_key=None):
                 if include_body:
                     payload = msg.get("payload", {})
                     body = parse_email_body(payload)
-                    
+
                     if body["text"]:
                         email_summary += f"\nBody (Text):\n{body['text'][:1000]}"
                         if len(body["text"]) > 1000:
@@ -734,8 +748,6 @@ def create_server(user_id, api_key=None):
                 return [
                     TextContent(type="text", text=f"Failed to forward email: {str(e)}")
                 ]
-
-
 
         elif name == "update_email":
             if not arguments or "email_id" not in arguments:
