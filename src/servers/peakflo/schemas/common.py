@@ -34,19 +34,28 @@ address_schema = {
     "properties": {
         "type": {
             "type": "string",
-            "description": "Type of address (e.g., billing, shipping)",
+            "description": "Type of address (e.g., billing, delivery, other)",
+            "enum": ["billing", "delivery", "other"],
         },
         "line1": {
             "type": "string",
             "description": "Primary address line",
         },
+        "line2": {
+            "type": "string",
+            "description": "Secondary address line",
+        },
         "city": {
             "type": "string",
             "description": "City name",
         },
+        "region": {
+            "type": "string",
+            "description": "Region or state",
+        },
         "country": {
             "type": "string",
-            "description": "Country code",
+            "description": "Country code in ALPHA-2 format (e.g., IN, US, SG)",
         },
         "postalCode": {
             "type": "string",
@@ -96,6 +105,7 @@ bank_detail_schema = {
             "description": "Whether this is the default bank account",
         },
     },
+    "additionalProperties": True,
 }
 
 line_item_schema = {
