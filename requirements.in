@@ -15,6 +15,7 @@ starlette
 uvicorn
 requests
 google
+google-cloud-firestore
 stripe
 PyGithub
 googlemaps

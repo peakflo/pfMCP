@@ -7,7 +7,6 @@ import threading
 import contextlib
 import time
 import json
-from memory_profiler import profile
 from typing import Dict, Any, AsyncIterator
 from starlette.routing import Route, Mount
 from starlette.applications import Starlette
@@ -22,7 +21,7 @@ from mcp.server import streamable_http_manager
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("gumcp-server")
+logger = logging.getLogger("pfmcp-server")
 
 # Dictionary to store servers
 servers = {}

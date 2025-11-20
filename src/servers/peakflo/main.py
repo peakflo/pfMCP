@@ -82,6 +82,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors/{arguments['externalId']}"
         message = "Vendor fetched successfully"
+    elif name == "create_vendor":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/vendors"
+        message = "Vendor created successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -120,7 +124,7 @@ async def make_peakflo_request(name, arguments, token):
 
             return {
                 "_status_code": status_code,
-                "message": status_code == 200
+                "message": (status_code == 200 or status_code == 201)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
                 "data": arguments if method != "GET" else response.json(),
