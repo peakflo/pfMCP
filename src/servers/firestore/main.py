@@ -115,7 +115,13 @@ def convert_firestore_to_serializable(obj):
     """Convert Firestore objects to JSON serializable format"""
     try:
         if hasattr(obj, "to_dict"):
-            return obj.to_dict()
+            return convert_firestore_to_serializable(obj.to_dict())
+        elif isinstance(obj, bytes):
+            # Convert bytes to string
+            try:
+                return obj.decode("utf-8")
+            except UnicodeDecodeError:
+                return obj.hex()
         elif hasattr(obj, "path"):
             # DocumentReference or CollectionReference
             return str(obj.path)
