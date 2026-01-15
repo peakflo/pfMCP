@@ -296,7 +296,6 @@ def create_server(user_id, api_key=None):
             resources = []
 
             for collection in collections:
-                logger.info(f"Found collection: {collection.id}")
                 resource = Resource(
                     uri=f"firestore://{collection.id}",
                     name=f"Collection: {collection.id}",
