@@ -433,6 +433,30 @@ def create_server(user_id, api_key=None):
                     "required": ["owner", "repo_name", "title", "body", "base", "head"],
                 },
             ),
+            types.Tool(
+                name="get_pull_request_changes",
+                description=(
+                    "Get code changes for a specific pull request, including per-file "
+                    "additions/deletions and diffs. Optionally filter by specific file paths."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "owner": {"type": "string"},
+                        "repo_name": {"type": "string"},
+                        "pull_request_number": {"type": "string"},
+                        "file_paths": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "Optional list of file paths to include. If omitted, all "
+                                "changed files in the PR are returned."
+                            ),
+                        },
+                    },
+                    "required": ["owner", "repo_name", "pull_request_number"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -704,6 +728,47 @@ def create_server(user_id, api_key=None):
                     "title": pull_request.title,
                     "number": pull_request.number,
                     "url": pull_request.html_url,
+                }
+
+            elif name == "get_pull_request_changes":
+                repo = github.get_repo(f"{arguments['owner']}/{arguments['repo_name']}")
+                pull_request = repo.get_pull(int(arguments["pull_request_number"]))
+
+                # Optional file path filtering (exact match on filename/path)
+                raw_files = list(pull_request.get_files())
+                file_paths: list[str] = arguments.get("file_paths") or []
+
+                def _include_file(file_obj) -> bool:
+                    if not file_paths:
+                        return True
+                    return file_obj.filename in file_paths
+
+                filtered_files = [f for f in raw_files if _include_file(f)]
+
+                additions = sum(f.additions for f in filtered_files)
+                deletions = sum(f.deletions for f in filtered_files)
+                total_changes = additions + deletions
+
+                files_changed = [
+                    {
+                        "filename": f.filename,
+                        "status": f.status,
+                        "additions": f.additions,
+                        "deletions": f.deletions,
+                        "changes": f.changes,
+                        "patch": f.patch,
+                    }
+                    for f in filtered_files
+                ]
+
+                result = {
+                    "prUrl": pull_request.html_url,
+                    "title": pull_request.title,
+                    "state": pull_request.state,
+                    "filesChanged": files_changed,
+                    "additions": additions,
+                    "deletions": deletions,
+                    "totalChanges": total_changes,
                 }
 
             else:
