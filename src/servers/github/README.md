@@ -49,7 +49,7 @@ This server exposes the following tools for interacting with GitHub:
 - `search_repositories` – Search for repositories
 - `list_public_user_repositories` – List all public repositories for the given user username
 - `list_organization_repositories` – List all repositories for the given organization name
-- `get_contents` – Get the contents of a file or in a repository
+- `get_contents` – Get file content or list directory at path; use path `''` for repo root; optional branch
 - `list_repository_languages` – List all languages used in a repository
 - `add_file_to_repository` - Add a file to a repository with a commit message
 - `list_commits` – List all commits for a repository by branch
@@ -67,6 +67,12 @@ This server exposes the following tools for interacting with GitHub:
 - `list_pull_requests` – List all pull requests for a repository
 - `get_pull_request` – Get a specific pull request for a repository
 - `create_pull_request` – Create a new pull request for a repository
+- `get_pull_request_changes` – Get code changes for a PR (per-file additions/deletions and diffs)
+- `get_tree` – Get Git tree for a ref (branch/tag/SHA); list all paths and types without file contents
+- `search_code` – Search code (e.g. `repo:owner/repo path:src`); rate limit 10 req/min
+- `get_repository` – Get repository metadata (default_branch, description, etc.)
+
+**Suggested “read code” flow for agents:** Use `get_repository` for default branch, then `get_tree` (recursive) to see all paths, then `get_contents` for specific files; use `search_code` sparingly to find symbols or text.
 
 ---
 
