@@ -848,7 +848,11 @@ def create_server(user_id, api_key=None):
                         "mode": e.mode,
                         "type": e.type,
                         "sha": e.sha,
-                        **({"size": e.size} if hasattr(e, "size") and e.size is not None else {}),
+                        **(
+                            {"size": e.size}
+                            if hasattr(e, "size") and e.size is not None
+                            else {}
+                        ),
                     }
                     for e in git_tree.tree
                 ]
@@ -894,8 +898,12 @@ def create_server(user_id, api_key=None):
                     "description": repo.description or "",
                     "default_branch": repo.default_branch,
                     "language": repo.language,
-                    "topics": list(repo.get_topics()) if hasattr(repo, "get_topics") else [],
-                    "updated_at": repo.updated_at.isoformat() if repo.updated_at else None,
+                    "topics": (
+                        list(repo.get_topics()) if hasattr(repo, "get_topics") else []
+                    ),
+                    "updated_at": (
+                        repo.updated_at.isoformat() if repo.updated_at else None
+                    ),
                 }
 
             else:
