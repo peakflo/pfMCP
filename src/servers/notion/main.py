@@ -182,6 +182,42 @@ def create_server(user_id, api_key=None):
                     "required": ["block_id"],
                 },
             ),
+            types.Tool(
+                name="comment_on_page",
+                description="Add a comment to a page in Notion (top-level page comment)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "page": {
+                            "type": "string",
+                            "description": "The page ID or Notion page URL to comment on",
+                        },
+                        "comment": {
+                            "type": "string",
+                            "description": "The comment text to add (plain text or markdown)",
+                        },
+                    },
+                    "required": ["page", "comment"],
+                },
+            ),
+            types.Tool(
+                name="comment_on_block",
+                description="Add a comment to a specific block in Notion (inline comment on that block)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "block_id": {
+                            "type": "string",
+                            "description": "The block ID to attach the comment to",
+                        },
+                        "comment": {
+                            "type": "string",
+                            "description": "The comment text to add (plain text or markdown)",
+                        },
+                    },
+                    "required": ["block_id", "comment"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -245,6 +281,27 @@ def create_server(user_id, api_key=None):
             elif name == "get_block_children":
                 result = await notion.blocks.children.list(
                     block_id=arguments["block_id"]
+                )
+            elif name == "comment_on_page":
+                page_value = arguments["page"]
+                if "notion.so" in page_value or page_value.startswith(
+                    ("http://", "https://")
+                ):
+                    page_id = extract_page_id_from_url(page_value)
+                else:
+                    page_id = page_value
+                result = await notion.comments.create(
+                    parent={"page_id": page_id},
+                    rich_text=[
+                        {"type": "text", "text": {"content": arguments["comment"]}}
+                    ],
+                )
+            elif name == "comment_on_block":
+                result = await notion.comments.create(
+                    parent={"block_id": arguments["block_id"]},
+                    rich_text=[
+                        {"type": "text", "text": {"content": arguments["comment"]}}
+                    ],
                 )
             else:
                 raise ValueError(f"Unknown tool: {name}")
