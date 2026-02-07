@@ -168,9 +168,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     return None
 
                 if response.status_code in _RETRYABLE_STATUS_CODES:
-                    last_error = (
-                        f"HTTP {response.status_code}: {response.text}"
-                    )
+                    last_error = f"HTTP {response.status_code}: {response.text}"
                     logger.warning(
                         f"[get_user_credentials] retryable error (attempt {attempt + 1}/{self._MAX_RETRIES}) "
                         f"for {service_name} connection {connection_id}: {last_error}"
