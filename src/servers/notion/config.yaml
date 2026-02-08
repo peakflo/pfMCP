@@ -19,3 +19,7 @@ tools:
     description: "Append content blocks to a page or block"
   - name: "get-block-children"
     description: "List content blocks of a page or block"
+  - name: "comment-on-page"
+    description: "Add a comment to a page (top-level)"
+  - name: "comment-on-block"
+    description: "Add a comment to a specific block"

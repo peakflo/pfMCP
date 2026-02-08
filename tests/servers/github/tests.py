@@ -528,3 +528,30 @@ async def test_list_pull_requests(client):
     print(f"\t{response}")
 
     print("✅ Successfully listed repository pull requests")
+
+
+@pytest.mark.asyncio
+async def test_get_pull_request_changes(client):
+    """Test getting code changes for a pull request"""
+    owner = "rbehal"  # Change as per the OAuth user
+    repo_name = "mcp_repo_" + TEST_UUID
+    pull_request_number = 1
+
+    response = await client.process_query(
+        "Use the get_pull_request_changes tool with "
+        f"owner: {owner}, repo_name: {repo_name}, pull_request_number: {pull_request_number}. "
+        "If you get the pull request changes successfully, start your response with "
+        "'Here are the pull request changes' and then show key details including totals and some files."
+    )
+
+    assert (
+        "here are the pull request changes" in response.lower()
+    ), f"Expected success phrase not found in response: {response}"
+    assert (
+        response and len(response) > 0
+    ), f"No pull request changes found for repository {repo_name}"
+
+    print("Pull request changes:")
+    print(f"\t{response}")
+
+    print("✅ Successfully retrieved pull request changes")

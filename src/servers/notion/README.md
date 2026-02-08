@@ -7,7 +7,7 @@ pfMCP server implementation for interacting with Notion using OAuth authenticati
 ### 📦 Prerequisites
 
 - Python 3.11+
-- A Notion integration created at [Notion Developer Portal](https://www.notion.com/my-integrations)
+- A Notion integration created at [Notion Developer Portal](https://www.notion.com/my-integrations). For comment tools (`comment_on_page`, `comment_on_block`), enable **insert comment** capability in your [integration settings](https://www.notion.so/profile/integrations).
 - A local OAuth config file with your Notion `client_id`, `client_secret`, and `redirect_uri`
 
 Create a file named `oauth.json`:
@@ -44,6 +44,8 @@ This server exposes the following tools for interacting with Notion:
 - `create_page` – Create a new page in a database
 - `append_blocks` – Append content blocks to a page or block
 - `get_block_children` – List content blocks of a page or block
+- `comment_on_page` – Add a top-level comment on a page (page ID or URL + comment text)
+- `comment_on_block` – Add a comment on a specific block (block ID + comment text)
 
 ---
 

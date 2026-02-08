@@ -188,7 +188,10 @@ def create_server(user_id, api_key=None):
             # Repository Contents & Commits
             types.Tool(
                 name="get_contents",
-                description="Get the contents of a file or in a repository",
+                description=(
+                    "Get file content or list directory at path. Use path '' for repo root. "
+                    "Optionally specify branch/ref; omit for default branch."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -197,7 +200,7 @@ def create_server(user_id, api_key=None):
                         "path": {"type": "string"},
                         "branch": {"type": "string"},
                     },
-                    "required": ["owner", "repo", "path"],
+                    "required": ["owner", "repo_name", "path"],
                 },
             ),
             types.Tool(
@@ -433,6 +436,84 @@ def create_server(user_id, api_key=None):
                     "required": ["owner", "repo_name", "title", "body", "base", "head"],
                 },
             ),
+            types.Tool(
+                name="get_pull_request_changes",
+                description=(
+                    "Get code changes for a specific pull request, including per-file "
+                    "additions/deletions and diffs. Optionally filter by specific file paths."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "owner": {"type": "string"},
+                        "repo_name": {"type": "string"},
+                        "pull_request_number": {"type": "string"},
+                        "file_paths": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "Optional list of file paths to include. If omitted, all "
+                                "changed files in the PR are returned."
+                            ),
+                        },
+                    },
+                    "required": ["owner", "repo_name", "pull_request_number"],
+                },
+            ),
+            # Agent code-reading tools
+            types.Tool(
+                name="get_tree",
+                description=(
+                    "Get the Git tree for a ref (branch, tag, or commit SHA). Returns all paths "
+                    "and types (blob/tree) without file contents. Use recursive=true for full "
+                    "tree; omit or false for one level. Limit 100k entries when recursive."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "owner": {"type": "string"},
+                        "repo_name": {"type": "string"},
+                        "ref": {
+                            "type": "string",
+                            "description": "Branch name, tag, or commit SHA (e.g. main).",
+                        },
+                        "recursive": {
+                            "type": "boolean",
+                            "description": "If true, return full recursive tree; otherwise one level.",
+                        },
+                    },
+                    "required": ["owner", "repo_name", "ref"],
+                },
+            ),
+            types.Tool(
+                name="search_code",
+                description=(
+                    "Search code. Use query qualifiers e.g. repo:owner/repo path:src language:py. "
+                    "Rate limit: 10 requests/min for code search."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "sort": {"type": "string"},
+                        "order": {"type": "string"},
+                        "per_page": {"type": "integer"},
+                    },
+                    "required": ["query"],
+                },
+            ),
+            types.Tool(
+                name="get_repository",
+                description="Get repository metadata (default_branch, description, etc.) for context.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "owner": {"type": "string"},
+                        "repo_name": {"type": "string"},
+                    },
+                    "required": ["owner", "repo_name"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -514,7 +595,12 @@ def create_server(user_id, api_key=None):
             # Repository Contents & Commits
             elif name == "get_contents":
                 repo = github.get_repo(f"{arguments['owner']}/{arguments['repo_name']}")
-                contents = repo.get_contents(arguments["path"], ref=arguments["branch"])
+                ref = arguments.get("branch")
+                contents = (
+                    repo.get_contents(arguments["path"], ref=ref)
+                    if ref is not None
+                    else repo.get_contents(arguments["path"])
+                )
                 if isinstance(contents, list):
                     result = [
                         {"name": item.name, "path": item.path, "type": item.type}
@@ -704,6 +790,120 @@ def create_server(user_id, api_key=None):
                     "title": pull_request.title,
                     "number": pull_request.number,
                     "url": pull_request.html_url,
+                }
+
+            elif name == "get_pull_request_changes":
+                repo = github.get_repo(f"{arguments['owner']}/{arguments['repo_name']}")
+                pull_request = repo.get_pull(int(arguments["pull_request_number"]))
+
+                # Optional file path filtering (exact match on filename/path)
+                raw_files = list(pull_request.get_files())
+                file_paths: list[str] = arguments.get("file_paths") or []
+
+                def _include_file(file_obj) -> bool:
+                    if not file_paths:
+                        return True
+                    return file_obj.filename in file_paths
+
+                filtered_files = [f for f in raw_files if _include_file(f)]
+
+                additions = sum(f.additions for f in filtered_files)
+                deletions = sum(f.deletions for f in filtered_files)
+                total_changes = additions + deletions
+
+                files_changed = [
+                    {
+                        "filename": f.filename,
+                        "status": f.status,
+                        "additions": f.additions,
+                        "deletions": f.deletions,
+                        "changes": f.changes,
+                        "patch": f.patch,
+                    }
+                    for f in filtered_files
+                ]
+
+                result = {
+                    "prUrl": pull_request.html_url,
+                    "title": pull_request.title,
+                    "state": pull_request.state,
+                    "filesChanged": files_changed,
+                    "additions": additions,
+                    "deletions": deletions,
+                    "totalChanges": total_changes,
+                }
+
+            elif name == "get_tree":
+                repo = github.get_repo(f"{arguments['owner']}/{arguments['repo_name']}")
+                ref = arguments["ref"]
+                recursive = arguments.get("recursive", False)
+                # Only pass recursive when True; omit for non-recursive (PyGithub/API quirk)
+                if recursive:
+                    git_tree = repo.get_git_tree(ref, recursive=1)
+                else:
+                    git_tree = repo.get_git_tree(ref)
+                tree_entries = [
+                    {
+                        "path": e.path,
+                        "mode": e.mode,
+                        "type": e.type,
+                        "sha": e.sha,
+                        **(
+                            {"size": e.size}
+                            if hasattr(e, "size") and e.size is not None
+                            else {}
+                        ),
+                    }
+                    for e in git_tree.tree
+                ]
+                result = {
+                    "sha": git_tree.sha,
+                    "url": git_tree.url,
+                    "truncated": getattr(git_tree, "truncated", False),
+                    "tree": tree_entries,
+                }
+
+            elif name == "search_code":
+                query = arguments["query"]
+                sort = arguments.get("sort")
+                order = arguments.get("order")
+                per_page = arguments.get("per_page")
+                kwargs = {}
+                if sort is not None:
+                    kwargs["sort"] = sort
+                if order is not None:
+                    kwargs["order"] = order
+                if per_page is not None:
+                    kwargs["per_page"] = per_page
+                code_matches = github.search_code(query, **kwargs)
+                result = [
+                    {
+                        "name": f.name,
+                        "path": f.path,
+                        "sha": f.sha,
+                        "html_url": f.html_url,
+                        "repository": {
+                            "full_name": f.repository.full_name,
+                            "html_url": f.repository.html_url,
+                        },
+                    }
+                    for f in code_matches
+                ]
+
+            elif name == "get_repository":
+                repo = github.get_repo(f"{arguments['owner']}/{arguments['repo_name']}")
+                result = {
+                    "full_name": repo.full_name,
+                    "html_url": repo.html_url,
+                    "description": repo.description or "",
+                    "default_branch": repo.default_branch,
+                    "language": repo.language,
+                    "topics": (
+                        list(repo.get_topics()) if hasattr(repo, "get_topics") else []
+                    ),
+                    "updated_at": (
+                        repo.updated_at.isoformat() if repo.updated_at else None
+                    ),
                 }
 
             else:

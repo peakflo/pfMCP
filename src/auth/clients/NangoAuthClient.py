@@ -3,7 +3,8 @@ import time
 import logging
 import requests
 import jwt
-from typing import Optional, Dict, Any, TypeVar, Generic, TypedDict
+from typing import Optional, Dict, Any, Tuple, TypeVar, Generic, TypedDict
+from requests.exceptions import ConnectionError, Timeout
 
 from auth.constants import (
     SERVICE_NAME_MAP,
@@ -15,6 +16,9 @@ from auth.constants import (
 from .BaseAuthClient import BaseAuthClient, CredentialsT
 
 logger = logging.getLogger("nango-auth-client")
+
+# Retryable HTTP status codes
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class JWTTokenResponse(TypedDict):
@@ -44,6 +48,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
 
     Can work with any type of credentials that can be managed through Nango.
     """
+
+    # Class-level cache shared across all instances: {(service_name, connection_id): (timestamp, credentials_data)}
+    _cache: Dict[Tuple[str, str], Tuple[float, Any]] = {}
+    _cache_ttl: float = float(os.environ.get("NANGO_CACHE_TTL", "300"))  # 5 min default
+
+    _REQUEST_TIMEOUT: int = 10  # seconds
+    _MAX_RETRIES: int = 3
+    _INITIAL_BACKOFF: float = 1.0
 
     def __init__(self, secret_key: Optional[str] = None, host: Optional[str] = None):
         """
@@ -102,11 +114,93 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         )
         return {"access_token": jwt_token, "expires_at": expires_at}
 
+    def _get_cached_credentials(
+        self, service_name: str, connection_id: str
+    ) -> Optional[CredentialsT]:
+        """Return cached credentials if present and not expired."""
+        cache_key = (service_name, connection_id)
+        entry = NangoAuthClient._cache.get(cache_key)
+        if entry is None:
+            return None
+        cached_at, credentials_data = entry
+        if time.time() - cached_at > NangoAuthClient._cache_ttl:
+            del NangoAuthClient._cache[cache_key]
+            return None
+        logger.info(
+            f"[get_user_credentials] cache hit for {service_name} connection {connection_id}"
+        )
+        return credentials_data
+
+    def _set_cached_credentials(
+        self, service_name: str, connection_id: str, credentials_data: CredentialsT
+    ) -> None:
+        """Store credentials in the class-level cache."""
+        NangoAuthClient._cache[(service_name, connection_id)] = (
+            time.time(),
+            credentials_data,
+        )
+
+    def _fetch_connection_with_retries(
+        self, url: str, headers: Dict[str, str], service_name: str, connection_id: str
+    ) -> Optional[requests.Response]:
+        """
+        Fetch connection details from Nango API with retries and exponential backoff.
+
+        Returns the Response on success, or None for permanent failures (e.g. 404).
+        Raises an exception if all retries are exhausted on transient errors.
+        """
+        delay = self._INITIAL_BACKOFF
+        last_error = None
+
+        for attempt in range(self._MAX_RETRIES):
+            try:
+                response = requests.get(
+                    url, headers=headers, timeout=self._REQUEST_TIMEOUT
+                )
+
+                if response.status_code == 200:
+                    return response
+
+                if response.status_code == 404:
+                    logger.info(
+                        f"No connection found for {service_name} connection {connection_id}"
+                    )
+                    return None
+
+                if response.status_code in _RETRYABLE_STATUS_CODES:
+                    last_error = f"HTTP {response.status_code}: {response.text}"
+                    logger.warning(
+                        f"[get_user_credentials] retryable error (attempt {attempt + 1}/{self._MAX_RETRIES}) "
+                        f"for {service_name} connection {connection_id}: {last_error}"
+                    )
+                else:
+                    # Non-retryable error (4xx other than 404/429)
+                    logger.error(
+                        f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
+                    )
+                    return None
+
+            except (ConnectionError, Timeout) as e:
+                last_error = str(e)
+                logger.warning(
+                    f"[get_user_credentials] network error (attempt {attempt + 1}/{self._MAX_RETRIES}) "
+                    f"for {service_name} connection {connection_id}: {last_error}"
+                )
+
+            if attempt < self._MAX_RETRIES - 1:
+                time.sleep(delay)
+                delay *= 2
+
+        logger.error(
+            f"All {self._MAX_RETRIES} retries exhausted for {service_name} connection {connection_id}: {last_error}"
+        )
+        return None
+
     def get_user_credentials(
         self, service_name: str, connection_id: str
     ) -> Optional[CredentialsT]:
         """
-        Get user credentials from Nango API
+        Get user credentials from Nango API with caching and retries.
 
         Args:
             service_name: Name of the service (e.g., "github", "slack", etc.)
@@ -119,6 +213,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             logger.error("Nango secret key is required to get user credentials")
             return None
 
+        # Check cache first
+        cached = self._get_cached_credentials(service_name, connection_id)
+        if cached is not None:
+            return cached
+
         try:
             # Map the service name to Nango's service name
             nango_service_name = self._map_service_name(service_name)
@@ -130,19 +229,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             logger.info(f"[get_user_credentials] url: {url}")
             headers = {"Authorization": f"Bearer {self.secret_key}"}
 
-            response = requests.get(url, headers=headers)
+            response = self._fetch_connection_with_retries(
+                url, headers, service_name, connection_id
+            )
 
-            if response.status_code == 404:
-                logger.info(
-                    f"No connection found for {service_name} connection {connection_id}"
-                )
+            if response is None:
                 return None
 
-            if response.status_code != 200:
-                logger.error(
-                    f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
-                )
-                return None
+            result = None
 
             if auth_type == AUTH_TYPE_OAUTH2:
                 # Return the credentials data as a dictionary
@@ -152,14 +246,14 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 )
                 metadata = response.json().get("metadata", {})
                 credentials["metadata"] = metadata
-                return credentials
+                result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
                 # Return the credentials data as a dictionary
                 # The caller is responsible for converting to the appropriate credentials type
                 credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
                 )
-                return credentials
+                result = credentials
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 # Return the JWT token data
                 connection_data = response.json()
@@ -186,7 +280,12 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     metadata.get("privateKey"),
                     metadata.get("accessToken"),
                 )
-                return jwt_token_data
+                result = jwt_token_data
+
+            if result is not None:
+                self._set_cached_credentials(service_name, connection_id, result)
+
+            return result
 
         except Exception as e:
             logger.error(
