@@ -494,8 +494,16 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "ID of the attachment to download (from read_emails results)",
                         },
+                        "filename": {
+                            "type": "string",
+                            "description": "Filename of the attachment (from read_emails results)",
+                        },
+                        "mime_type": {
+                            "type": "string",
+                            "description": "MIME type of the attachment (from read_emails results)",
+                        },
                     },
-                    "required": ["email_id", "attachment_id"],
+                    "required": ["email_id", "attachment_id", "filename"],
                 },
             ),
         ]
@@ -824,44 +832,16 @@ def create_server(user_id, api_key=None):
 
             email_id = arguments["email_id"]
             attachment_id = arguments["attachment_id"]
+            filename = arguments["filename"]
+            mime_type = arguments.get("mime_type", "application/octet-stream")
 
-            # Fetch message to get attachment metadata
-            try:
-                msg = (
-                    gmail_service.users()
-                    .messages()
-                    .get(userId="me", id=email_id, format="full")
-                    .execute()
-                )
-            except Exception as e:
-                return [
-                    TextContent(type="text", text=f"Failed to fetch email: {str(e)}")
-                ]
-
-            # Find the matching attachment metadata
-            payload = msg.get("payload", {})
-            attachments_info = get_attachments_info(payload)
-            attachment_meta = None
-            for att in attachments_info:
-                if att.get("attachmentId") == attachment_id:
-                    attachment_meta = att
-                    break
-
-            if not attachment_meta:
-                return [
-                    TextContent(
-                        type="text",
-                        text=f"Attachment with ID {attachment_id} not found in email {email_id}.",
-                    )
-                ]
-
-            # Download the attachment binary data
+            # Download the attachment binary data directly
             att_data = download_attachment(gmail_service, "me", email_id, attachment_id)
             if not att_data:
                 return [
                     TextContent(
                         type="text",
-                        text=f"Failed to download attachment {attachment_meta['filename']}.",
+                        text=f"Failed to download attachment {filename} from email {email_id}.",
                     )
                 ]
 
@@ -870,8 +850,8 @@ def create_server(user_id, api_key=None):
                 storage = get_storage_service()
                 download_url = storage.upload_temporary(
                     data=att_data,
-                    filename=attachment_meta["filename"],
-                    mime_type=attachment_meta["mimeType"],
+                    filename=filename,
+                    mime_type=mime_type,
                 )
             except Exception as e:
                 return [
@@ -886,8 +866,8 @@ def create_server(user_id, api_key=None):
                 TextContent(
                     type="text",
                     text=(
-                        f"Attachment: {attachment_meta['filename']}\n"
-                        f"Type: {attachment_meta['mimeType']}\n"
+                        f"Attachment: {filename}\n"
+                        f"Type: {mime_type}\n"
                         f"Size: {size_kb:.1f} KB\n"
                         f"Download URL (expires in 1 hour): {download_url}"
                     ),
