@@ -22,9 +22,7 @@ def authenticate_and_save_credentials(user_id, service_name, scopes):
     # Create and run flow
     flow = InstalledAppFlow.from_client_config(oauth_config, scopes)
     credentials = flow.run_local_server(
-        port=8080,
-        redirect_uri_trailing_slash=False,
-        prompt="consent",  # Forces refresh token
+        port=8080, prompt="consent", access_type="offline", open_browser=True
     )
 
     # Save credentials using auth client
