@@ -29,6 +29,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.google.util import authenticate_and_save_credentials, get_credentials
+from src.utils.storage.factory import get_storage_service
 
 from googleapiclient.discovery import build
 import email.utils
@@ -36,7 +37,6 @@ import email.mime.text
 import email.mime.multipart
 import email.mime.base
 import email.encoders
-
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
@@ -480,6 +480,24 @@ def create_server(user_id, api_key=None):
                     "required": ["email_id"],
                 },
             ),
+            Tool(
+                name="get_attachment",
+                description="Get a temporary download URL for an email attachment",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "email_id": {
+                            "type": "string",
+                            "description": "ID of the email containing the attachment",
+                        },
+                        "attachment_id": {
+                            "type": "string",
+                            "description": "ID of the attachment to download (from read_emails results)",
+                        },
+                    },
+                    "required": ["email_id", "attachment_id"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -797,6 +815,84 @@ def create_server(user_id, api_key=None):
                 return [
                     TextContent(type="text", text=f"Failed to update email: {str(e)}")
                 ]
+
+        elif name == "get_attachment":
+            if not arguments or not all(
+                k in arguments for k in ["email_id", "attachment_id"]
+            ):
+                raise ValueError("Missing required parameters: email_id, attachment_id")
+
+            email_id = arguments["email_id"]
+            attachment_id = arguments["attachment_id"]
+
+            # Fetch message to get attachment metadata
+            try:
+                msg = (
+                    gmail_service.users()
+                    .messages()
+                    .get(userId="me", id=email_id, format="full")
+                    .execute()
+                )
+            except Exception as e:
+                return [
+                    TextContent(type="text", text=f"Failed to fetch email: {str(e)}")
+                ]
+
+            # Find the matching attachment metadata
+            payload = msg.get("payload", {})
+            attachments_info = get_attachments_info(payload)
+            attachment_meta = None
+            for att in attachments_info:
+                if att.get("attachmentId") == attachment_id:
+                    attachment_meta = att
+                    break
+
+            if not attachment_meta:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"Attachment with ID {attachment_id} not found in email {email_id}.",
+                    )
+                ]
+
+            # Download the attachment binary data
+            att_data = download_attachment(gmail_service, "me", email_id, attachment_id)
+            if not att_data:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"Failed to download attachment {attachment_meta['filename']}.",
+                    )
+                ]
+
+            # Upload to storage and get signed URL
+            try:
+                storage = get_storage_service()
+                download_url = storage.upload_temporary(
+                    data=att_data,
+                    filename=attachment_meta["filename"],
+                    mime_type=attachment_meta["mimeType"],
+                )
+            except Exception as e:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"Failed to upload attachment to storage: {str(e)}",
+                    )
+                ]
+
+            size_kb = len(att_data) / 1024
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        f"Attachment: {attachment_meta['filename']}\n"
+                        f"Type: {attachment_meta['mimeType']}\n"
+                        f"Size: {size_kb:.1f} KB\n"
+                        f"Download URL (expires in 1 hour): {download_url}"
+                    ),
+                )
+            ]
 
         raise ValueError(f"Unknown tool: {name}")
 
