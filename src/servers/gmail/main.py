@@ -37,6 +37,8 @@ import email.mime.text
 import email.mime.multipart
 import email.mime.base
 import email.encoders
+import email.policy
+from email.message import EmailMessage
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
@@ -135,20 +137,20 @@ def download_attachment(gmail_service, user_id, message_id, attachment_id):
 def create_message_with_attachments(
     to, subject, body, cc=None, bcc=None, attachments=None
 ):
-    """Create a MIME message with optional attachments"""
-    if attachments:
-        message = email.mime.multipart.MIMEMultipart()
-    else:
-        message = email.mime.text.MIMEText(body)
-        message["to"] = to
-        message["subject"] = subject
-        if cc:
-            message["cc"] = cc
-        if bcc:
-            message["bcc"] = bcc
-        return message
+    """Create a MIME message with optional attachments.
 
-    # For multipart messages
+    Uses the modern EmailMessage API with a no-wrap policy to prevent
+    Python's email library from auto-wrapping long lines via
+    quoted-printable soft line breaks.
+    """
+    # Policy that prevents automatic line wrapping of the body.
+    # Default max_line_length is 78, which causes quoted-printable soft
+    # line breaks. Setting to 998 (RFC 2822 absolute maximum) prevents
+    # wrapping for virtually all practical content. SMTPUTF8 uses
+    # cte_type='8bit' so the body is kept as-is without QP encoding.
+    _no_wrap_policy = email.policy.SMTPUTF8.clone(max_line_length=998)
+
+    message = EmailMessage(policy=_no_wrap_policy)
     message["to"] = to
     message["subject"] = subject
     if cc:
@@ -156,8 +158,8 @@ def create_message_with_attachments(
     if bcc:
         message["bcc"] = bcc
 
-    # Attach the body
-    message.attach(email.mime.text.MIMEText(body, "plain"))
+    # Set the plain-text body
+    message.set_content(body)
 
     # Attach files
     if attachments:
@@ -183,17 +185,12 @@ def create_message_with_attachments(
                 else ("application", "octet-stream")
             )
 
-            if main_type == "text":
-                part = email.mime.text.MIMEText(
-                    file_data.decode("utf-8", errors="replace"), _subtype=sub_type
-                )
-            else:
-                part = email.mime.base.MIMEBase(main_type, sub_type)
-                part.set_payload(file_data)
-                email.encoders.encode_base64(part)
-
-            part.add_header("Content-Disposition", f"attachment; filename={filename}")
-            message.attach(part)
+            message.add_attachment(
+                file_data,
+                maintype=main_type,
+                subtype=sub_type,
+                filename=filename,
+            )
 
     return message
 
