@@ -16,6 +16,7 @@ uvicorn
 requests
 google
 google-cloud-firestore
+google-cloud-storage
 stripe
 PyGithub
 googlemaps
