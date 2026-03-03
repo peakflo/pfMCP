@@ -32,6 +32,7 @@ from src.utils.google.util import authenticate_and_save_credentials, get_credent
 from src.utils.storage.factory import get_storage_service
 
 from googleapiclient.discovery import build
+import html as html_lib
 import email.utils
 import email.mime.text
 import email.mime.multipart
@@ -134,20 +135,34 @@ def download_attachment(gmail_service, user_id, message_id, attachment_id):
         return None
 
 
+def plain_text_to_html(text):
+    """Convert plain text to HTML, preserving line breaks and whitespace.
+
+    Gmail's servers hard-wrap text/plain bodies at ~78 characters (per RFC 2822)
+    by inserting permanent newline characters during the send process. Sending as
+    text/html avoids this server-side mutation entirely.
+    """
+    # Escape HTML special characters so user content is safe
+    escaped = html_lib.escape(text)
+    # Convert newlines to <br> tags to preserve intended line breaks
+    escaped = escaped.replace("\n", "<br>\n")
+    return (
+        "<html><body>"
+        '<div style="font-family: Arial, sans-serif; font-size: 14px;">'
+        f"{escaped}"
+        "</div>"
+        "</body></html>"
+    )
+
+
 def create_message_with_attachments(
     to, subject, body, cc=None, bcc=None, attachments=None
 ):
     """Create a MIME message with optional attachments.
 
-    Uses the modern EmailMessage API with a no-wrap policy to prevent
-    Python's email library from auto-wrapping long lines via
-    quoted-printable soft line breaks.
+    Sends the body as text/html to prevent Gmail's server-side hard-wrapping
+    of text/plain content at ~78 characters.
     """
-    # Policy that prevents automatic line wrapping of the body.
-    # Default max_line_length is 78, which causes quoted-printable soft
-    # line breaks. Setting to 998 (RFC 2822 absolute maximum) prevents
-    # wrapping for virtually all practical content. SMTPUTF8 uses
-    # cte_type='8bit' so the body is kept as-is without QP encoding.
     _no_wrap_policy = email.policy.SMTPUTF8.clone(max_line_length=998)
 
     message = EmailMessage(policy=_no_wrap_policy)
@@ -158,8 +173,10 @@ def create_message_with_attachments(
     if bcc:
         message["bcc"] = bcc
 
-    # Set the plain-text body
-    message.set_content(body)
+    # Convert plain text body to HTML to avoid Gmail's server-side
+    # hard-wrapping of text/plain content at ~78 characters.
+    html_body = plain_text_to_html(body)
+    message.set_content(html_body, subtype="html")
 
     # Attach files
     if attachments:
