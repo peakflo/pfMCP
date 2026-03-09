@@ -32,5 +32,9 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "netsuite-tba",
         "auth_type": AUTH_TYPE_TBA,
     },
+    "xero": {
+        "nango_service_name": "xero-oauth2-cc",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }
