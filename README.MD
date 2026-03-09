@@ -165,6 +165,7 @@ The following table provides an overview of the current servers implemented in p
 | Lemlist | ⚠️ Coming soon | [Lemlist Docs](/src/servers/lemlist/README.md) |
 | SendGrid | ✅ Seamless with Gumloop auth | [SendGrid Docs](/src/servers/sendgrid/README.md) |
 | QuickBooks | ⚠️ Coming soon | [QuickBooks Docs](/src/servers/quickbooks/README.md) |
+| Xero | ✅ Seamless with Nango auth | [Xero Docs](/src/servers/xero/README.md) |
 | Typeform | ✅ Seamless with Gumloop auth | [Typeform Docs](/src/servers/typeform/README.md) |
 | Stripe | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Stripe Docs](/src/servers/stripe/README.md) |
 | MailerLite | ⚠️ Coming soon | [MailerLite Docs](/src/servers/mailerlite/README.md) |
