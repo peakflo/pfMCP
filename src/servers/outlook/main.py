@@ -520,53 +520,77 @@ def create_server(user_id, api_key=None):
                     if email.strip()
                 ]
 
-                # Prepare the email payload
-                email_payload = {
-                    "message": {
-                        "subject": subject,
-                        "body": {"contentType": "Text", "content": body},
-                        "toRecipients": to_list,
-                        "ccRecipients": cc_list,
-                        "bccRecipients": bcc_list,
-                        "internetMessageHeaders": [
-                            {"name": "X-Mailer", "value": "Microsoft Graph API"}
-                        ],
-                    },
-                    "saveToSentItems": "true",
-                }
-
                 headers = {
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
                 }
 
-                # Log the request details
-                logger.info(f"Sending email with payload: {email_payload}")
+                # Step 1: Create draft message to obtain a message ID
+                draft_payload = {
+                    "subject": subject,
+                    "body": {"contentType": "Text", "content": body},
+                    "toRecipients": to_list,
+                    "ccRecipients": cc_list,
+                    "bccRecipients": bcc_list,
+                    "internetMessageHeaders": [
+                        {"name": "X-Mailer", "value": "Microsoft Graph API"}
+                    ],
+                }
 
-                response = requests.post(
-                    "https://graph.microsoft.com/v1.0/me/sendMail",
+                logger.info(f"Creating draft email with payload: {draft_payload}")
+
+                draft_response = requests.post(
+                    "https://graph.microsoft.com/v1.0/me/messages",
                     headers=headers,
-                    data=json.dumps(email_payload),
+                    data=json.dumps(draft_payload),
                 )
 
-                # Log the response
-                logger.info(f"Response status code: {response.status_code}")
-                logger.info(f"Response content: {response.content}")
-
-                if response.status_code in [200, 202]:
+                if draft_response.status_code not in [200, 201]:
+                    error_message = (
+                        draft_response.json().get("error", {}).get("message", "Unknown error")
+                    )
                     return [
                         TextContent(
                             type="text",
-                            text=f"Email sent successfully to {', '.join(to_recipients)}",
+                            text=f"Failed to create draft email: {error_message}",
+                        )
+                    ]
+
+                draft_data = draft_response.json()
+                message_id = draft_data.get("id", "")
+                internet_message_id = draft_data.get("internetMessageId", "")
+
+                logger.info(f"Draft created with id: {message_id}, internetMessageId: {internet_message_id}")
+
+                # Step 2: Send the draft message
+                send_response = requests.post(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/send",
+                    headers=headers,
+                )
+
+                logger.info(f"Send response status code: {send_response.status_code}")
+
+                if send_response.status_code in [200, 202]:
+                    result_data = {
+                        "success": True,
+                        "messageId": message_id,
+                        "internetMessageId": internet_message_id,
+                        "recipients": [email.strip() for email in to_recipients if email.strip()],
+                    }
+                    return [
+                        TextContent(
+                            type="text",
+                            text=json.dumps(result_data),
                         )
                     ]
                 else:
                     error_message = (
-                        response.json().get("error", {}).get("message", "Unknown error")
+                        send_response.json().get("error", {}).get("message", "Unknown error")
                     )
                     return [
                         TextContent(
-                            type="text", text=f"Failed to send email: {error_message}"
+                            type="text",
+                            text=f"Failed to send email: {error_message}",
                         )
                     ]
 
