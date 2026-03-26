@@ -41,6 +41,7 @@ from google.analytics.data_v1beta.types import (
 from google.analytics.admin_v1alpha import AnalyticsAdminServiceClient
 
 from src.auth.factory import create_auth_client
+from src.utils.url_utils import normalize_ga4_page_path
 
 # Configure logging
 logging.basicConfig(
@@ -154,7 +155,7 @@ def create_server(user_id, api_key=None):
                         },
                         "page_path_filter": {
                             "type": "string",
-                            "description": "Optional exact pagePath to filter (e.g., /blog/finance-automation-roi-guide-cfo)",
+                            "description": "Optional pagePath to filter. Accepts path (/blog/...) or full URL (https://peakflo.co/blog/...) — full URLs are auto-normalized to path-only.",
                         },
                         "row_limit": {
                             "type": "integer",
@@ -288,6 +289,10 @@ async def _run_report(credentials, arguments: dict) -> list[types.TextContent]:
     dimensions = arguments.get("dimensions", [])
     page_path_filter = arguments.get("page_path_filter")
     row_limit = arguments.get("row_limit", 25)
+
+    # Auto-normalize: if user passes a full URL, extract the path component
+    if page_path_filter:
+        page_path_filter = normalize_ga4_page_path(page_path_filter)
 
     # Clamp row_limit
     row_limit = max(1, min(row_limit, 100000))
