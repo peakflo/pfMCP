@@ -29,6 +29,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 from src.auth.factory import create_auth_client
+from src.utils.url_utils import normalize_gsc_page_filter
 
 # Configure logging
 logging.basicConfig(
@@ -141,7 +142,7 @@ def create_server(user_id, api_key=None):
                         },
                         "page_filter": {
                             "type": "string",
-                            "description": "Optional exact page URL to filter results (e.g., https://peakflo.co/blog/finance-automation-roi-guide-cfo)",
+                            "description": "Optional page URL to filter results. Accepts full URL (https://peakflo.co/blog/...) or path-only (/blog/...) — paths are auto-expanded using site_url.",
                         },
                         "query_filter": {
                             "type": "string",
@@ -199,9 +200,7 @@ def create_server(user_id, api_key=None):
         )
 
         try:
-            service = await create_searchconsole_service(
-                server.user_id, server.api_key
-            )
+            service = await create_searchconsole_service(server.user_id, server.api_key)
 
             if name == "list_sites":
                 return await _list_sites(service)
@@ -243,7 +242,9 @@ async def _list_sites(service) -> list[types.TextContent]:
     return [
         types.TextContent(
             type="text",
-            text=json.dumps({"sites": site_list, "totalSites": len(site_list)}, indent=2),
+            text=json.dumps(
+                {"sites": site_list, "totalSites": len(site_list)}, indent=2
+            ),
         )
     ]
 
@@ -257,6 +258,10 @@ async def _query_search_analytics(service, arguments: dict) -> list[types.TextCo
     page_filter = arguments.get("page_filter")
     query_filter = arguments.get("query_filter")
     row_limit = arguments.get("row_limit", 25)
+
+    # Auto-normalize page_filter: if user passes a path like /blog/..., convert to full URL
+    if page_filter:
+        page_filter = normalize_gsc_page_filter(page_filter, site_url)
 
     # Clamp row_limit
     row_limit = max(1, min(row_limit, 25000))
@@ -296,9 +301,7 @@ async def _query_search_analytics(service, arguments: dict) -> list[types.TextCo
         request_body["dimensionFilterGroups"] = dimension_filter_groups
 
     response = (
-        service.searchanalytics()
-        .query(siteUrl=site_url, body=request_body)
-        .execute()
+        service.searchanalytics().query(siteUrl=site_url, body=request_body).execute()
     )
 
     rows = response.get("rows", [])
@@ -362,7 +365,11 @@ async def _list_sitemaps(service, arguments: dict) -> list[types.TextContent]:
         types.TextContent(
             type="text",
             text=json.dumps(
-                {"siteUrl": site_url, "sitemaps": sitemap_list, "totalSitemaps": len(sitemap_list)},
+                {
+                    "siteUrl": site_url,
+                    "sitemaps": sitemap_list,
+                    "totalSitemaps": len(sitemap_list),
+                },
                 indent=2,
             ),
         )
