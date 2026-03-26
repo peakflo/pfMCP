@@ -4,7 +4,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 TYPEFORM_OAUTH_AUTHORIZE_URL = "https://admin.typeform.com/oauth/authorize"
 TYPEFORM_OAUTH_TOKEN_URL = "https://api.typeform.com/oauth/token"
 

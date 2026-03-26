@@ -33,7 +33,6 @@ from mcp.server.models import InitializationOptions
 from src.utils.microsoft.util import authenticate_and_save_credentials, get_credentials
 from src.servers.outlook.constants import common_folders
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
     "https://graph.microsoft.com/Mail.ReadWrite",

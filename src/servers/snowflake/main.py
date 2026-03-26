@@ -175,14 +175,12 @@ def create_server(user_id, api_key=None):
                 return [TextContent(type="text", text=str(cursor.fetchall()))]
 
             elif name == "create_warehouse":
-                cursor.execute(
-                    f"""
+                cursor.execute(f"""
                     CREATE WAREHOUSE IF NOT EXISTS {arguments['warehouse_name']} 
                     WITH WAREHOUSE_SIZE = '{arguments.get('warehouse_size', 'X-SMALL')}'
                     AUTO_SUSPEND = {arguments.get('auto_suspend', 300)}
                     AUTO_RESUME = {'TRUE' if arguments.get('auto_resume', True) else 'FALSE'}
-                    """
-                )
+                    """)
                 return [TextContent(type="text", text="Warehouse created successfully")]
 
             elif name == "execute_query":

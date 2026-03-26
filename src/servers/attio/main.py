@@ -30,7 +30,6 @@ from mcp.server.models import InitializationOptions
 
 from src.utils.attio.util import authenticate_and_save_credentials, get_credentials
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = ["read", "write"]  # Attio API scopes
 API_BASE_URL = "https://api.attio.com/v2"

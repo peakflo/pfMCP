@@ -3,7 +3,6 @@ import uuid
 
 from tests.utils.test_tools import run_resources_test
 
-
 # Global variables to store created comment and reaction information
 test_file_key = ""  # Replace with a valid test file key
 test_comment_id = None

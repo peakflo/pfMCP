@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 CALENDLY_OAUTH_AUTHORIZE_URL = "https://auth.calendly.com/oauth/authorize"
 CALENDLY_OAUTH_TOKEN_URL = "https://auth.calendly.com/oauth/token"
 CALENDLY_API_URL = "https://api.calendly.com"

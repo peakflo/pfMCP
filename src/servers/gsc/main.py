@@ -199,9 +199,7 @@ def create_server(user_id, api_key=None):
         )
 
         try:
-            service = await create_searchconsole_service(
-                server.user_id, server.api_key
-            )
+            service = await create_searchconsole_service(server.user_id, server.api_key)
 
             if name == "list_sites":
                 return await _list_sites(service)
@@ -243,7 +241,9 @@ async def _list_sites(service) -> list[types.TextContent]:
     return [
         types.TextContent(
             type="text",
-            text=json.dumps({"sites": site_list, "totalSites": len(site_list)}, indent=2),
+            text=json.dumps(
+                {"sites": site_list, "totalSites": len(site_list)}, indent=2
+            ),
         )
     ]
 
@@ -296,9 +296,7 @@ async def _query_search_analytics(service, arguments: dict) -> list[types.TextCo
         request_body["dimensionFilterGroups"] = dimension_filter_groups
 
     response = (
-        service.searchanalytics()
-        .query(siteUrl=site_url, body=request_body)
-        .execute()
+        service.searchanalytics().query(siteUrl=site_url, body=request_body).execute()
     )
 
     rows = response.get("rows", [])
@@ -362,7 +360,11 @@ async def _list_sitemaps(service, arguments: dict) -> list[types.TextContent]:
         types.TextContent(
             type="text",
             text=json.dumps(
-                {"siteUrl": site_url, "sitemaps": sitemap_list, "totalSitemaps": len(sitemap_list)},
+                {
+                    "siteUrl": site_url,
+                    "sitemaps": sitemap_list,
+                    "totalSitemaps": len(sitemap_list),
+                },
                 indent=2,
             ),
         )

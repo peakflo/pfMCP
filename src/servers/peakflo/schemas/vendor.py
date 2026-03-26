@@ -4,7 +4,6 @@ from peakflo.schemas.common import (
     bank_detail_schema,
 )
 
-
 create_vendor_schema = {
     "type": "object",
     "properties": {

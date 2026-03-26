@@ -7,7 +7,6 @@ from src.utils.oauth.util import (
     refresh_token_if_needed,
 )
 
-
 logger = logging.getLogger(__name__)
 
 DROPBOX_OAUTH_AUTHORIZE_URL = "https://www.dropbox.com/oauth2/authorize"

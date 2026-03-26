@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 ATTIO_OAUTH_AUTHORIZE_URL = "https://app.attio.com/authorize"
 ATTIO_OAUTH_TOKEN_URL = "https://app.attio.com/oauth/token"
 
