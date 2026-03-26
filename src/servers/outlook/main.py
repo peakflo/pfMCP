@@ -547,7 +547,9 @@ def create_server(user_id, api_key=None):
 
                 if draft_response.status_code not in [200, 201]:
                     error_message = (
-                        draft_response.json().get("error", {}).get("message", "Unknown error")
+                        draft_response.json()
+                        .get("error", {})
+                        .get("message", "Unknown error")
                     )
                     return [
                         TextContent(
@@ -560,7 +562,9 @@ def create_server(user_id, api_key=None):
                 message_id = draft_data.get("id", "")
                 internet_message_id = draft_data.get("internetMessageId", "")
 
-                logger.info(f"Draft created with id: {message_id}, internetMessageId: {internet_message_id}")
+                logger.info(
+                    f"Draft created with id: {message_id}, internetMessageId: {internet_message_id}"
+                )
 
                 # Step 2: Send the draft message
                 send_response = requests.post(
@@ -575,7 +579,9 @@ def create_server(user_id, api_key=None):
                         "success": True,
                         "messageId": message_id,
                         "internetMessageId": internet_message_id,
-                        "recipients": [email.strip() for email in to_recipients if email.strip()],
+                        "recipients": [
+                            email.strip() for email in to_recipients if email.strip()
+                        ],
                     }
                     return [
                         TextContent(
@@ -585,7 +591,9 @@ def create_server(user_id, api_key=None):
                     ]
                 else:
                     error_message = (
-                        send_response.json().get("error", {}).get("message", "Unknown error")
+                        send_response.json()
+                        .get("error", {})
+                        .get("message", "Unknown error")
                     )
                     return [
                         TextContent(
