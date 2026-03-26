@@ -17,7 +17,6 @@ from auth.constants import AUTH_TYPE_UNAUTHENTICATED
 from auth.clients.NangoAuthClient import JWTTokenResponse
 from src.auth.factory import create_auth_client, get_auth_type
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -5,7 +5,6 @@ from src.utils.oauth.util import (
     run_oauth_flow,
 )
 
-
 logger = logging.getLogger(__name__)
 
 MAILCHIMP_OAUTH_AUTHORIZE_URL = "https://login.mailchimp.com/oauth2/authorize"

@@ -30,7 +30,6 @@ from src.utils.slack.util import authenticate_and_save_credentials, get_credenti
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
     # Bot Token Scopes

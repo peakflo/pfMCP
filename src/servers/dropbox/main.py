@@ -7,7 +7,6 @@ from dropbox.exceptions import ApiError, AuthError
 from typing import Dict, Any
 import asyncio
 
-
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

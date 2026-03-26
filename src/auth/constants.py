@@ -36,5 +36,15 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "xero",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Google Search Console
+    "gsc": {
+        "nango_service_name": "google-search-console",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
+    # Google Analytics 4
+    "ga4": {
+        "nango_service_name": "google-analytics",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }

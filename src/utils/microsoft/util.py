@@ -4,7 +4,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 MICROSOFT_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
