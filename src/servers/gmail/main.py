@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from typing import Optional, Iterable
@@ -432,6 +433,10 @@ def create_server(user_id, api_key=None):
                                 "required": ["filename", "content", "mimeType"],
                             },
                         },
+                        "track_delivery": {
+                            "type": "boolean",
+                            "description": "When true, returns structured JSON with messageId, threadId, and labelIds for delivery tracking instead of plain text",
+                        },
                     },
                     "required": ["to", "subject", "body"],
                 },
@@ -659,6 +664,27 @@ def create_server(user_id, api_key=None):
                     .send(userId="me", body={"raw": raw_message})
                     .execute()
                 )
+
+                track_delivery = arguments.get("track_delivery", False)
+
+                if track_delivery:
+                    # Return structured JSON for delivery tracking
+                    tracking_data = {
+                        "status": "sent",
+                        "messageId": sent_message.get("id", ""),
+                        "threadId": sent_message.get("threadId", ""),
+                        "labelIds": sent_message.get("labelIds", []),
+                        "to": arguments["to"],
+                        "cc": arguments.get("cc", ""),
+                        "bcc": arguments.get("bcc", ""),
+                        "subject": arguments["subject"],
+                    }
+                    return [
+                        TextContent(
+                            type="text",
+                            text=json.dumps(tracking_data),
+                        )
+                    ]
 
                 attachment_info = ""
                 if arguments.get("attachments"):
