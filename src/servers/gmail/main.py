@@ -673,6 +673,33 @@ def create_server(user_id, api_key=None):
                     attachment_info = f" with {num_attachments} attachment(s)"
 
                 if track_delivery:
+                    # Ensure Gmail push notifications are active so delivery
+                    # events (bounces, reads, etc.) are forwarded via Pub/Sub.
+                    # users().watch() is idempotent — safe to call on every send.
+                    pubsub_topic = os.environ.get("GMAIL_PUBSUB_TOPIC")
+                    if pubsub_topic:
+                        try:
+                            watch_response = (
+                                gmail_service.users()
+                                .watch(
+                                    userId="me",
+                                    body={
+                                        "topicName": pubsub_topic,
+                                        "labelIds": ["SENT", "INBOX"],
+                                        "labelFilterBehavior": "INCLUDE",
+                                    },
+                                )
+                                .execute()
+                            )
+                            logger.info(
+                                f"Gmail watch active — historyId={watch_response.get('historyId')}, "
+                                f"expiration={watch_response.get('expiration')}"
+                            )
+                        except Exception as watch_err:
+                            logger.warning(f"Failed to set Gmail watch (non-blocking): {watch_err}")
+                    else:
+                        logger.debug("GMAIL_PUBSUB_TOPIC not set, skipping watch setup")
+
                     # Return structured JSON with tracking fields.
                     # channelMessageId maps to workflo's messages.channel_message_id column
                     # for matching delivery events back to the sent message.

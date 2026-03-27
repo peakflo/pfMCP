@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
 
@@ -60,6 +61,64 @@ async def create_outlook_client(user_id, api_key=None):
     except Exception as e:
         logger.error(f"Error in create_outlook_client: {str(e)}")
         raise
+
+
+def _ensure_outlook_subscription(headers: dict, webhook_url: str) -> None:
+    """Ensure an active Microsoft Graph subscription exists for mail messages.
+
+    Outlook subscriptions are NOT idempotent — we check for an existing one
+    before creating. The subscription covers created/updated messages so we
+    can track delivery events (bounces, read receipts, etc.).
+
+    Max subscription lifetime for mail resources is 4230 minutes (~2.9 days).
+    """
+    MAIL_RESOURCE = "me/messages"
+    MAX_EXPIRY_MINUTES = 4230  # Graph API maximum for mail resources
+
+    # Check for existing subscriptions on the mail resource
+    list_resp = requests.get(
+        "https://graph.microsoft.com/v1.0/subscriptions",
+        headers=headers,
+    )
+
+    if list_resp.status_code == 200:
+        for sub in list_resp.json().get("value", []):
+            if sub.get("resource") == MAIL_RESOURCE and sub.get("notificationUrl") == webhook_url:
+                # Already have an active subscription for this resource + webhook
+                logger.info(
+                    f"Outlook subscription already active — id={sub.get('id')}, "
+                    f"expires={sub.get('expirationDateTime')}"
+                )
+                return
+
+    # No matching subscription found — create one
+    expiration = (
+        datetime.now(timezone.utc) + timedelta(minutes=MAX_EXPIRY_MINUTES)
+    ).strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
+
+    subscription_body = {
+        "changeType": "created,updated",
+        "notificationUrl": webhook_url,
+        "resource": MAIL_RESOURCE,
+        "expirationDateTime": expiration,
+        "clientState": "delivery-tracking",
+    }
+
+    create_resp = requests.post(
+        "https://graph.microsoft.com/v1.0/subscriptions",
+        headers=headers,
+        data=json.dumps(subscription_body),
+    )
+
+    if create_resp.status_code == 201:
+        sub_data = create_resp.json()
+        logger.info(
+            f"Outlook subscription created — id={sub_data.get('id')}, "
+            f"expires={sub_data.get('expirationDateTime')}"
+        )
+    else:
+        error_msg = create_resp.json().get("error", {}).get("message", create_resp.text)
+        logger.warning(f"Failed to create Outlook subscription: {error_msg}")
 
 
 def create_server(user_id, api_key=None):
@@ -592,6 +651,17 @@ def create_server(user_id, api_key=None):
                                 text=f"Failed to send email: {error_message}",
                             )
                         ]
+
+                    # Ensure Outlook change-notification subscription is active
+                    # so delivery events are forwarded to our webhook endpoint.
+                    webhook_url = os.environ.get("OUTLOOK_WEBHOOK_URL")
+                    if webhook_url:
+                        try:
+                            _ensure_outlook_subscription(headers, webhook_url)
+                        except Exception as sub_err:
+                            logger.warning(f"Failed to set Outlook subscription (non-blocking): {sub_err}")
+                    else:
+                        logger.debug("OUTLOOK_WEBHOOK_URL not set, skipping subscription setup")
 
                     # Return structured JSON with tracking fields.
                     # channelMessageId maps to workflo's messages.channel_message_id column
