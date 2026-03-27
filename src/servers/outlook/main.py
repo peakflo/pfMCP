@@ -229,6 +229,10 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "BCC email addresses (comma-separated)",
                         },
+                        "track_delivery": {
+                            "type": "boolean",
+                            "description": "When true, uses draft-then-send to return structured JSON with tracking_message_id and tracking_thread_id for delivery tracking",
+                        },
                     },
                     "required": ["to", "subject", "body"],
                 },
@@ -520,24 +524,94 @@ def create_server(user_id, api_key=None):
                     if email.strip()
                 ]
 
-                # Prepare the email payload
-                email_payload = {
-                    "message": {
-                        "subject": subject,
-                        "body": {"contentType": "Text", "content": body},
-                        "toRecipients": to_list,
-                        "ccRecipients": cc_list,
-                        "bccRecipients": bcc_list,
-                        "internetMessageHeaders": [
-                            {"name": "X-Mailer", "value": "Microsoft Graph API"}
-                        ],
-                    },
-                    "saveToSentItems": "true",
-                }
+                track_delivery = arguments.get("track_delivery", False)
 
                 headers = {
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
+                }
+
+                message_body = {
+                    "subject": subject,
+                    "body": {"contentType": "Text", "content": body},
+                    "toRecipients": to_list,
+                    "ccRecipients": cc_list,
+                    "bccRecipients": bcc_list,
+                    "internetMessageHeaders": [
+                        {"name": "X-Mailer", "value": "Microsoft Graph API"}
+                    ],
+                }
+
+                if track_delivery:
+                    # Draft-then-send: create draft first to get message ID,
+                    # then send it. This lets us return tracking IDs.
+                    logger.info("track_delivery=true, using draft-then-send flow")
+
+                    # Step 1: Create draft
+                    draft_response = requests.post(
+                        "https://graph.microsoft.com/v1.0/me/messages",
+                        headers=headers,
+                        data=json.dumps(message_body),
+                    )
+
+                    if draft_response.status_code != 201:
+                        error_message = (
+                            draft_response.json()
+                            .get("error", {})
+                            .get("message", "Unknown error")
+                        )
+                        return [
+                            TextContent(
+                                type="text",
+                                text=f"Failed to create draft: {error_message}",
+                            )
+                        ]
+
+                    draft = draft_response.json()
+                    draft_id = draft.get("id", "")
+                    conversation_id = draft.get("conversationId", "")
+
+                    # Step 2: Send the draft
+                    send_response = requests.post(
+                        f"https://graph.microsoft.com/v1.0/me/messages/{draft_id}/send",
+                        headers=headers,
+                    )
+
+                    if send_response.status_code not in [200, 202]:
+                        error_message = "Failed to send draft"
+                        try:
+                            error_message = (
+                                send_response.json()
+                                .get("error", {})
+                                .get("message", error_message)
+                            )
+                        except Exception:
+                            pass
+                        return [
+                            TextContent(
+                                type="text",
+                                text=f"Failed to send email: {error_message}",
+                            )
+                        ]
+
+                    # Return structured JSON with provider-agnostic tracking fields
+                    # Consistent with Gmail MCP which returns the same shape
+                    tracking_data = {
+                        "status": "sent",
+                        "tracking_message_id": draft_id,
+                        "tracking_thread_id": conversation_id,
+                    }
+                    return [
+                        TextContent(
+                            type="text",
+                            text=json.dumps(tracking_data),
+                        )
+                    ]
+
+                # Standard send (no tracking) — uses sendMail endpoint directly
+                email_payload = {
+                    "message": message_body,
+                    "saveToSentItems": "true",
                 }
 
                 # Log the request details

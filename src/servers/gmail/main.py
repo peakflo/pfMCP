@@ -667,17 +667,19 @@ def create_server(user_id, api_key=None):
 
                 track_delivery = arguments.get("track_delivery", False)
 
+                attachment_info = ""
+                if arguments.get("attachments"):
+                    num_attachments = len(arguments["attachments"])
+                    attachment_info = f" with {num_attachments} attachment(s)"
+
                 if track_delivery:
-                    # Return structured JSON for delivery tracking
+                    # Return structured JSON with provider-agnostic tracking fields
+                    # Consistent with Outlook MCP which returns the same shape
+                    # (tracking_message_id = Graph message id, tracking_thread_id = conversationId)
                     tracking_data = {
                         "status": "sent",
-                        "messageId": sent_message.get("id", ""),
-                        "threadId": sent_message.get("threadId", ""),
-                        "labelIds": sent_message.get("labelIds", []),
-                        "to": arguments["to"],
-                        "cc": arguments.get("cc", ""),
-                        "bcc": arguments.get("bcc", ""),
-                        "subject": arguments["subject"],
+                        "tracking_message_id": sent_message.get("id", ""),
+                        "tracking_thread_id": sent_message.get("threadId", ""),
                     }
                     return [
                         TextContent(
@@ -685,11 +687,6 @@ def create_server(user_id, api_key=None):
                             text=json.dumps(tracking_data),
                         )
                     ]
-
-                attachment_info = ""
-                if arguments.get("attachments"):
-                    num_attachments = len(arguments["attachments"])
-                    attachment_info = f" with {num_attachments} attachment(s)"
 
                 return [
                     TextContent(
