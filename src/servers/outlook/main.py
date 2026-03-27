@@ -83,7 +83,10 @@ def _ensure_outlook_subscription(headers: dict, webhook_url: str) -> None:
 
     if list_resp.status_code == 200:
         for sub in list_resp.json().get("value", []):
-            if sub.get("resource") == MAIL_RESOURCE and sub.get("notificationUrl") == webhook_url:
+            if (
+                sub.get("resource") == MAIL_RESOURCE
+                and sub.get("notificationUrl") == webhook_url
+            ):
                 # Already have an active subscription for this resource + webhook
                 logger.info(
                     f"Outlook subscription already active — id={sub.get('id')}, "
@@ -659,9 +662,13 @@ def create_server(user_id, api_key=None):
                         try:
                             _ensure_outlook_subscription(headers, webhook_url)
                         except Exception as sub_err:
-                            logger.warning(f"Failed to set Outlook subscription (non-blocking): {sub_err}")
+                            logger.warning(
+                                f"Failed to set Outlook subscription (non-blocking): {sub_err}"
+                            )
                     else:
-                        logger.debug("OUTLOOK_WEBHOOK_URL not set, skipping subscription setup")
+                        logger.debug(
+                            "OUTLOOK_WEBHOOK_URL not set, skipping subscription setup"
+                        )
 
                     # Return structured JSON with tracking fields.
                     # channelMessageId maps to workflo's messages.channel_message_id column

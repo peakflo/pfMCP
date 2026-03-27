@@ -696,7 +696,9 @@ def create_server(user_id, api_key=None):
                                 f"expiration={watch_response.get('expiration')}"
                             )
                         except Exception as watch_err:
-                            logger.warning(f"Failed to set Gmail watch (non-blocking): {watch_err}")
+                            logger.warning(
+                                f"Failed to set Gmail watch (non-blocking): {watch_err}"
+                            )
                     else:
                         logger.debug("GMAIL_PUBSUB_TOPIC not set, skipping watch setup")
 
