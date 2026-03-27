@@ -435,7 +435,7 @@ def create_server(user_id, api_key=None):
                         },
                         "track_delivery": {
                             "type": "boolean",
-                            "description": "When true, returns structured JSON with messageId, threadId, and labelIds for delivery tracking instead of plain text",
+                            "description": "When true, returns structured JSON with channelMessageId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -673,13 +673,12 @@ def create_server(user_id, api_key=None):
                     attachment_info = f" with {num_attachments} attachment(s)"
 
                 if track_delivery:
-                    # Return structured JSON with provider-agnostic tracking fields
-                    # Consistent with Outlook MCP which returns the same shape
-                    # (tracking_message_id = Graph message id, tracking_thread_id = conversationId)
+                    # Return structured JSON with tracking fields.
+                    # channelMessageId maps to workflo's messages.channel_message_id column
+                    # for matching delivery events back to the sent message.
                     tracking_data = {
                         "status": "sent",
-                        "tracking_message_id": sent_message.get("id", ""),
-                        "tracking_thread_id": sent_message.get("threadId", ""),
+                        "channelMessageId": sent_message.get("id", ""),
                     }
                     return [
                         TextContent(

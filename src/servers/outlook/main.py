@@ -231,7 +231,7 @@ def create_server(user_id, api_key=None):
                         },
                         "track_delivery": {
                             "type": "boolean",
-                            "description": "When true, uses draft-then-send to return structured JSON with tracking_message_id and tracking_thread_id for delivery tracking",
+                            "description": "When true, uses draft-then-send to return structured JSON with channelMessageId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -569,7 +569,6 @@ def create_server(user_id, api_key=None):
 
                     draft = draft_response.json()
                     draft_id = draft.get("id", "")
-                    conversation_id = draft.get("conversationId", "")
 
                     # Step 2: Send the draft
                     send_response = requests.post(
@@ -594,12 +593,12 @@ def create_server(user_id, api_key=None):
                             )
                         ]
 
-                    # Return structured JSON with provider-agnostic tracking fields
-                    # Consistent with Gmail MCP which returns the same shape
+                    # Return structured JSON with tracking fields.
+                    # channelMessageId maps to workflo's messages.channel_message_id column
+                    # for matching delivery events back to the sent message.
                     tracking_data = {
                         "status": "sent",
-                        "tracking_message_id": draft_id,
-                        "tracking_thread_id": conversation_id,
+                        "channelMessageId": draft_id,
                     }
                     return [
                         TextContent(
