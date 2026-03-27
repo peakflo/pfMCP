@@ -435,7 +435,7 @@ def create_server(user_id, api_key=None):
                         },
                         "track_delivery": {
                             "type": "boolean",
-                            "description": "When true, returns structured JSON with channelMessageId for delivery tracking",
+                            "description": "When true, returns structured JSON with channelMessageId and conversationId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -676,9 +676,12 @@ def create_server(user_id, api_key=None):
                     # Return structured JSON with tracking fields.
                     # channelMessageId maps to workflo's messages.channel_message_id column
                     # for matching delivery events back to the sent message.
+                    # conversationId maps to Gmail's threadId — used to group messages
+                    # in the same email thread.
                     tracking_data = {
                         "status": "sent",
                         "channelMessageId": sent_message.get("id", ""),
+                        "conversationId": sent_message.get("threadId", ""),
                     }
                     return [
                         TextContent(

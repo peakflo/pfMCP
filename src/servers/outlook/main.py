@@ -231,7 +231,7 @@ def create_server(user_id, api_key=None):
                         },
                         "track_delivery": {
                             "type": "boolean",
-                            "description": "When true, uses draft-then-send to return structured JSON with channelMessageId for delivery tracking",
+                            "description": "When true, uses draft-then-send to return structured JSON with channelMessageId and conversationId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -596,9 +596,13 @@ def create_server(user_id, api_key=None):
                     # Return structured JSON with tracking fields.
                     # channelMessageId maps to workflo's messages.channel_message_id column
                     # for matching delivery events back to the sent message.
+                    # conversationId maps to Outlook's conversationId — used to group
+                    # messages in the same email thread.
+                    conversation_id = draft.get("conversationId", "")
                     tracking_data = {
                         "status": "sent",
                         "channelMessageId": draft_id,
+                        "conversationId": conversation_id,
                     }
                     return [
                         TextContent(
