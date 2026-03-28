@@ -631,6 +631,13 @@ def create_server(user_id, api_key=None):
 
                     draft = draft_response.json()
                     draft_id = draft.get("id", "")
+                    # internetMessageId is the RFC 2822 Message-ID header — it is
+                    # stable across draft→send (unlike the Graph object ID which
+                    # changes when the message moves from Drafts to Sent Items).
+                    # This is the value we store as channelMessageId so that
+                    # webhook notifications can be matched back to this message.
+                    internet_message_id = draft.get("internetMessageId", "")
+                    conversation_id = draft.get("conversationId", "")
 
                     # Step 2: Send the draft
                     send_response = requests.post(
@@ -671,14 +678,14 @@ def create_server(user_id, api_key=None):
                         )
 
                     # Return structured JSON with tracking fields.
-                    # channelMessageId maps to workflo's messages.channel_message_id column
-                    # for matching delivery events back to the sent message.
-                    # conversationId maps to Outlook's conversationId — used to group
-                    # messages in the same email thread.
-                    conversation_id = draft.get("conversationId", "")
+                    # channelMessageId uses internetMessageId (RFC 2822 Message-ID)
+                    # which is stable across draft→send, unlike the Graph object ID
+                    # that changes when the message moves to Sent Items.
+                    # This maps to workflo's messages.channel_message_id column
+                    # for matching webhook delivery events back to the sent message.
                     tracking_data = {
                         "status": "sent",
-                        "channelMessageId": draft_id,
+                        "channelMessageId": internet_message_id,
                         "conversationId": conversation_id,
                     }
                     return [
