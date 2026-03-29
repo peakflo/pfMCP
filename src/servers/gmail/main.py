@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from typing import Optional, Iterable
@@ -432,6 +433,10 @@ def create_server(user_id, api_key=None):
                                 "required": ["filename", "content", "mimeType"],
                             },
                         },
+                        "track_delivery": {
+                            "type": "boolean",
+                            "description": "When true, returns structured JSON with channelMessageId and conversationId for delivery tracking",
+                        },
                     },
                     "required": ["to", "subject", "body"],
                 },
@@ -660,15 +665,57 @@ def create_server(user_id, api_key=None):
                     .execute()
                 )
 
+                track_delivery = arguments.get("track_delivery", False)
+
                 attachment_info = ""
                 if arguments.get("attachments"):
                     num_attachments = len(arguments["attachments"])
                     attachment_info = f" with {num_attachments} attachment(s)"
 
+                if track_delivery:
+                    # Ensure Gmail push notifications are active so delivery
+                    # events (bounces, reads, etc.) are forwarded via Pub/Sub.
+                    # users().watch() is idempotent — safe to call on every send.
+                    pubsub_topic = os.environ.get("GMAIL_PUBSUB_TOPIC")
+                    if pubsub_topic:
+                        try:
+                            watch_response = (
+                                gmail_service.users()
+                                .watch(
+                                    userId="me",
+                                    body={
+                                        "topicName": pubsub_topic,
+                                        "labelIds": ["SENT", "INBOX"],
+                                        "labelFilterBehavior": "INCLUDE",
+                                    },
+                                )
+                                .execute()
+                            )
+                            logger.info(
+                                f"Gmail watch active — historyId={watch_response.get('historyId')}, "
+                                f"expiration={watch_response.get('expiration')}"
+                            )
+                        except Exception as watch_err:
+                            logger.warning(
+                                f"Failed to set Gmail watch (non-blocking): {watch_err}"
+                            )
+                    else:
+                        logger.debug("GMAIL_PUBSUB_TOPIC not set, skipping watch setup")
+
+                # Always return structured JSON with tracking fields.
+                # channelMessageId maps to workflo's messages.channel_message_id column
+                # for matching delivery events back to the sent message.
+                # conversationId maps to Gmail's threadId — used to group messages
+                # in the same email thread.
+                result_data = {
+                    "status": "sent",
+                    "channelMessageId": sent_message.get("id", ""),
+                    "conversationId": sent_message.get("threadId", ""),
+                }
                 return [
                     TextContent(
                         type="text",
-                        text=f"Email sent successfully to {arguments['to']}{attachment_info}. Message ID: {sent_message['id']}",
+                        text=json.dumps(result_data),
                     )
                 ]
             except Exception as e:

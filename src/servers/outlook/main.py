@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
 
@@ -60,6 +61,67 @@ async def create_outlook_client(user_id, api_key=None):
     except Exception as e:
         logger.error(f"Error in create_outlook_client: {str(e)}")
         raise
+
+
+def _ensure_outlook_subscription(headers: dict, webhook_url: str) -> None:
+    """Ensure an active Microsoft Graph subscription exists for mail messages.
+
+    Outlook subscriptions are NOT idempotent — we check for an existing one
+    before creating. The subscription covers created/updated messages so we
+    can track delivery events (bounces, read receipts, etc.).
+
+    Max subscription lifetime for mail resources is 4230 minutes (~2.9 days).
+    """
+    MAIL_RESOURCE = "me/messages"
+    MAX_EXPIRY_MINUTES = 4230  # Graph API maximum for mail resources
+
+    # Check for existing subscriptions on the mail resource
+    list_resp = requests.get(
+        "https://graph.microsoft.com/v1.0/subscriptions",
+        headers=headers,
+    )
+
+    if list_resp.status_code == 200:
+        for sub in list_resp.json().get("value", []):
+            if (
+                sub.get("resource") == MAIL_RESOURCE
+                and sub.get("notificationUrl") == webhook_url
+            ):
+                # Already have an active subscription for this resource + webhook
+                logger.info(
+                    f"Outlook subscription already active — id={sub.get('id')}, "
+                    f"expires={sub.get('expirationDateTime')}"
+                )
+                return
+
+    # No matching subscription found — create one
+    expiration = (
+        datetime.now(timezone.utc) + timedelta(minutes=MAX_EXPIRY_MINUTES)
+    ).strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
+
+    subscription_body = {
+        "changeType": "created,updated",
+        "notificationUrl": webhook_url,
+        "resource": MAIL_RESOURCE,
+        "expirationDateTime": expiration,
+        "clientState": "delivery-tracking",
+    }
+
+    create_resp = requests.post(
+        "https://graph.microsoft.com/v1.0/subscriptions",
+        headers=headers,
+        data=json.dumps(subscription_body),
+    )
+
+    if create_resp.status_code == 201:
+        sub_data = create_resp.json()
+        logger.info(
+            f"Outlook subscription created — id={sub_data.get('id')}, "
+            f"expires={sub_data.get('expirationDateTime')}"
+        )
+    else:
+        error_msg = create_resp.json().get("error", {}).get("message", create_resp.text)
+        logger.warning(f"Failed to create Outlook subscription: {error_msg}")
 
 
 def create_server(user_id, api_key=None):
@@ -228,6 +290,10 @@ def create_server(user_id, api_key=None):
                         "bcc": {
                             "type": "string",
                             "description": "BCC email addresses (comma-separated)",
+                        },
+                        "track_delivery": {
+                            "type": "boolean",
+                            "description": "When true, uses draft-then-send to return structured JSON with channelMessageId and conversationId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -520,55 +586,116 @@ def create_server(user_id, api_key=None):
                     if email.strip()
                 ]
 
-                # Prepare the email payload
-                email_payload = {
-                    "message": {
-                        "subject": subject,
-                        "body": {"contentType": "Text", "content": body},
-                        "toRecipients": to_list,
-                        "ccRecipients": cc_list,
-                        "bccRecipients": bcc_list,
-                        "internetMessageHeaders": [
-                            {"name": "X-Mailer", "value": "Microsoft Graph API"}
-                        ],
-                    },
-                    "saveToSentItems": "true",
-                }
+                track_delivery = arguments.get("track_delivery", False)
 
                 headers = {
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
                 }
 
-                # Log the request details
-                logger.info(f"Sending email with payload: {email_payload}")
+                message_body = {
+                    "subject": subject,
+                    "body": {"contentType": "Text", "content": body},
+                    "toRecipients": to_list,
+                    "ccRecipients": cc_list,
+                    "bccRecipients": bcc_list,
+                    "internetMessageHeaders": [
+                        {"name": "X-Mailer", "value": "Microsoft Graph API"}
+                    ],
+                }
 
-                response = requests.post(
-                    "https://graph.microsoft.com/v1.0/me/sendMail",
+                # Always use draft-then-send flow to capture message IDs.
+                # /me/sendMail returns 202 with empty body (no IDs available),
+                # so draft-then-send is required to get channelMessageId and
+                # conversationId regardless of whether tracking is enabled.
+                logger.info("Using draft-then-send flow to capture message IDs")
+
+                # Step 1: Create draft
+                draft_response = requests.post(
+                    "https://graph.microsoft.com/v1.0/me/messages",
                     headers=headers,
-                    data=json.dumps(email_payload),
+                    data=json.dumps(message_body),
                 )
 
-                # Log the response
-                logger.info(f"Response status code: {response.status_code}")
-                logger.info(f"Response content: {response.content}")
-
-                if response.status_code in [200, 202]:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Email sent successfully to {', '.join(to_recipients)}",
-                        )
-                    ]
-                else:
+                if draft_response.status_code != 201:
                     error_message = (
-                        response.json().get("error", {}).get("message", "Unknown error")
+                        draft_response.json()
+                        .get("error", {})
+                        .get("message", "Unknown error")
                     )
                     return [
                         TextContent(
-                            type="text", text=f"Failed to send email: {error_message}"
+                            type="text",
+                            text=f"Failed to create draft: {error_message}",
                         )
                     ]
+
+                draft = draft_response.json()
+                draft_id = draft.get("id", "")
+                # internetMessageId is the RFC 2822 Message-ID header — it is
+                # stable across draft→send (unlike the Graph object ID which
+                # changes when the message moves from Drafts to Sent Items).
+                # This is the value we store as channelMessageId so that
+                # webhook notifications can be matched back to this message.
+                internet_message_id = draft.get("internetMessageId", "")
+                conversation_id = draft.get("conversationId", "")
+
+                # Step 2: Send the draft
+                send_response = requests.post(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{draft_id}/send",
+                    headers=headers,
+                )
+
+                if send_response.status_code not in [200, 202]:
+                    error_message = "Failed to send draft"
+                    try:
+                        error_message = (
+                            send_response.json()
+                            .get("error", {})
+                            .get("message", error_message)
+                        )
+                    except Exception:
+                        pass
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to send email: {error_message}",
+                        )
+                    ]
+
+                if track_delivery:
+                    # Ensure Outlook change-notification subscription is active
+                    # so delivery events are forwarded to our webhook endpoint.
+                    webhook_url = os.environ.get("OUTLOOK_WEBHOOK_URL")
+                    if webhook_url:
+                        try:
+                            _ensure_outlook_subscription(headers, webhook_url)
+                        except Exception as sub_err:
+                            logger.warning(
+                                f"Failed to set Outlook subscription (non-blocking): {sub_err}"
+                            )
+                    else:
+                        logger.debug(
+                            "OUTLOOK_WEBHOOK_URL not set, skipping subscription setup"
+                        )
+
+                # Always return structured JSON with tracking fields.
+                # channelMessageId uses internetMessageId (RFC 2822 Message-ID)
+                # which is stable across draft→send, unlike the Graph object ID
+                # that changes when the message moves to Sent Items.
+                # This maps to workflo's messages.channel_message_id column
+                # for matching webhook delivery events back to the sent message.
+                result_data = {
+                    "status": "sent",
+                    "channelMessageId": internet_message_id,
+                    "conversationId": conversation_id,
+                }
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps(result_data),
+                    )
+                ]
 
             except Exception as e:
                 logger.error(f"Error in send_email: {str(e)}")

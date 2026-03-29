@@ -6,7 +6,7 @@ tools:
   - name: "read_emails"
     description: "Search and read emails in Gmail with full text body and attachment information"
   - name: "send_email"
-    description: "Send an email through Gmail with optional attachments"
+    description: "Send an email through Gmail with optional attachments and delivery tracking"
   - name: "forward_email"
     description: "Forward an email to recipients, preserving original content and attachments"
   - name: "update_email"

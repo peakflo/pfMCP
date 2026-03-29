@@ -30,6 +30,8 @@ jobs:
           echo "NANGO_SECRET_KEY: ${{ secrets.PROD_NANGO_SECRET_KEY }}" >> .envprod.yaml
           echo 'PEAKFLO_API_BASE_URL: "https://api.peakflo.co/v1"' >> .envprod.yaml
           echo "GCS_BUCKET_NAME: ${{ vars.PROD_GCS_BUCKET_NAME }}" >> .envprod.yaml
+          echo "GMAIL_PUBSUB_TOPIC: ${{ vars.PROD_GMAIL_PUBSUB_TOPIC }}" >> .envprod.yaml
+          echo "OUTLOOK_WEBHOOK_URL: ${{ vars.PROD_OUTLOOK_WEBHOOK_URL }}" >> .envprod.yaml
 
       - name: GCP Auth
         uses: google-github-actions/auth@v2.1.2
