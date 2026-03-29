@@ -702,27 +702,20 @@ def create_server(user_id, api_key=None):
                     else:
                         logger.debug("GMAIL_PUBSUB_TOPIC not set, skipping watch setup")
 
-                    # Return structured JSON with tracking fields.
-                    # channelMessageId maps to workflo's messages.channel_message_id column
-                    # for matching delivery events back to the sent message.
-                    # conversationId maps to Gmail's threadId — used to group messages
-                    # in the same email thread.
-                    tracking_data = {
-                        "status": "sent",
-                        "channelMessageId": sent_message.get("id", ""),
-                        "conversationId": sent_message.get("threadId", ""),
-                    }
-                    return [
-                        TextContent(
-                            type="text",
-                            text=json.dumps(tracking_data),
-                        )
-                    ]
-
+                # Always return structured JSON with tracking fields.
+                # channelMessageId maps to workflo's messages.channel_message_id column
+                # for matching delivery events back to the sent message.
+                # conversationId maps to Gmail's threadId — used to group messages
+                # in the same email thread.
+                result_data = {
+                    "status": "sent",
+                    "channelMessageId": sent_message.get("id", ""),
+                    "conversationId": sent_message.get("threadId", ""),
+                }
                 return [
                     TextContent(
                         type="text",
-                        text=f"Email sent successfully to {arguments['to']}{attachment_info}. Message ID: {sent_message['id']}",
+                        text=json.dumps(result_data),
                     )
                 ]
             except Exception as e:

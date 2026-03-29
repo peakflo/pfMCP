@@ -604,64 +604,66 @@ def create_server(user_id, api_key=None):
                     ],
                 }
 
-                if track_delivery:
-                    # Draft-then-send: create draft first to get message ID,
-                    # then send it. This lets us return tracking IDs.
-                    logger.info("track_delivery=true, using draft-then-send flow")
+                # Always use draft-then-send flow to capture message IDs.
+                # /me/sendMail returns 202 with empty body (no IDs available),
+                # so draft-then-send is required to get channelMessageId and
+                # conversationId regardless of whether tracking is enabled.
+                logger.info("Using draft-then-send flow to capture message IDs")
 
-                    # Step 1: Create draft
-                    draft_response = requests.post(
-                        "https://graph.microsoft.com/v1.0/me/messages",
-                        headers=headers,
-                        data=json.dumps(message_body),
+                # Step 1: Create draft
+                draft_response = requests.post(
+                    "https://graph.microsoft.com/v1.0/me/messages",
+                    headers=headers,
+                    data=json.dumps(message_body),
+                )
+
+                if draft_response.status_code != 201:
+                    error_message = (
+                        draft_response.json()
+                        .get("error", {})
+                        .get("message", "Unknown error")
                     )
-
-                    if draft_response.status_code != 201:
-                        error_message = (
-                            draft_response.json()
-                            .get("error", {})
-                            .get("message", "Unknown error")
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to create draft: {error_message}",
                         )
-                        return [
-                            TextContent(
-                                type="text",
-                                text=f"Failed to create draft: {error_message}",
-                            )
-                        ]
+                    ]
 
-                    draft = draft_response.json()
-                    draft_id = draft.get("id", "")
-                    # internetMessageId is the RFC 2822 Message-ID header — it is
-                    # stable across draft→send (unlike the Graph object ID which
-                    # changes when the message moves from Drafts to Sent Items).
-                    # This is the value we store as channelMessageId so that
-                    # webhook notifications can be matched back to this message.
-                    internet_message_id = draft.get("internetMessageId", "")
-                    conversation_id = draft.get("conversationId", "")
+                draft = draft_response.json()
+                draft_id = draft.get("id", "")
+                # internetMessageId is the RFC 2822 Message-ID header — it is
+                # stable across draft→send (unlike the Graph object ID which
+                # changes when the message moves from Drafts to Sent Items).
+                # This is the value we store as channelMessageId so that
+                # webhook notifications can be matched back to this message.
+                internet_message_id = draft.get("internetMessageId", "")
+                conversation_id = draft.get("conversationId", "")
 
-                    # Step 2: Send the draft
-                    send_response = requests.post(
-                        f"https://graph.microsoft.com/v1.0/me/messages/{draft_id}/send",
-                        headers=headers,
-                    )
+                # Step 2: Send the draft
+                send_response = requests.post(
+                    f"https://graph.microsoft.com/v1.0/me/messages/{draft_id}/send",
+                    headers=headers,
+                )
 
-                    if send_response.status_code not in [200, 202]:
-                        error_message = "Failed to send draft"
-                        try:
-                            error_message = (
-                                send_response.json()
-                                .get("error", {})
-                                .get("message", error_message)
-                            )
-                        except Exception:
-                            pass
-                        return [
-                            TextContent(
-                                type="text",
-                                text=f"Failed to send email: {error_message}",
-                            )
-                        ]
+                if send_response.status_code not in [200, 202]:
+                    error_message = "Failed to send draft"
+                    try:
+                        error_message = (
+                            send_response.json()
+                            .get("error", {})
+                            .get("message", error_message)
+                        )
+                    except Exception:
+                        pass
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to send email: {error_message}",
+                        )
+                    ]
 
+                if track_delivery:
                     # Ensure Outlook change-notification subscription is active
                     # so delivery events are forwarded to our webhook endpoint.
                     webhook_url = os.environ.get("OUTLOOK_WEBHOOK_URL")
@@ -677,59 +679,23 @@ def create_server(user_id, api_key=None):
                             "OUTLOOK_WEBHOOK_URL not set, skipping subscription setup"
                         )
 
-                    # Return structured JSON with tracking fields.
-                    # channelMessageId uses internetMessageId (RFC 2822 Message-ID)
-                    # which is stable across draft→send, unlike the Graph object ID
-                    # that changes when the message moves to Sent Items.
-                    # This maps to workflo's messages.channel_message_id column
-                    # for matching webhook delivery events back to the sent message.
-                    tracking_data = {
-                        "status": "sent",
-                        "channelMessageId": internet_message_id,
-                        "conversationId": conversation_id,
-                    }
-                    return [
-                        TextContent(
-                            type="text",
-                            text=json.dumps(tracking_data),
-                        )
-                    ]
-
-                # Standard send (no tracking) — uses sendMail endpoint directly
-                email_payload = {
-                    "message": message_body,
-                    "saveToSentItems": "true",
+                # Always return structured JSON with tracking fields.
+                # channelMessageId uses internetMessageId (RFC 2822 Message-ID)
+                # which is stable across draft→send, unlike the Graph object ID
+                # that changes when the message moves to Sent Items.
+                # This maps to workflo's messages.channel_message_id column
+                # for matching webhook delivery events back to the sent message.
+                result_data = {
+                    "status": "sent",
+                    "channelMessageId": internet_message_id,
+                    "conversationId": conversation_id,
                 }
-
-                # Log the request details
-                logger.info(f"Sending email with payload: {email_payload}")
-
-                response = requests.post(
-                    "https://graph.microsoft.com/v1.0/me/sendMail",
-                    headers=headers,
-                    data=json.dumps(email_payload),
-                )
-
-                # Log the response
-                logger.info(f"Response status code: {response.status_code}")
-                logger.info(f"Response content: {response.content}")
-
-                if response.status_code in [200, 202]:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Email sent successfully to {', '.join(to_recipients)}",
-                        )
-                    ]
-                else:
-                    error_message = (
-                        response.json().get("error", {}).get("message", "Unknown error")
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps(result_data),
                     )
-                    return [
-                        TextContent(
-                            type="text", text=f"Failed to send email: {error_message}"
-                        )
-                    ]
+                ]
 
             except Exception as e:
                 logger.error(f"Error in send_email: {str(e)}")
