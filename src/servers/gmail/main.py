@@ -591,8 +591,11 @@ def create_server(user_id, api_key=None):
                 is_unread = "UNREAD" in labels
 
                 # Build email summary
+                thread_id = msg.get("threadId", "")
+
                 email_summary = (
                     f"ID: {message['id']}\n"
+                    f"Thread ID: {thread_id}\n"
                     f"From: {sender}\n"
                     f"Subject: {subject}\n"
                     f"Date: {date}\n"
