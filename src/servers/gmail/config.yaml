@@ -13,4 +13,6 @@ tools:
     description: "Update email labels (mark as read/unread, move to folders)"
   - name: "get_attachment"
     description: "Get a temporary download URL for an email attachment"
+  - name: "list_emails_structured"
+    description: "List emails as structured JSON for programmatic consumption by triggers and automation workflows"
 
