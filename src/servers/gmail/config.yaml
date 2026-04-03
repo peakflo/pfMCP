@@ -4,7 +4,7 @@ description: "Interact with Gmail emails and messages"
 documentation_path: "README.md"
 tools:
   - name: "read_emails"
-    description: "Search and read emails in Gmail with full text body and attachment information"
+    description: "Search and read emails in Gmail with full text body and attachment information. Supports structured JSON output via output_format parameter."
   - name: "send_email"
     description: "Send an email through Gmail with optional attachments and delivery tracking"
   - name: "forward_email"
