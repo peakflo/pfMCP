@@ -1,6 +1,6 @@
-"""Unit tests for the list_emails_structured Gmail tool.
+"""Unit tests for read_emails with output_format='structured'.
 
-These tests mock the Gmail API to verify structured output format,
+These tests mock the Gmail API to verify structured JSON output format,
 filtering, and edge cases without requiring real credentials.
 """
 
@@ -10,6 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from base64 import urlsafe_b64encode
 
 from mcp.types import CallToolRequest, CallToolRequestParams
+
+# Default structured arguments — query is required for read_emails
+_STRUCTURED_DEFAULTS = {"query": "in:inbox", "output_format": "structured"}
 
 
 def _make_gmail_message(
@@ -92,16 +95,13 @@ def _build_mock_gmail_service(messages_list_response, message_get_responses):
     """Build a mock Gmail service with list and get responses."""
     mock_service = MagicMock()
 
-    # Chain: gmail_service.users().messages().list(...).execute()
     mock_list = MagicMock()
     mock_list.execute.return_value = messages_list_response
 
     mock_messages = MagicMock()
     mock_messages.list.return_value = mock_list
 
-    # Chain: gmail_service.users().messages().get(...).execute()
     mock_get = MagicMock()
-    # If multiple messages, return them in order
     if isinstance(message_get_responses, list):
         mock_get.execute.side_effect = message_get_responses
     else:
@@ -186,7 +186,10 @@ def email_with_attachments_service():
 
 
 async def _invoke_tool(mock_service, arguments=None):
-    """Call the list_emails_structured tool via the MCP server and return parsed JSON."""
+    """Call read_emails with output_format=structured and return parsed JSON."""
+    # Merge caller args on top of structured defaults
+    merged = {**_STRUCTURED_DEFAULTS, **(arguments or {})}
+
     with patch(
         "src.servers.gmail.main.create_gmail_service",
         new_callable=AsyncMock,
@@ -195,21 +198,45 @@ async def _invoke_tool(mock_service, arguments=None):
         from src.servers.gmail.main import create_server
 
         server_instance = create_server("test_user", api_key="test_key")
-
-        # Look up the CallToolRequest handler by class key
         handler = server_instance.request_handlers[CallToolRequest]
 
         request = CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
-                name="list_emails_structured",
-                arguments=arguments or {},
+                name="read_emails",
+                arguments=merged,
             ),
         )
         result = await handler(request)
-        # result is a ServerResult; .root is CallToolResult with .content list
         text = result.root.content[0].text
         return json.loads(text)
+
+
+async def _invoke_tool_raw(mock_service, arguments=None):
+    """Call read_emails and return the raw text (for testing text vs structured)."""
+    merged = {**(arguments or {})}
+    if "query" not in merged:
+        merged["query"] = "in:inbox"
+
+    with patch(
+        "src.servers.gmail.main.create_gmail_service",
+        new_callable=AsyncMock,
+        return_value=mock_service,
+    ):
+        from src.servers.gmail.main import create_server
+
+        server_instance = create_server("test_user", api_key="test_key")
+        handler = server_instance.request_handlers[CallToolRequest]
+
+        request = CallToolRequest(
+            method="tools/call",
+            params=CallToolRequestParams(
+                name="read_emails",
+                arguments=merged,
+            ),
+        )
+        result = await handler(request)
+        return result.root.content[0].text
 
 
 @pytest.mark.asyncio
@@ -352,10 +379,8 @@ async def test_max_results_capped_at_100(single_email_service):
 @pytest.mark.asyncio
 async def test_extra_headers(single_email_service):
     """Extra headers requested via include_headers appear in extraHeaders."""
-    # Add a Reply-To header to the mock message
     msg = single_email_service.users().messages().get().execute()
     msg["payload"]["headers"].append({"name": "Reply-To", "value": "reply@example.com"})
-    # Reset the mock to return the updated message
     single_email_service.users().messages().get().execute.return_value = msg
     single_email_service.users().messages().get.return_value.execute.return_value = msg
 
@@ -385,13 +410,32 @@ async def test_output_is_valid_json(single_email_service):
         request = CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
-                name="list_emails_structured",
-                arguments={},
+                name="read_emails",
+                arguments={"query": "in:inbox", "output_format": "structured"},
             ),
         )
         result = await handler(request)
         raw_text = result.root.content[0].text
-        # Must not throw
         parsed = json.loads(raw_text)
         assert isinstance(parsed, dict)
         assert isinstance(parsed["emails"], list)
+
+
+@pytest.mark.asyncio
+async def test_text_format_is_default(single_email_service):
+    """Without output_format, read_emails returns human-readable text (not JSON)."""
+    raw = await _invoke_tool_raw(single_email_service)
+
+    # Text format starts with "Found N emails:"
+    assert raw.startswith("Found 1 emails:")
+    # Should NOT be valid JSON
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(raw)
+
+
+@pytest.mark.asyncio
+async def test_text_format_explicit(single_email_service):
+    """output_format='text' returns human-readable text."""
+    raw = await _invoke_tool_raw(single_email_service, {"output_format": "text"})
+    assert "Found 1 emails:" in raw
+    assert "From: alice@example.com" in raw
