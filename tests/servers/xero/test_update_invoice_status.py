@@ -82,9 +82,9 @@ async def test_status_omitted_means_no_status_key():
     )
     post_call = api_mock.call_args_list[1]
     invoice_payload = post_call.kwargs["data"]["Invoices"][0]
-    assert "Status" not in invoice_payload, (
-        f"expected no Status key when omitted, got {invoice_payload}"
-    )
+    assert (
+        "Status" not in invoice_payload
+    ), f"expected no Status key when omitted, got {invoice_payload}"
     assert invoice_payload["Reference"] == "PO-123"
     print("PASS  status omitted -> no Status key in payload:", invoice_payload)
 
