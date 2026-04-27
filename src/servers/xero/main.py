@@ -1117,6 +1117,11 @@ def create_server(user_id, api_key=None):
                                 ],
                             },
                         },
+                        "status": {
+                            "type": "string",
+                            "description": "Updated invoice status. Use AUTHORISED to push the draft into the invoices section in Xero. Allowed transitions from DRAFT: SUBMITTED, AUTHORISED, DELETED.",
+                            "enum": ["DRAFT", "SUBMITTED", "AUTHORISED", "DELETED"],
+                        },
                     },
                     "required": ["invoiceId"],
                 },
@@ -2329,6 +2334,8 @@ def create_server(user_id, api_key=None):
                             line_item["ItemCode"] = item["itemCode"]
                         line_items.append(line_item)
                     invoice["LineItems"] = line_items
+                if arguments.get("status"):
+                    invoice["Status"] = arguments["status"]
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/Invoices/{invoice_id}",
