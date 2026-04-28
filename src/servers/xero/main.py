@@ -28,6 +28,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
+from src.utils.storage.factory import get_storage_service
 
 # Configuration
 SERVICE_NAME = Path(__file__).parent.name
@@ -177,6 +178,69 @@ async def call_xero_api(
             raise Exception(format_xero_error(response.status_code, error_text))
 
         return response.json()
+
+
+# Valid Xero entity types that support attachments.
+# Maps user-facing names to Xero API endpoint names.
+ATTACHMENT_ENTITY_TYPES = {
+    "Invoices": "Invoices",
+    "CreditNotes": "CreditNotes",
+    "BankTransactions": "BankTransactions",
+    "Contacts": "Contacts",
+    "ManualJournals": "ManualJournals",
+    "Quotes": "Quotes",
+    "Receipts": "Receipts",
+    "RepeatingInvoices": "RepeatingInvoices",
+    "Accounts": "Accounts",
+    "PurchaseOrders": "PurchaseOrders",
+}
+
+
+async def download_xero_attachment(
+    endpoint: str,
+    entity_id: str,
+    filename: str,
+    access_token: str,
+    tenant_id: str,
+) -> bytes:
+    """
+    Download attachment binary data from Xero.
+
+    Uses the Xero Attachments API to fetch the raw file content.
+    Unlike call_xero_api, this returns raw bytes instead of JSON.
+
+    Args:
+        endpoint: Xero entity type (e.g., "Invoices", "CreditNotes").
+        entity_id: The GUID of the entity the attachment belongs to.
+        filename: The filename of the attachment to download.
+        access_token: Xero OAuth2 access token.
+        tenant_id: Xero tenant (organisation) ID.
+
+    Returns:
+        Raw bytes of the attachment file content.
+
+    Raises:
+        Exception: If the download fails (HTTP error).
+    """
+    from urllib.parse import quote
+
+    url = (
+        f"{XERO_API_BASE}{ACCOUNTING_API}"
+        f"/{endpoint}/{entity_id}/Attachments/{quote(filename, safe='')}"
+    )
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "xero-tenant-id": tenant_id,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+
+        if response.status_code >= 400:
+            error_text = response.text
+            raise Exception(format_xero_error(response.status_code, error_text))
+
+        return response.content
 
 
 def create_server(user_id, api_key=None):
@@ -1493,6 +1557,53 @@ def create_server(user_id, api_key=None):
                     "required": ["timesheetId"],
                 },
             ),
+            # ==================== ATTACHMENT OPERATIONS ====================
+            Tool(
+                name="list_attachments",
+                description="List all attachments for a Xero entity (invoice, credit note, contact, etc.)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "entityType": {
+                            "type": "string",
+                            "description": "The type of Xero entity",
+                            "enum": list(ATTACHMENT_ENTITY_TYPES.keys()),
+                        },
+                        "entityId": {
+                            "type": "string",
+                            "description": "The ID (GUID) of the entity to list attachments for",
+                        },
+                    },
+                    "required": ["entityType", "entityId"],
+                },
+            ),
+            Tool(
+                name="get_attachment",
+                description="Get a temporary download URL for a Xero attachment",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "entityType": {
+                            "type": "string",
+                            "description": "The type of Xero entity the attachment belongs to",
+                            "enum": list(ATTACHMENT_ENTITY_TYPES.keys()),
+                        },
+                        "entityId": {
+                            "type": "string",
+                            "description": "The ID (GUID) of the entity the attachment belongs to",
+                        },
+                        "filename": {
+                            "type": "string",
+                            "description": "Filename of the attachment (from list_attachments results)",
+                        },
+                        "mime_type": {
+                            "type": "string",
+                            "description": "MIME type of the attachment (from list_attachments results)",
+                        },
+                    },
+                    "required": ["entityType", "entityId", "filename"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -2760,6 +2871,80 @@ def create_server(user_id, api_key=None):
                     tenant_id,
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            # ==================== ATTACHMENT OPERATIONS ====================
+
+            elif name == "list_attachments":
+                entity_type = arguments.get("entityType")
+                entity_id = arguments.get("entityId")
+                if not entity_type or not entity_id:
+                    raise ValueError("entityType and entityId are required")
+
+                if entity_type not in ATTACHMENT_ENTITY_TYPES:
+                    raise ValueError(
+                        f"Unsupported entity type: {entity_type}. "
+                        f"Supported types: {', '.join(ATTACHMENT_ENTITY_TYPES.keys())}"
+                    )
+
+                endpoint = ATTACHMENT_ENTITY_TYPES[entity_type]
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/{endpoint}/{entity_id}/Attachments",
+                    access_token,
+                    tenant_id,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "get_attachment":
+                entity_type = arguments.get("entityType")
+                entity_id = arguments.get("entityId")
+                filename = arguments.get("filename")
+                if not entity_type or not entity_id or not filename:
+                    raise ValueError("entityType, entityId, and filename are required")
+
+                if entity_type not in ATTACHMENT_ENTITY_TYPES:
+                    raise ValueError(
+                        f"Unsupported entity type: {entity_type}. "
+                        f"Supported types: {', '.join(ATTACHMENT_ENTITY_TYPES.keys())}"
+                    )
+
+                mime_type = arguments.get("mime_type", "application/octet-stream")
+                endpoint = ATTACHMENT_ENTITY_TYPES[entity_type]
+
+                # Download the attachment binary data from Xero
+                att_data = await download_xero_attachment(
+                    endpoint, entity_id, filename, access_token, tenant_id
+                )
+                if not att_data:
+                    return [
+                        TextContent(
+                            type="text",
+                            text=(
+                                f"Failed to download attachment '{filename}' "
+                                f"from {entity_type}/{entity_id}."
+                            ),
+                        )
+                    ]
+
+                # Upload to storage and get signed URL
+                storage = get_storage_service()
+                download_url = storage.upload_temporary(
+                    data=att_data,
+                    filename=filename,
+                    mime_type=mime_type,
+                )
+
+                size_kb = len(att_data) / 1024
+                return [
+                    TextContent(
+                        type="text",
+                        text=(
+                            f"Attachment: {filename}\n"
+                            f"Type: {mime_type}\n"
+                            f"Size: {size_kb:.1f} KB\n"
+                            f"Download URL (expires in 1 hour): {download_url}"
+                        ),
+                    )
+                ]
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
