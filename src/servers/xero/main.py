@@ -243,6 +243,45 @@ async def download_xero_attachment(
         return response.content
 
 
+async def download_xero_invoice_pdf(
+    invoice_id: str,
+    access_token: str,
+    tenant_id: str,
+) -> bytes:
+    """
+    Download the rendered PDF of a Xero invoice.
+
+    Uses the Xero Invoices endpoint with Accept: application/pdf to retrieve
+    the system-generated invoice PDF (not a user-uploaded attachment).
+
+    Args:
+        invoice_id: The InvoiceID (GUID) or InvoiceNumber of the invoice.
+        access_token: Xero OAuth2 access token.
+        tenant_id: Xero tenant (organisation) ID.
+
+    Returns:
+        Raw bytes of the invoice PDF.
+
+    Raises:
+        Exception: If the download fails (HTTP error).
+    """
+    url = f"{XERO_API_BASE}{ACCOUNTING_API}/Invoices/{invoice_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "xero-tenant-id": tenant_id,
+        "Accept": "application/pdf",
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+
+        if response.status_code >= 400:
+            error_text = response.text
+            raise Exception(format_xero_error(response.status_code, error_text))
+
+        return response.content
+
+
 def create_server(user_id, api_key=None):
     """
     Initialize and configure the Xero MCP server.
@@ -1604,6 +1643,20 @@ def create_server(user_id, api_key=None):
                     "required": ["entityType", "entityId", "filename"],
                 },
             ),
+            Tool(
+                name="get_invoice_pdf",
+                description="Download the rendered PDF of a Xero invoice and return a temporary download URL",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "invoiceId": {
+                            "type": "string",
+                            "description": "The InvoiceID (GUID) or InvoiceNumber of the invoice",
+                        },
+                    },
+                    "required": ["invoiceId"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -2940,6 +2993,46 @@ def create_server(user_id, api_key=None):
                         text=(
                             f"Attachment: {filename}\n"
                             f"Type: {mime_type}\n"
+                            f"Size: {size_kb:.1f} KB\n"
+                            f"Download URL (expires in 1 hour): {download_url}"
+                        ),
+                    )
+                ]
+
+            elif name == "get_invoice_pdf":
+                invoice_id = arguments.get("invoiceId")
+                if not invoice_id:
+                    raise ValueError("invoiceId is required")
+
+                # Download the rendered invoice PDF from Xero
+                pdf_data = await download_xero_invoice_pdf(
+                    invoice_id, access_token, tenant_id
+                )
+                if not pdf_data:
+                    return [
+                        TextContent(
+                            type="text",
+                            text=f"Failed to download PDF for invoice {invoice_id}.",
+                        )
+                    ]
+
+                # Use the invoice ID as the filename
+                filename = f"{invoice_id}.pdf"
+
+                # Upload to storage and get signed URL
+                storage = get_storage_service()
+                download_url = storage.upload_temporary(
+                    data=pdf_data,
+                    filename=filename,
+                    mime_type="application/pdf",
+                )
+
+                size_kb = len(pdf_data) / 1024
+                return [
+                    TextContent(
+                        type="text",
+                        text=(
+                            f"Invoice PDF: {invoice_id}\n"
                             f"Size: {size_kb:.1f} KB\n"
                             f"Download URL (expires in 1 hour): {download_url}"
                         ),
