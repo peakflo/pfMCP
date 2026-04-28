@@ -20,7 +20,6 @@ from mcp.types import ListToolsRequest, CallToolRequest, CallToolRequestParams
 
 from src.servers.xero import main as xero_main
 
-
 SAMPLE_ATTACHMENTS_RESPONSE = {
     "Attachments": [
         {
@@ -44,7 +43,13 @@ SAMPLE_ATTACHMENTS_RESPONSE = {
 _SENTINEL = object()
 
 
-async def _invoke(tool_name: str, arguments: dict, api_responses=None, download_data=_SENTINEL, storage_url=None):
+async def _invoke(
+    tool_name: str,
+    arguments: dict,
+    api_responses=None,
+    download_data=_SENTINEL,
+    storage_url=None,
+):
     """Run the call_tool handler with mocked Xero + Nango + storage."""
     srv = xero_main.create_server(user_id="test-user")
     handler = srv.request_handlers[CallToolRequest]
@@ -65,13 +70,17 @@ async def _invoke(tool_name: str, arguments: dict, api_responses=None, download_
 
     if download_data is not _SENTINEL:
         download_mock = AsyncMock(return_value=download_data)
-        patches.append(patch.object(xero_main, "download_xero_attachment", download_mock))
+        patches.append(
+            patch.object(xero_main, "download_xero_attachment", download_mock)
+        )
 
     if storage_url is not None:
         mock_storage_instance = MagicMock()
         mock_storage_instance.upload_temporary.return_value = storage_url
         storage_factory_mock = MagicMock(return_value=mock_storage_instance)
-        patches.append(patch.object(xero_main, "get_storage_service", storage_factory_mock))
+        patches.append(
+            patch.object(xero_main, "get_storage_service", storage_factory_mock)
+        )
 
     for p in patches:
         p.start()

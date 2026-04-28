@@ -2899,9 +2899,7 @@ def create_server(user_id, api_key=None):
                 entity_id = arguments.get("entityId")
                 filename = arguments.get("filename")
                 if not entity_type or not entity_id or not filename:
-                    raise ValueError(
-                        "entityType, entityId, and filename are required"
-                    )
+                    raise ValueError("entityType, entityId, and filename are required")
 
                 if entity_type not in ATTACHMENT_ENTITY_TYPES:
                     raise ValueError(
