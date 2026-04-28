@@ -105,3 +105,5 @@ tools:
     description: "List all attachments for a Xero entity (invoice, credit note, contact, etc.)"
   - name: "get_attachment"
     description: "Get a temporary download URL for a Xero attachment"
+  - name: "get_invoice_pdf"
+    description: "Download the rendered PDF of a Xero invoice and return a temporary download URL"
