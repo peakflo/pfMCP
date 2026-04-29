@@ -304,10 +304,31 @@ def create_server(user_id, api_key=None):
             # ==================== LIST OPERATIONS ====================
             Tool(
                 name="list_accounts",
-                description="Retrieve a list of accounts (chart of accounts) from Xero",
+                description="Retrieve a list of accounts (chart of accounts) from Xero. Supports filtering by account type and class for validation of account codes.",
                 inputSchema={
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Filter by account type (e.g., BANK, REVENUE, EXPENSE, CURRENT, FIXED, EQUITY, etc.)",
+                        },
+                        "classType": {
+                            "type": "string",
+                            "description": "Filter by account class (ASSET, EQUITY, EXPENSE, LIABILITY, REVENUE)",
+                            "enum": [
+                                "ASSET",
+                                "EQUITY",
+                                "EXPENSE",
+                                "LIABILITY",
+                                "REVENUE",
+                            ],
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by account status",
+                            "enum": ["ACTIVE", "ARCHIVED"],
+                        },
+                    },
                 },
             ),
             Tool(
@@ -404,7 +425,7 @@ def create_server(user_id, api_key=None):
             ),
             Tool(
                 name="list_bank_transactions",
-                description="Retrieve a list of bank account transactions from Xero",
+                description="Retrieve a list of bank account transactions from Xero. Supports filtering by status (e.g., AUTHORISED for unreconciled transactions) and bank account.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -416,6 +437,11 @@ def create_server(user_id, api_key=None):
                         "bankAccountId": {
                             "type": "string",
                             "description": "Filter by bank account ID",
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by transaction status (AUTHORISED = unreconciled, DELETED = removed)",
+                            "enum": ["AUTHORISED", "DELETED"],
                         },
                     },
                 },
@@ -993,6 +1019,230 @@ def create_server(user_id, api_key=None):
                         },
                     },
                     "required": ["contactId", "type", "lineItems"],
+                },
+            ),
+            # ==================== TRANSFER & BATCH OPERATIONS ====================
+            Tool(
+                name="create_bank_transfer",
+                description="Create a bank transfer between two bank accounts in Xero. Used for internal funds movement (e.g., transferring from Operating to Savings, or replenishing Petty Cash).",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "fromAccountId": {
+                            "type": "string",
+                            "description": "The source bank account ID (AccountID of a BANK type account)",
+                        },
+                        "toAccountId": {
+                            "type": "string",
+                            "description": "The destination bank account ID (AccountID of a BANK type account)",
+                        },
+                        "amount": {
+                            "type": "number",
+                            "description": "Transfer amount (must be positive)",
+                            "exclusiveMinimum": 0,
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Transfer date (YYYY-MM-DD). Defaults to today if not provided.",
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Optional reference for the transfer",
+                        },
+                    },
+                    "required": ["fromAccountId", "toAccountId", "amount"],
+                },
+            ),
+            Tool(
+                name="create_batch_payment",
+                description="Create a batch payment in Xero to pay multiple invoices in a single transaction. Used for reconciliation when one bank line matches multiple invoices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "accountId": {
+                            "type": "string",
+                            "description": "The bank account ID the payment is made from/to",
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Payment date (YYYY-MM-DD)",
+                        },
+                        "payments": {
+                            "type": "array",
+                            "description": "List of individual invoice payments within this batch",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "invoiceId": {
+                                        "type": "string",
+                                        "description": "The invoice ID to apply payment to",
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "description": "Payment amount for this invoice",
+                                    },
+                                },
+                                "required": ["invoiceId", "amount"],
+                            },
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Reference for the batch payment",
+                        },
+                        "narrative": {
+                            "type": "string",
+                            "description": "Narrative or description for the batch payment",
+                        },
+                    },
+                    "required": ["accountId", "date", "payments"],
+                },
+            ),
+            Tool(
+                name="create_overpayment",
+                description="Create an overpayment transaction in Xero. Used when a payment received or made exceeds the invoice balance. Creates a RECEIVE-OVERPAYMENT (customer overpaid) or SPEND-OVERPAYMENT (supplier overpaid) bank transaction.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Overpayment type: RECEIVE-OVERPAYMENT (customer overpaid us) or SPEND-OVERPAYMENT (we overpaid supplier)",
+                            "enum": [
+                                "RECEIVE-OVERPAYMENT",
+                                "SPEND-OVERPAYMENT",
+                            ],
+                        },
+                        "contactId": {
+                            "type": "string",
+                            "description": "The contact ID for the overpayment",
+                        },
+                        "bankAccountId": {
+                            "type": "string",
+                            "description": "The bank account ID for the overpayment",
+                        },
+                        "lineItems": {
+                            "type": "array",
+                            "description": "Line items describing the overpayment",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Description of the overpayment",
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "description": "Quantity (typically 1)",
+                                    },
+                                    "unitAmount": {
+                                        "type": "number",
+                                        "description": "Amount of the overpayment",
+                                    },
+                                    "accountCode": {
+                                        "type": "string",
+                                        "description": "Account code",
+                                    },
+                                    "taxType": {
+                                        "type": "string",
+                                        "description": "Tax type",
+                                    },
+                                },
+                                "required": [
+                                    "description",
+                                    "quantity",
+                                    "unitAmount",
+                                    "accountCode",
+                                ],
+                            },
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Transaction date (YYYY-MM-DD)",
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Reference for the overpayment",
+                        },
+                    },
+                    "required": [
+                        "type",
+                        "contactId",
+                        "bankAccountId",
+                        "lineItems",
+                    ],
+                },
+            ),
+            Tool(
+                name="create_prepayment",
+                description="Create a prepayment transaction in Xero. Used for advance payments before an invoice is raised. Creates a RECEIVE-PREPAYMENT (customer paid in advance) or SPEND-PREPAYMENT (we paid supplier in advance) bank transaction.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Prepayment type: RECEIVE-PREPAYMENT (customer prepaid) or SPEND-PREPAYMENT (we prepaid supplier)",
+                            "enum": [
+                                "RECEIVE-PREPAYMENT",
+                                "SPEND-PREPAYMENT",
+                            ],
+                        },
+                        "contactId": {
+                            "type": "string",
+                            "description": "The contact ID for the prepayment",
+                        },
+                        "bankAccountId": {
+                            "type": "string",
+                            "description": "The bank account ID for the prepayment",
+                        },
+                        "lineItems": {
+                            "type": "array",
+                            "description": "Line items describing the prepayment",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Description of the prepayment",
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "description": "Quantity (typically 1)",
+                                    },
+                                    "unitAmount": {
+                                        "type": "number",
+                                        "description": "Amount of the prepayment",
+                                    },
+                                    "accountCode": {
+                                        "type": "string",
+                                        "description": "Account code",
+                                    },
+                                    "taxType": {
+                                        "type": "string",
+                                        "description": "Tax type",
+                                    },
+                                },
+                                "required": [
+                                    "description",
+                                    "quantity",
+                                    "unitAmount",
+                                    "accountCode",
+                                ],
+                            },
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Transaction date (YYYY-MM-DD)",
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Reference for the prepayment",
+                        },
+                    },
+                    "required": [
+                        "type",
+                        "contactId",
+                        "bankAccountId",
+                        "lineItems",
+                    ],
                 },
             ),
             Tool(
@@ -1688,10 +1938,22 @@ def create_server(user_id, api_key=None):
             # ==================== LIST OPERATIONS ====================
 
             if name == "list_accounts":
+                params = {}
+                where_clauses = []
+                if arguments.get("type"):
+                    where_clauses.append(f'Type=="{arguments["type"]}"')
+                if arguments.get("classType"):
+                    where_clauses.append(f'Class=="{arguments["classType"]}"')
+                if arguments.get("status"):
+                    where_clauses.append(f'Status=="{arguments["status"]}"')
+                if where_clauses:
+                    params["where"] = "&&".join(where_clauses)
+
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/Accounts",
                     access_token,
                     tenant_id,
+                    params=params if params else None,
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -1787,12 +2049,19 @@ def create_server(user_id, api_key=None):
                 params = {"order": "Date DESC"}
                 page = arguments.get("page")
                 bank_account_id = arguments.get("bankAccountId")
+                status = arguments.get("status")
                 if page:
                     params["page"] = page
+
+                where_clauses = []
                 if bank_account_id:
-                    params["where"] = (
+                    where_clauses.append(
                         f'BankAccount.AccountID==Guid("{bank_account_id}")'
                     )
+                if status:
+                    where_clauses.append(f'Status=="{status}"')
+                if where_clauses:
+                    params["where"] = "&&".join(where_clauses)
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/BankTransactions",
@@ -2295,6 +2564,176 @@ def create_server(user_id, api_key=None):
                     tenant_id,
                     method="POST",
                     data={"CreditNotes": [credit_note]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            # ==================== TRANSFER & BATCH OPERATIONS ====================
+
+            elif name == "create_bank_transfer":
+                from_account_id = arguments.get("fromAccountId")
+                to_account_id = arguments.get("toAccountId")
+                amount = arguments.get("amount")
+
+                if not all([from_account_id, to_account_id, amount]):
+                    raise ValueError(
+                        "fromAccountId, toAccountId, and amount are required"
+                    )
+
+                if amount <= 0:
+                    raise ValueError("Transfer amount must be positive")
+
+                transfer = {
+                    "FromBankAccount": {"AccountID": from_account_id},
+                    "ToBankAccount": {"AccountID": to_account_id},
+                    "Amount": amount,
+                }
+
+                if arguments.get("date"):
+                    transfer["Date"] = arguments["date"]
+                else:
+                    transfer["Date"] = datetime.now().strftime("%Y-%m-%d")
+                if arguments.get("reference"):
+                    transfer["Reference"] = arguments["reference"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BankTransfers",
+                    access_token,
+                    tenant_id,
+                    method="PUT",
+                    data={"BankTransfers": [transfer]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "create_batch_payment":
+                account_id = arguments.get("accountId")
+                date = arguments.get("date")
+                payments_input = arguments.get("payments", [])
+
+                if not all([account_id, date, payments_input]):
+                    raise ValueError(
+                        "accountId, date, and payments are required"
+                    )
+
+                payments = []
+                for p in payments_input:
+                    invoice_id = p.get("invoiceId")
+                    amount = p.get("amount")
+                    if not invoice_id or amount is None:
+                        raise ValueError(
+                            "Each payment must include invoiceId and amount"
+                        )
+                    payments.append(
+                        {
+                            "Invoice": {"InvoiceID": invoice_id},
+                            "Amount": amount,
+                        }
+                    )
+
+                batch_payment = {
+                    "Account": {"AccountID": account_id},
+                    "Date": date,
+                    "Payments": payments,
+                }
+
+                if arguments.get("reference"):
+                    batch_payment["Reference"] = arguments["reference"]
+                if arguments.get("narrative"):
+                    batch_payment["Narrative"] = arguments["narrative"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BatchPayments",
+                    access_token,
+                    tenant_id,
+                    method="PUT",
+                    data={"BatchPayments": [batch_payment]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "create_overpayment":
+                op_type = arguments.get("type")
+                contact_id = arguments.get("contactId")
+                bank_account_id = arguments.get("bankAccountId")
+                line_items_input = arguments.get("lineItems", [])
+
+                if not all([op_type, contact_id, bank_account_id, line_items_input]):
+                    raise ValueError(
+                        "type, contactId, bankAccountId, and lineItems are required"
+                    )
+
+                line_items = []
+                for item in line_items_input:
+                    line_item = {
+                        "Description": item.get("description", ""),
+                        "Quantity": item.get("quantity", 1),
+                        "UnitAmount": item.get("unitAmount", 0),
+                        "AccountCode": item.get("accountCode", ""),
+                    }
+                    if item.get("taxType"):
+                        line_item["TaxType"] = item["taxType"]
+                    line_items.append(line_item)
+
+                transaction = {
+                    "Type": op_type,
+                    "Contact": {"ContactID": contact_id},
+                    "BankAccount": {"AccountID": bank_account_id},
+                    "LineItems": line_items,
+                }
+
+                if arguments.get("date"):
+                    transaction["Date"] = arguments["date"]
+                if arguments.get("reference"):
+                    transaction["Reference"] = arguments["reference"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BankTransactions",
+                    access_token,
+                    tenant_id,
+                    method="PUT",
+                    data={"BankTransactions": [transaction]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "create_prepayment":
+                pp_type = arguments.get("type")
+                contact_id = arguments.get("contactId")
+                bank_account_id = arguments.get("bankAccountId")
+                line_items_input = arguments.get("lineItems", [])
+
+                if not all([pp_type, contact_id, bank_account_id, line_items_input]):
+                    raise ValueError(
+                        "type, contactId, bankAccountId, and lineItems are required"
+                    )
+
+                line_items = []
+                for item in line_items_input:
+                    line_item = {
+                        "Description": item.get("description", ""),
+                        "Quantity": item.get("quantity", 1),
+                        "UnitAmount": item.get("unitAmount", 0),
+                        "AccountCode": item.get("accountCode", ""),
+                    }
+                    if item.get("taxType"):
+                        line_item["TaxType"] = item["taxType"]
+                    line_items.append(line_item)
+
+                transaction = {
+                    "Type": pp_type,
+                    "Contact": {"ContactID": contact_id},
+                    "BankAccount": {"AccountID": bank_account_id},
+                    "LineItems": line_items,
+                }
+
+                if arguments.get("date"):
+                    transaction["Date"] = arguments["date"]
+                if arguments.get("reference"):
+                    transaction["Reference"] = arguments["reference"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BankTransactions",
+                    access_token,
+                    tenant_id,
+                    method="PUT",
+                    data={"BankTransactions": [transaction]},
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 

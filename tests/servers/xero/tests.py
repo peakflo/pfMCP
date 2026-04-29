@@ -126,6 +126,19 @@ TOOL_TESTS = [
         "expected_keywords": ["BankTransactions"],
         "description": "list bank transactions from Xero",
     },
+    {
+        "name": "list_bank_transactions",
+        "args_template": 'with status="AUTHORISED" page=1',
+        "expected_keywords": ["BankTransactions"],
+        "description": "list bank transactions filtered by AUTHORISED status",
+    },
+    # ==================== ACCOUNTS WITH FILTERS ====================
+    {
+        "name": "list_accounts",
+        "args_template": 'with type="BANK"',
+        "expected_keywords": ["Accounts"],
+        "description": "list accounts filtered by BANK type",
+    },
     # ==================== CREDIT NOTES ====================
     {
         "name": "list_credit_notes",
