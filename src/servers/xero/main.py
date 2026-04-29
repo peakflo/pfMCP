@@ -326,7 +326,7 @@ def create_server(user_id, api_key=None):
                         "status": {
                             "type": "string",
                             "description": "Filter by account status",
-                            "enum": ["ACTIVE", "ARCHIVED"],
+                            "enum": ["ACTIVE", "ARCHIVED", "DELETED"],
                         },
                     },
                 },
@@ -1091,7 +1091,13 @@ def create_server(user_id, api_key=None):
                         },
                         "narrative": {
                             "type": "string",
-                            "description": "Narrative or description for the batch payment",
+                            "description": "(UK Only) Shows on the statement line in Xero. Max length 18 characters.",
+                            "maxLength": 18,
+                        },
+                        "details": {
+                            "type": "string",
+                            "description": "(Non-NZ Only) Bank reference for the batch payment. Shows in bank reconciliation Find & Match screen. Max length 18 characters.",
+                            "maxLength": 18,
                         },
                     },
                     "required": ["accountId", "date", "payments"],
@@ -1947,7 +1953,7 @@ def create_server(user_id, api_key=None):
                 if arguments.get("status"):
                     where_clauses.append(f'Status=="{arguments["status"]}"')
                 if where_clauses:
-                    params["where"] = "&&".join(where_clauses)
+                    params["where"] = " AND ".join(where_clauses)
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/Accounts",
@@ -2061,7 +2067,7 @@ def create_server(user_id, api_key=None):
                 if status:
                     where_clauses.append(f'Status=="{status}"')
                 if where_clauses:
-                    params["where"] = "&&".join(where_clauses)
+                    params["where"] = " AND ".join(where_clauses)
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/BankTransactions",
@@ -2637,6 +2643,8 @@ def create_server(user_id, api_key=None):
                     batch_payment["Reference"] = arguments["reference"]
                 if arguments.get("narrative"):
                     batch_payment["Narrative"] = arguments["narrative"]
+                if arguments.get("details"):
+                    batch_payment["Details"] = arguments["details"]
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/BatchPayments",

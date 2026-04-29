@@ -200,7 +200,7 @@ async def test_create_batch_payment_payload():
                 {"invoiceId": "inv-2", "amount": 200.00},
             ],
             "reference": "Jan batch",
-            "narrative": "January batch payment",
+            "narrative": "Jan batch pmt",
         },
         api_responses=[batch_response],
     )
@@ -220,7 +220,7 @@ async def test_create_batch_payment_payload():
     assert bp["Payments"][1]["Invoice"]["InvoiceID"] == "inv-2"
     assert bp["Payments"][1]["Amount"] == 200.00
     assert bp["Reference"] == "Jan batch"
-    assert bp["Narrative"] == "January batch payment"
+    assert bp["Narrative"] == "Jan batch pmt"
     print("PASS  create_batch_payment sends correct PUT payload:", bp)
 
 
@@ -475,7 +475,7 @@ async def test_list_accounts_schema_has_filters():
         "REVENUE",
     ]
     assert "status" in props
-    assert props["status"]["enum"] == ["ACTIVE", "ARCHIVED"]
+    assert props["status"]["enum"] == ["ACTIVE", "ARCHIVED", "DELETED"]
     print("PASS  list_accounts schema has type, classType, and status filters")
 
 
@@ -512,6 +512,8 @@ async def test_list_accounts_combined_filters():
     assert 'Type=="BANK"' in where
     assert 'Class=="ASSET"' in where
     assert 'Status=="ACTIVE"' in where
+    # Xero API uses AND (not &&) to combine where conditions
+    assert " AND " in where, f"Expected AND separator in where clause, got: {where}"
     print("PASS  list_accounts combined filters send where clause:", where)
 
 
@@ -574,6 +576,8 @@ async def test_list_bank_transactions_combined_filters():
     where = params["where"]
     assert 'BankAccount.AccountID==Guid("acc-123")' in where
     assert 'Status=="AUTHORISED"' in where
+    # Xero API uses AND separator per their filter documentation
+    assert " AND " in where, f"Expected AND separator, got: {where}"
     assert params["page"] == 2
     print(
         "PASS  list_bank_transactions combined filters:",
