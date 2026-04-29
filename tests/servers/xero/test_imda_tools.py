@@ -20,7 +20,6 @@ from mcp.types import ListToolsRequest, CallToolRequest, CallToolRequestParams
 
 from src.servers.xero import main as xero_main
 
-
 # ==================== Test Helpers ====================
 
 
@@ -131,7 +130,11 @@ async def test_create_bank_transfer_rejects_negative_amount():
     )
     text = result.root.content[0].text
     # MCP framework validates exclusiveMinimum: 0 from the schema
-    assert "validation error" in text.lower() or "less than" in text.lower() or "positive" in text.lower(), f"Unexpected error text: {text}"
+    assert (
+        "validation error" in text.lower()
+        or "less than" in text.lower()
+        or "positive" in text.lower()
+    ), f"Unexpected error text: {text}"
     assert api_mock.call_count == 0
     print("PASS  create_bank_transfer rejects negative amount:", text)
 
@@ -247,7 +250,9 @@ async def test_create_batch_payment_rejects_incomplete_payment_items():
     )
     text = result.root.content[0].text
     # MCP framework validates required fields in nested array items
-    assert "required" in text.lower() or "amount" in text.lower(), f"Unexpected error: {text}"
+    assert (
+        "required" in text.lower() or "amount" in text.lower()
+    ), f"Unexpected error: {text}"
     assert api_mock.call_count == 0
     print("PASS  create_batch_payment rejects payment items missing amount:", text)
 

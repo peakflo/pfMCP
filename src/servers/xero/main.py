@@ -2610,9 +2610,7 @@ def create_server(user_id, api_key=None):
                 payments_input = arguments.get("payments", [])
 
                 if not all([account_id, date, payments_input]):
-                    raise ValueError(
-                        "accountId, date, and payments are required"
-                    )
+                    raise ValueError("accountId, date, and payments are required")
 
                 payments = []
                 for p in payments_input:
