@@ -4116,7 +4116,12 @@ def create_server(user_id, api_key=None):
                 entity_id = arguments.get("entityId")
                 filename = arguments.get("filename")
                 content_base64 = arguments.get("contentBase64")
-                if not entity_type or not entity_id or not filename or not content_base64:
+                if (
+                    not entity_type
+                    or not entity_id
+                    or not filename
+                    or not content_base64
+                ):
                     raise ValueError(
                         "entityType, entityId, filename, and contentBase64 are required"
                     )

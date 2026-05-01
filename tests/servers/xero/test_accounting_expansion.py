@@ -186,7 +186,13 @@ async def test_update_purchase_order_requires_draft_status():
     result, api_mock = await _invoke(
         "update_purchase_order",
         {"purchaseOrderId": "po-locked", "reference": "Updated"},
-        api_responses=[{"PurchaseOrders": [{"PurchaseOrderID": "po-locked", "Status": "AUTHORISED"}]}],
+        api_responses=[
+            {
+                "PurchaseOrders": [
+                    {"PurchaseOrderID": "po-locked", "Status": "AUTHORISED"}
+                ]
+            }
+        ],
     )
 
     text = result.root.content[0].text
@@ -218,7 +224,9 @@ async def test_add_attachment_posts_binary_content():
     assert api_mock.call_args.kwargs["method"] == "POST"
     assert api_mock.call_args.kwargs["content"] == b"hello world"
     assert api_mock.call_args.kwargs["params"] == {"includeOnline": True}
-    assert api_mock.call_args.kwargs["extra_headers"]["Content-Type"] == "application/pdf"
+    assert (
+        api_mock.call_args.kwargs["extra_headers"]["Content-Type"] == "application/pdf"
+    )
     assert api_mock.call_args.kwargs["extra_headers"]["Idempotency-Key"] == "idem-123"
 
 
@@ -243,7 +251,9 @@ async def test_upload_attachment_puts_binary_content():
     )
     assert api_mock.call_args.kwargs["method"] == "PUT"
     assert api_mock.call_args.kwargs["content"] == b"updated"
-    assert api_mock.call_args.kwargs["extra_headers"]["Content-Type"] == "application/pdf"
+    assert (
+        api_mock.call_args.kwargs["extra_headers"]["Content-Type"] == "application/pdf"
+    )
 
 
 async def test_add_attachment_rejects_invalid_base64():
