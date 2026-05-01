@@ -31,7 +31,7 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 
 ## Available Tools
 
-### List Operations (23 tools)
+### List Operations
 
 | Tool | Description |
 |------|-------------|
@@ -41,8 +41,13 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `list_items` | Retrieve items |
 | `list_payments` | Retrieve payments |
 | `list_quotes` | Retrieve quotes |
+| `list_purchase_orders` | Retrieve purchase orders |
 | `list_credit_notes` | Retrieve credit notes |
 | `list_bank_transactions` | Retrieve bank transactions |
+| `list_bank_transfers` | Retrieve bank transfers |
+| `list_batch_payments` | Retrieve batch payments |
+| `list_overpayments` | Retrieve overpayments |
+| `list_prepayments` | Retrieve prepayments |
 | `list_manual_journals` | Retrieve manual journals |
 | `list_tax_rates` | Retrieve tax rates |
 | `list_tracking_categories` | Retrieve tracking categories |
@@ -59,7 +64,7 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `list_payroll_leave_types` | Retrieve leave types (NZ/UK) |
 | `list_timesheets` | Retrieve timesheets (NZ/UK) |
 
-### Create Operations (11 tools)
+### Create Operations
 
 | Tool | Description |
 |------|-------------|
@@ -68,14 +73,19 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `create_item` | Create a new item |
 | `create_payment` | Create a new payment |
 | `create_quote` | Create a new quote |
+| `create_purchase_order` | Create a new purchase order |
 | `create_bank_transaction` | Create a bank transaction |
 | `create_credit_note` | Create a credit note |
+| `create_bank_transfer` | Create a bank transfer |
+| `create_batch_payment` | Create a batch payment |
+| `create_overpayment` | Create an overpayment |
+| `create_prepayment` | Create a prepayment |
 | `create_manual_journal` | Create a manual journal |
 | `create_payroll_timesheet` | Create a timesheet (NZ/UK) |
 | `create_tracking_category` | Create a tracking category |
 | `create_tracking_option` | Create a tracking option |
 
-### Update Operations (11 tools)
+### Update Operations
 
 | Tool | Description |
 |------|-------------|
@@ -83,6 +93,7 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `update_invoice` | Update a draft invoice |
 | `update_item` | Update an item |
 | `update_quote` | Update a draft quote |
+| `update_purchase_order` | Update a draft purchase order |
 | `update_bank_transaction` | Update a bank transaction |
 | `update_credit_note` | Update a draft credit note |
 | `update_manual_journal` | Update a manual journal |
@@ -91,7 +102,17 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `update_payroll_timesheet_line` | Update timesheet lines (NZ/UK) |
 | `add_payroll_timesheet_line` | Add timesheet lines (NZ/UK) |
 
-### Other Operations (4 tools)
+### Attachment Operations
+
+| Tool | Description |
+|------|-------------|
+| `list_attachments` | List attachments on supported entities |
+| `get_attachment` | Download an attachment via temporary URL |
+| `add_attachment` | Create a new attachment from base64 content |
+| `upload_attachment` | Update an existing attachment from base64 content |
+| `get_invoice_pdf` | Download a rendered invoice PDF via temporary URL |
+
+### Other Operations
 
 | Tool | Description |
 |------|-------------|
@@ -99,6 +120,7 @@ Xero authentication is managed via [Nango](https://nango.dev/) using the `xero-o
 | `revert_payroll_timesheet` | Revert an approved timesheet (NZ/UK) |
 | `delete_payroll_timesheet` | Delete a timesheet (NZ/UK) |
 | `get_payroll_timesheet` | Retrieve a specific timesheet (NZ/UK) |
+| `email_invoice` | Send an invoice email through Xero |
 
 ## Xero API Notes
 

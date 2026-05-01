@@ -160,6 +160,36 @@ TOOL_TESTS = [
         "expected_keywords": ["Quotes"],
         "description": "list quotes from Xero",
     },
+    {
+        "name": "list_purchase_orders",
+        "args_template": "with page=1",
+        "expected_keywords": ["PurchaseOrders"],
+        "description": "list purchase orders from Xero",
+    },
+    {
+        "name": "list_bank_transfers",
+        "args_template": "",
+        "expected_keywords": ["BankTransfers"],
+        "description": "list bank transfers from Xero",
+    },
+    {
+        "name": "list_batch_payments",
+        "args_template": "",
+        "expected_keywords": ["BatchPayments"],
+        "description": "list batch payments from Xero",
+    },
+    {
+        "name": "list_overpayments",
+        "args_template": "with page=1",
+        "expected_keywords": ["Overpayments"],
+        "description": "list overpayments from Xero",
+    },
+    {
+        "name": "list_prepayments",
+        "args_template": "with page=1",
+        "expected_keywords": ["Prepayments"],
+        "description": "list prepayments from Xero",
+    },
 ]
 
 

@@ -2,6 +2,8 @@ import os
 import sys
 from typing import Optional, Dict, Any, List
 import json
+import base64
+import binascii
 
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
@@ -138,6 +140,8 @@ async def call_xero_api(
     method: str = "GET",
     data: Dict = None,
     params: Dict = None,
+    content: bytes = None,
+    extra_headers: Dict[str, str] = None,
 ) -> Dict:
     """
     Make an API call to Xero.
@@ -161,15 +165,34 @@ async def call_xero_api(
         "Content-Type": "application/json",
     }
 
+    if content is not None:
+        headers.pop("Content-Type", None)
+    if extra_headers:
+        headers.update(extra_headers)
+
     async with httpx.AsyncClient() as client:
         if method.upper() == "GET":
             response = await client.get(url, headers=headers, params=params)
         elif method.upper() == "POST":
-            response = await client.post(url, headers=headers, json=data)
+            if content is not None:
+                response = await client.post(
+                    url, headers=headers, params=params, content=content
+                )
+            else:
+                response = await client.post(
+                    url, headers=headers, params=params, json=data
+                )
         elif method.upper() == "PUT":
-            response = await client.put(url, headers=headers, json=data)
+            if content is not None:
+                response = await client.put(
+                    url, headers=headers, params=params, content=content
+                )
+            else:
+                response = await client.put(
+                    url, headers=headers, params=params, json=data
+                )
         elif method.upper() == "DELETE":
-            response = await client.delete(url, headers=headers)
+            response = await client.delete(url, headers=headers, params=params)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
@@ -177,7 +200,17 @@ async def call_xero_api(
             error_text = response.text
             raise Exception(format_xero_error(response.status_code, error_text))
 
-        return response.json()
+        if not response.content:
+            return {}
+
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            return response.json()
+
+        try:
+            return response.json()
+        except ValueError:
+            return {"raw_response": response.text}
 
 
 # Valid Xero entity types that support attachments.
@@ -186,6 +219,7 @@ ATTACHMENT_ENTITY_TYPES = {
     "Invoices": "Invoices",
     "CreditNotes": "CreditNotes",
     "BankTransactions": "BankTransactions",
+    "BankTransfers": "BankTransfers",
     "Contacts": "Contacts",
     "ManualJournals": "ManualJournals",
     "Quotes": "Quotes",
@@ -194,6 +228,45 @@ ATTACHMENT_ENTITY_TYPES = {
     "Accounts": "Accounts",
     "PurchaseOrders": "PurchaseOrders",
 }
+
+
+def build_line_items_payload(
+    line_items_input: List[Dict[str, Any]], include_tracking: bool = True
+) -> List[Dict[str, Any]]:
+    """Map MCP line item arguments to Xero line item payloads."""
+    line_items = []
+    for item in line_items_input:
+        line_item = {
+            "Description": item.get("description", ""),
+            "Quantity": item.get("quantity", 1),
+            "UnitAmount": item.get("unitAmount", 0),
+            "AccountCode": item.get("accountCode", ""),
+        }
+        if item.get("taxType"):
+            line_item["TaxType"] = item["taxType"]
+        if item.get("itemCode"):
+            line_item["ItemCode"] = item["itemCode"]
+        if include_tracking and item.get("tracking"):
+            line_item["Tracking"] = [
+                {
+                    "TrackingCategoryID": t.get("trackingCategoryID"),
+                    "TrackingOptionID": t.get("trackingOptionID"),
+                }
+                for t in item["tracking"]
+            ]
+        line_items.append(line_item)
+
+    return line_items
+
+
+def decode_base64_attachment(content_base64: str) -> bytes:
+    """Decode base64 file content provided by the MCP caller."""
+    try:
+        return base64.b64decode(content_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(
+            "contentBase64 must be valid base64-encoded file content"
+        ) from exc
 
 
 async def download_xero_attachment(
@@ -410,6 +483,42 @@ def create_server(user_id, api_key=None):
                 },
             ),
             Tool(
+                name="list_purchase_orders",
+                description="Retrieve a list of purchase orders from Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by purchase order status",
+                        },
+                        "dateFrom": {
+                            "type": "string",
+                            "description": "Only include purchase orders on or after this date (YYYY-MM-DD)",
+                        },
+                        "dateTo": {
+                            "type": "string",
+                            "description": "Only include purchase orders on or before this date (YYYY-MM-DD)",
+                        },
+                        "order": {
+                            "type": "string",
+                            "description": "Sort order expression accepted by Xero (e.g., PurchaseOrderNumber ASC)",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number for pagination (starts at 1)",
+                            "minimum": 1,
+                        },
+                        "pageSize": {
+                            "type": "integer",
+                            "description": "Number of records to retrieve per page",
+                            "minimum": 1,
+                            "maximum": 100,
+                        },
+                    },
+                },
+            ),
+            Tool(
                 name="list_credit_notes",
                 description="Retrieve a list of credit notes from Xero",
                 inputSchema={
@@ -442,6 +551,138 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "Filter by transaction status (AUTHORISED = unreconciled, DELETED = removed)",
                             "enum": ["AUTHORISED", "DELETED"],
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="list_bank_transfers",
+                description="Retrieve a list of bank transfers from Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "fromAccountId": {
+                            "type": "string",
+                            "description": "Filter by source bank account ID",
+                        },
+                        "toAccountId": {
+                            "type": "string",
+                            "description": "Filter by destination bank account ID",
+                        },
+                        "where": {
+                            "type": "string",
+                            "description": "Raw Xero where clause to apply",
+                        },
+                        "order": {
+                            "type": "string",
+                            "description": "Sort order expression accepted by Xero",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="list_batch_payments",
+                description="Retrieve a list of batch payments from Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by batch payment status",
+                        },
+                        "accountId": {
+                            "type": "string",
+                            "description": "Filter by bank account ID",
+                        },
+                        "where": {
+                            "type": "string",
+                            "description": "Raw Xero where clause to apply",
+                        },
+                        "order": {
+                            "type": "string",
+                            "description": "Sort order expression accepted by Xero",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="list_overpayments",
+                description="Retrieve a list of overpayments from Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by overpayment status",
+                        },
+                        "references": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Filter by a list of overpayment references",
+                        },
+                        "where": {
+                            "type": "string",
+                            "description": "Raw Xero where clause to apply",
+                        },
+                        "order": {
+                            "type": "string",
+                            "description": "Sort order expression accepted by Xero",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number for pagination (starts at 1)",
+                            "minimum": 1,
+                        },
+                        "pageSize": {
+                            "type": "integer",
+                            "description": "Number of records to retrieve per page",
+                            "minimum": 1,
+                            "maximum": 100,
+                        },
+                        "unitdp": {
+                            "type": "integer",
+                            "description": "Optional unit decimal places precision override",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="list_prepayments",
+                description="Retrieve a list of prepayments from Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by prepayment status",
+                        },
+                        "invoiceNumbers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Filter by a list of related invoice numbers",
+                        },
+                        "where": {
+                            "type": "string",
+                            "description": "Raw Xero where clause to apply",
+                        },
+                        "order": {
+                            "type": "string",
+                            "description": "Sort order expression accepted by Xero",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number for pagination (starts at 1)",
+                            "minimum": 1,
+                        },
+                        "pageSize": {
+                            "type": "integer",
+                            "description": "Number of records to retrieve per page",
+                            "minimum": 1,
+                            "maximum": 100,
+                        },
+                        "unitdp": {
+                            "type": "integer",
+                            "description": "Optional unit decimal places precision override",
                         },
                     },
                 },
@@ -903,6 +1144,77 @@ def create_server(user_id, api_key=None):
                         "currencyCode": {
                             "type": "string",
                             "description": "Currency code (e.g., USD, NZD, GBP)",
+                        },
+                    },
+                    "required": ["contactId", "lineItems"],
+                },
+            ),
+            Tool(
+                name="create_purchase_order",
+                description="Create a new purchase order in Xero",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "contactId": {
+                            "type": "string",
+                            "description": "The contact ID for the purchase order",
+                        },
+                        "lineItems": {
+                            "type": "array",
+                            "description": "Line items for the purchase order",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "description": {"type": "string"},
+                                    "quantity": {"type": "number"},
+                                    "unitAmount": {"type": "number"},
+                                    "accountCode": {"type": "string"},
+                                    "taxType": {"type": "string"},
+                                    "itemCode": {"type": "string"},
+                                    "tracking": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "trackingCategoryID": {
+                                                    "type": "string"
+                                                },
+                                                "trackingOptionID": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                },
+                                "required": [
+                                    "description",
+                                    "quantity",
+                                    "unitAmount",
+                                    "accountCode",
+                                ],
+                            },
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Purchase order date (YYYY-MM-DD). Defaults to today.",
+                        },
+                        "deliveryDate": {
+                            "type": "string",
+                            "description": "Expected delivery date (YYYY-MM-DD)",
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Reference for the purchase order",
+                        },
+                        "currencyCode": {
+                            "type": "string",
+                            "description": "Currency code (e.g., USD, NZD, GBP)",
+                        },
+                        "attentionTo": {
+                            "type": "string",
+                            "description": "Optional attention-to field for the purchase order",
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Purchase order status. Defaults to DRAFT.",
                         },
                     },
                     "required": ["contactId", "lineItems"],
@@ -1578,6 +1890,77 @@ def create_server(user_id, api_key=None):
                 },
             ),
             Tool(
+                name="update_purchase_order",
+                description="Update an existing draft purchase order in Xero (only DRAFT purchase orders can be updated)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "purchaseOrderId": {
+                            "type": "string",
+                            "description": "The purchase order ID to update",
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Updated purchase order date (YYYY-MM-DD)",
+                        },
+                        "deliveryDate": {
+                            "type": "string",
+                            "description": "Updated delivery date (YYYY-MM-DD)",
+                        },
+                        "reference": {
+                            "type": "string",
+                            "description": "Updated reference",
+                        },
+                        "currencyCode": {
+                            "type": "string",
+                            "description": "Updated currency code",
+                        },
+                        "attentionTo": {
+                            "type": "string",
+                            "description": "Updated attention-to value",
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Updated purchase order status",
+                        },
+                        "lineItems": {
+                            "type": "array",
+                            "description": "Updated line items",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "description": {"type": "string"},
+                                    "quantity": {"type": "number"},
+                                    "unitAmount": {"type": "number"},
+                                    "accountCode": {"type": "string"},
+                                    "taxType": {"type": "string"},
+                                    "itemCode": {"type": "string"},
+                                    "tracking": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "trackingCategoryID": {
+                                                    "type": "string"
+                                                },
+                                                "trackingOptionID": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                },
+                                "required": [
+                                    "description",
+                                    "quantity",
+                                    "unitAmount",
+                                    "accountCode",
+                                ],
+                            },
+                        },
+                    },
+                    "required": ["purchaseOrderId"],
+                },
+            ),
+            Tool(
                 name="update_bank_transaction",
                 description="Update an existing bank transaction in Xero",
                 inputSchema={
@@ -1900,6 +2283,80 @@ def create_server(user_id, api_key=None):
                 },
             ),
             Tool(
+                name="add_attachment",
+                description="Create a new attachment on a supported Xero entity from base64-encoded file content",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "entityType": {
+                            "type": "string",
+                            "description": "The type of Xero entity the attachment belongs to",
+                            "enum": list(ATTACHMENT_ENTITY_TYPES.keys()),
+                        },
+                        "entityId": {
+                            "type": "string",
+                            "description": "The ID (GUID) of the entity the attachment belongs to",
+                        },
+                        "filename": {
+                            "type": "string",
+                            "description": "Filename to create in Xero",
+                        },
+                        "contentBase64": {
+                            "type": "string",
+                            "description": "Base64-encoded file content",
+                        },
+                        "mimeType": {
+                            "type": "string",
+                            "description": "MIME type for the uploaded attachment",
+                        },
+                        "includeOnline": {
+                            "type": "boolean",
+                            "description": "For invoices only, whether the attachment should be included online",
+                        },
+                        "idempotencyKey": {
+                            "type": "string",
+                            "description": "Optional Xero idempotency key",
+                        },
+                    },
+                    "required": ["entityType", "entityId", "filename", "contentBase64"],
+                },
+            ),
+            Tool(
+                name="upload_attachment",
+                description="Update or overwrite an existing Xero attachment from base64-encoded file content",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "entityType": {
+                            "type": "string",
+                            "description": "The type of Xero entity the attachment belongs to",
+                            "enum": list(ATTACHMENT_ENTITY_TYPES.keys()),
+                        },
+                        "entityId": {
+                            "type": "string",
+                            "description": "The ID (GUID) of the entity the attachment belongs to",
+                        },
+                        "filename": {
+                            "type": "string",
+                            "description": "Filename to update in Xero",
+                        },
+                        "contentBase64": {
+                            "type": "string",
+                            "description": "Base64-encoded file content",
+                        },
+                        "mimeType": {
+                            "type": "string",
+                            "description": "MIME type for the uploaded attachment",
+                        },
+                        "idempotencyKey": {
+                            "type": "string",
+                            "description": "Optional Xero idempotency key",
+                        },
+                    },
+                    "required": ["entityType", "entityId", "filename", "contentBase64"],
+                },
+            ),
+            Tool(
                 name="get_invoice_pdf",
                 description="Download the rendered PDF of a Xero invoice and return a temporary download URL",
                 inputSchema={
@@ -1908,6 +2365,24 @@ def create_server(user_id, api_key=None):
                         "invoiceId": {
                             "type": "string",
                             "description": "The InvoiceID (GUID) or InvoiceNumber of the invoice",
+                        },
+                    },
+                    "required": ["invoiceId"],
+                },
+            ),
+            Tool(
+                name="email_invoice",
+                description="Send a copy of an invoice to its related contact via Xero email",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "invoiceId": {
+                            "type": "string",
+                            "description": "The InvoiceID (GUID) of the invoice to email",
+                        },
+                        "idempotencyKey": {
+                            "type": "string",
+                            "description": "Optional Xero idempotency key",
                         },
                     },
                     "required": ["invoiceId"],
@@ -2037,6 +2512,27 @@ def create_server(user_id, api_key=None):
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
+            elif name == "list_purchase_orders":
+                params = {"order": arguments.get("order", "PurchaseOrderNumber ASC")}
+                if arguments.get("status"):
+                    params["status"] = arguments["status"]
+                if arguments.get("dateFrom"):
+                    params["dateFrom"] = arguments["dateFrom"]
+                if arguments.get("dateTo"):
+                    params["dateTo"] = arguments["dateTo"]
+                if arguments.get("page"):
+                    params["page"] = arguments["page"]
+                if arguments.get("pageSize"):
+                    params["pageSize"] = arguments["pageSize"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/PurchaseOrders",
+                    access_token,
+                    tenant_id,
+                    params=params,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
             elif name == "list_credit_notes":
                 params = {"order": "Date DESC"}
                 page = arguments.get("page")
@@ -2071,6 +2567,98 @@ def create_server(user_id, api_key=None):
 
                 result = await call_xero_api(
                     f"{ACCOUNTING_API}/BankTransactions",
+                    access_token,
+                    tenant_id,
+                    params=params,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "list_bank_transfers":
+                params = {"order": arguments.get("order", "Date DESC")}
+                where_clauses = []
+                if arguments.get("fromAccountId"):
+                    where_clauses.append(
+                        f'FromBankAccount.AccountID==Guid("{arguments["fromAccountId"]}")'
+                    )
+                if arguments.get("toAccountId"):
+                    where_clauses.append(
+                        f'ToBankAccount.AccountID==Guid("{arguments["toAccountId"]}")'
+                    )
+                if arguments.get("where"):
+                    where_clauses.append(arguments["where"])
+                if where_clauses:
+                    params["where"] = " AND ".join(where_clauses)
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BankTransfers",
+                    access_token,
+                    tenant_id,
+                    params=params,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "list_batch_payments":
+                params = {"order": arguments.get("order", "Date DESC")}
+                where_clauses = []
+                if arguments.get("status"):
+                    where_clauses.append(f'Status=="{arguments["status"]}"')
+                if arguments.get("accountId"):
+                    where_clauses.append(
+                        f'Account.AccountID==Guid("{arguments["accountId"]}")'
+                    )
+                if arguments.get("where"):
+                    where_clauses.append(arguments["where"])
+                if where_clauses:
+                    params["where"] = " AND ".join(where_clauses)
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/BatchPayments",
+                    access_token,
+                    tenant_id,
+                    params=params,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "list_overpayments":
+                params = {"order": arguments.get("order", "Date DESC")}
+                if arguments.get("status"):
+                    params["where"] = f'Status=="{arguments["status"]}"'
+                if arguments.get("where"):
+                    params["where"] = arguments["where"]
+                if arguments.get("page"):
+                    params["page"] = arguments["page"]
+                if arguments.get("pageSize"):
+                    params["pageSize"] = arguments["pageSize"]
+                if arguments.get("unitdp"):
+                    params["unitdp"] = arguments["unitdp"]
+                if arguments.get("references"):
+                    params["References"] = ",".join(arguments["references"])
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/Overpayments",
+                    access_token,
+                    tenant_id,
+                    params=params,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "list_prepayments":
+                params = {"order": arguments.get("order", "Date DESC")}
+                if arguments.get("status"):
+                    params["where"] = f'Status=="{arguments["status"]}"'
+                if arguments.get("where"):
+                    params["where"] = arguments["where"]
+                if arguments.get("page"):
+                    params["page"] = arguments["page"]
+                if arguments.get("pageSize"):
+                    params["pageSize"] = arguments["pageSize"]
+                if arguments.get("unitdp"):
+                    params["unitdp"] = arguments["unitdp"]
+                if arguments.get("invoiceNumbers"):
+                    params["InvoiceNumbers"] = ",".join(arguments["invoiceNumbers"])
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/Prepayments",
                     access_token,
                     tenant_id,
                     params=params,
@@ -2485,6 +3073,38 @@ def create_server(user_id, api_key=None):
                     tenant_id,
                     method="POST",
                     data={"Quotes": [quote]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            elif name == "create_purchase_order":
+                contact_id = arguments.get("contactId")
+                line_items_input = arguments.get("lineItems", [])
+
+                if not contact_id or not line_items_input:
+                    raise ValueError("contactId and lineItems are required")
+
+                purchase_order = {
+                    "Contact": {"ContactID": contact_id},
+                    "LineItems": build_line_items_payload(line_items_input),
+                    "Date": arguments.get("date", datetime.now().strftime("%Y-%m-%d")),
+                    "Status": arguments.get("status", "DRAFT"),
+                }
+
+                if arguments.get("deliveryDate"):
+                    purchase_order["DeliveryDate"] = arguments["deliveryDate"]
+                if arguments.get("reference"):
+                    purchase_order["Reference"] = arguments["reference"]
+                if arguments.get("currencyCode"):
+                    purchase_order["CurrencyCode"] = arguments["currencyCode"]
+                if arguments.get("attentionTo"):
+                    purchase_order["AttentionTo"] = arguments["attentionTo"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/PurchaseOrders",
+                    access_token,
+                    tenant_id,
+                    method="POST",
+                    data={"PurchaseOrders": [purchase_order]},
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -3047,6 +3667,51 @@ def create_server(user_id, api_key=None):
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
+            elif name == "update_purchase_order":
+                purchase_order_id = arguments.get("purchaseOrderId")
+                if not purchase_order_id:
+                    raise ValueError("purchaseOrderId is required")
+
+                existing = await call_xero_api(
+                    f"{ACCOUNTING_API}/PurchaseOrders/{purchase_order_id}",
+                    access_token,
+                    tenant_id,
+                )
+                purchase_orders = existing.get("PurchaseOrders", [])
+                if purchase_orders and purchase_orders[0].get("Status") != "DRAFT":
+                    raise ValueError(
+                        f"Only DRAFT purchase orders can be updated. "
+                        f"Current status: {purchase_orders[0].get('Status')}"
+                    )
+
+                purchase_order = {"PurchaseOrderID": purchase_order_id}
+
+                if arguments.get("date"):
+                    purchase_order["Date"] = arguments["date"]
+                if arguments.get("deliveryDate"):
+                    purchase_order["DeliveryDate"] = arguments["deliveryDate"]
+                if arguments.get("reference"):
+                    purchase_order["Reference"] = arguments["reference"]
+                if arguments.get("currencyCode"):
+                    purchase_order["CurrencyCode"] = arguments["currencyCode"]
+                if arguments.get("attentionTo"):
+                    purchase_order["AttentionTo"] = arguments["attentionTo"]
+                if arguments.get("status"):
+                    purchase_order["Status"] = arguments["status"]
+                if arguments.get("lineItems"):
+                    purchase_order["LineItems"] = build_line_items_payload(
+                        arguments["lineItems"]
+                    )
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/PurchaseOrders/{purchase_order_id}",
+                    access_token,
+                    tenant_id,
+                    method="POST",
+                    data={"PurchaseOrders": [purchase_order]},
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
             elif name == "update_bank_transaction":
                 transaction_id = arguments.get("transactionId")
                 if not transaction_id:
@@ -3444,6 +4109,48 @@ def create_server(user_id, api_key=None):
                     )
                 ]
 
+            elif name in {"add_attachment", "upload_attachment"}:
+                from urllib.parse import quote
+
+                entity_type = arguments.get("entityType")
+                entity_id = arguments.get("entityId")
+                filename = arguments.get("filename")
+                content_base64 = arguments.get("contentBase64")
+                if not entity_type or not entity_id or not filename or not content_base64:
+                    raise ValueError(
+                        "entityType, entityId, filename, and contentBase64 are required"
+                    )
+
+                if entity_type not in ATTACHMENT_ENTITY_TYPES:
+                    raise ValueError(
+                        f"Unsupported entity type: {entity_type}. "
+                        f"Supported types: {', '.join(ATTACHMENT_ENTITY_TYPES.keys())}"
+                    )
+
+                endpoint = ATTACHMENT_ENTITY_TYPES[entity_type]
+                mime_type = arguments.get("mimeType", "application/octet-stream")
+                attachment_data = decode_base64_attachment(content_base64)
+                params = None
+                if name == "add_attachment" and entity_type == "Invoices":
+                    include_online = arguments.get("includeOnline")
+                    if include_online is not None:
+                        params = {"includeOnline": include_online}
+
+                extra_headers = {"Content-Type": mime_type}
+                if arguments.get("idempotencyKey"):
+                    extra_headers["Idempotency-Key"] = arguments["idempotencyKey"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/{endpoint}/{entity_id}/Attachments/{quote(filename, safe='')}",
+                    access_token,
+                    tenant_id,
+                    method="POST" if name == "add_attachment" else "PUT",
+                    params=params,
+                    content=attachment_data,
+                    extra_headers=extra_headers,
+                )
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
             elif name == "get_invoice_pdf":
                 invoice_id = arguments.get("invoiceId")
                 if not invoice_id:
@@ -3483,6 +4190,31 @@ def create_server(user_id, api_key=None):
                         ),
                     )
                 ]
+
+            elif name == "email_invoice":
+                invoice_id = arguments.get("invoiceId")
+                if not invoice_id:
+                    raise ValueError("invoiceId is required")
+
+                extra_headers = {}
+                if arguments.get("idempotencyKey"):
+                    extra_headers["Idempotency-Key"] = arguments["idempotencyKey"]
+
+                result = await call_xero_api(
+                    f"{ACCOUNTING_API}/Invoices/{invoice_id}/Email",
+                    access_token,
+                    tenant_id,
+                    method="POST",
+                    data={},
+                    extra_headers=extra_headers,
+                )
+                if not result:
+                    result = {
+                        "Success": True,
+                        "InvoiceID": invoice_id,
+                        "Message": "Invoice email request submitted to Xero.",
+                    }
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
