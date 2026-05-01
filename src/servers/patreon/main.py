@@ -20,7 +20,6 @@ from mcp.types import TextContent
 
 from src.utils.patreon.util import authenticate_and_save_credentials, get_credentials
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
     "identity",

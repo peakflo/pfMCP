@@ -23,7 +23,6 @@ from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
 
-
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
 

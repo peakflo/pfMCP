@@ -6,7 +6,6 @@ from pathlib import Path
 import types
 import requests
 
-
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

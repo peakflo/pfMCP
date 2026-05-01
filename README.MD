@@ -127,6 +127,8 @@ The following table provides an overview of the current servers implemented in p
 | Google Maps | ⚠️ Coming soon | [GMaps Docs](/src/servers/gmaps/README.md) |
 | Google Meet | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GMeet Docs](/src/servers/gmeet/README.md) |
 | Google Firestore | ✅ Seamless with Nango auth | [Firestore Docs](/src/servers/firestore/README.md) |
+| Google Search Console | ✅ Seamless with Nango auth | [GSC Docs](/src/servers/gsc/README.md) |
+| Google Analytics 4 | ✅ Seamless with Nango auth | [GA4 Docs](/src/servers/ga4/README.md) |
 | YouTube | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [YouTube Docs](/src/servers/youtube/README.md) |
 | **Communication Tools** |  |  |
 | Slack | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Slack Docs](/src/servers/slack/README.md) |
@@ -165,6 +167,7 @@ The following table provides an overview of the current servers implemented in p
 | Lemlist | ⚠️ Coming soon | [Lemlist Docs](/src/servers/lemlist/README.md) |
 | SendGrid | ✅ Seamless with Gumloop auth | [SendGrid Docs](/src/servers/sendgrid/README.md) |
 | QuickBooks | ⚠️ Coming soon | [QuickBooks Docs](/src/servers/quickbooks/README.md) |
+| Xero | ✅ Seamless with Nango auth | [Xero Docs](/src/servers/xero/README.md) |
 | Typeform | ✅ Seamless with Gumloop auth | [Typeform Docs](/src/servers/typeform/README.md) |
 | Stripe | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Stripe Docs](/src/servers/stripe/README.md) |
 | MailerLite | ⚠️ Coming soon | [MailerLite Docs](/src/servers/mailerlite/README.md) |

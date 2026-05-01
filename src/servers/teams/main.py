@@ -26,7 +26,6 @@ from mcp.types import (
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
     # User and Authentication

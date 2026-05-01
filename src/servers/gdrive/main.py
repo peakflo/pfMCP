@@ -29,7 +29,6 @@ from src.utils.google.util import authenticate_and_save_credentials, get_credent
 
 from googleapiclient.discovery import build
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 

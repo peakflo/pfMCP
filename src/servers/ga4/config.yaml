@@ -1,0 +1,13 @@
+name: "Google Analytics 4 guMCP Server"
+icon: "assets/icon.png"
+description: "Query Google Analytics 4 for traffic, user behavior, engagement, and acquisition data"
+documentation_path: "README.md"
+tools:
+  - name: "list_properties"
+    description: "List all GA4 properties accessible to the user"
+  - name: "run_report"
+    description: "Run a custom report with configurable dimensions (e.g., pagePath, sessionSource) and metrics (e.g., sessions, totalUsers, engagementRate), with optional filters and date ranges"
+  - name: "get_realtime_report"
+    description: "Get real-time analytics data for a GA4 property"
+  - name: "get_metadata"
+    description: "Get available dimensions and metrics for a GA4 property"
