@@ -121,6 +121,29 @@ add_action_log_input_schema = {
     "required": ["actionName", "note", "objectType", "objectId", "entityId"],
 }
 
+run_bill_po_matching_input_schema = {
+    "type": "object",
+    "properties": {
+        "tenantId": {
+            "type": "string",
+            "description": "Optional. Normally derived from the auth token; only set when calling in a context where tenant is not from the token (e.g. admin).",
+        },
+        "billId": {
+            "type": "string",
+            "description": "Peakflo internal bill ID. Use when you have the bill's ID from Peakflo; takes precedence over externalId/sourceId if provided.",
+        },
+        "externalId": {
+            "type": "string",
+            "description": "ID from your external system that was stored as sourceId on the bill. Use to look up the bill when you don't have the Peakflo billId.",
+        },
+        "sourceId": {
+            "type": "string",
+            "description": "Alias for externalId; same lookup as externalId (bill is found by sourceId).",
+        },
+    },
+    "required": [],
+}
+
 create_task_input_schema = {
     "type": "object",
     "properties": {
