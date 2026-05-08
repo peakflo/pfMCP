@@ -1,4 +1,5 @@
 import logging
+import os
 import uvicorn
 import argparse
 import importlib.util
@@ -13,6 +14,9 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
 from starlette.types import Receive, Scope, Send
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
+
+# Production mode: set DEBUG=true in environment to enable debug mode
+DEBUG_MODE = os.environ.get("DEBUG", "false").lower() == "true"
 
 from mcp.server.lowlevel import Server
 from mcp.server import streamable_http_manager
@@ -111,7 +115,7 @@ def create_metrics_app():
     routes = [Route("/metrics", endpoint=metrics_endpoint)]
 
     app = Starlette(
-        debug=True,
+        debug=DEBUG_MODE,
         routes=routes,
     )
 
@@ -214,15 +218,15 @@ def create_starlette_app():
 
         logger.info(f"Added stateless routes for server: {server_name}")
 
-    # Health checks
+    # Health checks — do not expose server list in unauthenticated endpoints
     async def root_handler(request):
         """Root endpoint that returns a simple 200 OK response"""
         return JSONResponse(
             {
                 "status": "ok",
-                "message": "guMCP stateless server running",
-                "servers": list(servers.keys()),
+                "message": "pfMCP server running",
                 "mode": "stateless",
+                "server_count": len(servers),
             }
         )
 
@@ -231,7 +235,7 @@ def create_starlette_app():
     async def health_check(request):
         """Health check endpoint"""
         return JSONResponse(
-            {"status": "ok", "servers": list(servers.keys()), "mode": "stateless"}
+            {"status": "ok", "mode": "stateless", "server_count": len(servers)}
         )
 
     routes.append(Route("/health_check", endpoint=health_check))
@@ -246,7 +250,7 @@ def create_starlette_app():
             logger.info("Application shutting down...")
 
     app = Starlette(
-        debug=True,
+        debug=DEBUG_MODE,
         routes=routes,
         lifespan=lifespan,
     )

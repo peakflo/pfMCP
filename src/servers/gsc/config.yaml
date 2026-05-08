@@ -1,0 +1,13 @@
+name: "Google Search Console guMCP Server"
+icon: "assets/icon.png"
+description: "Query Google Search Console for search analytics, site management, and URL inspection"
+documentation_path: "README.md"
+tools:
+  - name: "list_sites"
+    description: "List all sites/properties the user has access to in Google Search Console"
+  - name: "query_search_analytics"
+    description: "Query search analytics data including clicks, impressions, CTR, average position, and search queries for a site, optionally filtered by page URL, query, date range, and dimensions"
+  - name: "list_sitemaps"
+    description: "List all sitemaps submitted for a site"
+  - name: "inspect_url"
+    description: "Request URL inspection data for a specific URL in a site property"

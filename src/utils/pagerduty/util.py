@@ -9,7 +9,6 @@ from src.utils.oauth.util import (
     generate_code_challenge,
 )
 
-
 PAGERDUTY_OAUTH_AUTHORIZE_URL = "https://app.pagerduty.com/oauth/authorize"
 PAGERDUTY_OAUTH_TOKEN_URL = "https://app.pagerduty.com/oauth/token"
 PAGERDUTY_API_URL = "https://api.pagerduty.com"

@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 QUICKBOOKS_OAUTH_AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2"
 QUICKBOOKS_OAUTH_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 QUICKBOOKS_OAUTH_REVOKE_URL = "https://developer.api.intuit.com/v2/oauth2/tokens/revoke"

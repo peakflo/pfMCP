@@ -34,7 +34,6 @@ from src.utils.airtable.util import (
     get_credentials,
 )
 
-
 SERVICE_NAME = Path(__file__).parent.name
 BASE_URL = "https://api.airtable.com/v0"
 SCOPES = [

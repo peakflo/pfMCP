@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 import base64
 
-
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

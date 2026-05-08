@@ -12,7 +12,6 @@ from mcp.server.models import InitializationOptions
 from browserbase import Browserbase
 from playwright.async_api import async_playwright
 
-
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

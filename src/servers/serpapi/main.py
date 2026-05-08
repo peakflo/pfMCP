@@ -21,7 +21,6 @@ from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SERPAPI_BASE_URL = "https://serpapi.com/search"
 

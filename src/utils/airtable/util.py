@@ -10,7 +10,6 @@ from src.utils.oauth.util import (
     generate_code_challenge,
 )
 
-
 AIRTABLE_OAUTH_AUTHORIZE_URL = "https://airtable.com/oauth2/v1/authorize"
 AIRTABLE_OAUTH_TOKEN_URL = "https://airtable.com/oauth2/v1/token"
 

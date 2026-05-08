@@ -4,7 +4,6 @@ import time
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 INTERCOM_OAUTH_AUTHORIZE_URL = "https://app.intercom.com/oauth"
 INTERCOM_OAUTH_TOKEN_URL = "https://api.intercom.io/auth/eagle/token"
 

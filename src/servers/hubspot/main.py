@@ -1629,6 +1629,39 @@ def create_server(user_id, api_key=None):
                 #     "examples": ['[{"_status_code":204}]'],
                 # },
             ),
+            Tool(
+                name="list_pipelines",
+                description="List all pipelines for a given object type (e.g. deals, tickets)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "object_type": {
+                            "type": "string",
+                            "description": "The CRM object type to list pipelines for (e.g. 'deals', 'tickets')",
+                            "enum": ["deals", "tickets"],
+                        },
+                    },
+                    "required": [],
+                },
+            ),
+            Tool(
+                name="list_owners",
+                description="List all CRM owners (users) in the HubSpot account",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of owners to return (default 100)",
+                        },
+                        "archived": {
+                            "type": "boolean",
+                            "description": "Include deactivated/archived owners (default false)",
+                        },
+                    },
+                    "required": [],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -2147,6 +2180,21 @@ def create_server(user_id, api_key=None):
                     "method": "post",
                     "prepare_request": lambda args, token: {
                         "payload": prepare_gdpr_delete_payload(args)
+                    },
+                },
+                "list_pipelines": {
+                    "get_endpoint": lambda args: f"https://api.hubapi.com/crm/v3/pipelines/{args.get('object_type', 'deals')}",
+                    "method": "get",
+                    "prepare_request": lambda args, token: {},
+                },
+                "list_owners": {
+                    "endpoint": "https://api.hubapi.com/crm/v3/owners",
+                    "method": "get",
+                    "prepare_request": lambda args, token: {
+                        "params": {
+                            "limit": min(args.get("limit", 100), 500),
+                            **({"archived": "true"} if args.get("archived") else {}),
+                        }
                     },
                 },
             }

@@ -1,0 +1,31 @@
+# Git
+.git/
+.github/
+
+# Environment and secrets
+.env
+.env.*
+.envprod.yaml
+.envstage.yaml
+
+# Local credentials
+local_auth/
+credentials.json
+oauth.keys.json
+
+# IDE
+.vscode/
+.cursor/
+.idea/
+
+# Development
+scratch/
+tests/
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Documentation
+*.md
+!README.md

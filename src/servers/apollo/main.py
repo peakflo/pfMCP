@@ -23,7 +23,6 @@ from mcp.types import (
 )
 from src.auth.factory import create_auth_client
 
-
 SERVICE_NAME = Path(__file__).parent.name
 API_BASE_URL = "https://api.apollo.io/api/v1"
 

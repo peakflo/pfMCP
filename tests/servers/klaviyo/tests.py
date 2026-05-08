@@ -1,7 +1,6 @@
 import pytest
 import uuid
 
-
 # Global variables to store created resources
 metric_id = None
 created_list_id = None

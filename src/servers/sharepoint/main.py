@@ -19,7 +19,6 @@ from mcp.server.models import InitializationOptions
 
 from src.utils.microsoft.util import get_credentials, authenticate_and_save_credentials
 
-
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
     "Sites.Manage.All",  # For creating/updating sites, lists, items, pages

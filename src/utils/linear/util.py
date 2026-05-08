@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 LINEAR_OAUTH_AUTHORIZE_URL = "https://linear.app/oauth/authorize"
 LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token"
 LINEAR_OAUTH_REVOKE_URL = "https://api.linear.app/oauth/revoke"

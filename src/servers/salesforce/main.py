@@ -16,7 +16,6 @@ from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 from src.utils.salesforce.util import authenticate_and_save_credentials, get_credentials
 
-
 SERVICE_NAME = Path(__file__).parent.name
 
 SCOPES = [  # Basic web integration capabilities

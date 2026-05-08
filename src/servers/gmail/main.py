@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from typing import Optional, Iterable
@@ -363,7 +364,7 @@ def create_server(user_id, api_key=None):
         return [
             Tool(
                 name="read_emails",
-                description="Search and read emails in Gmail with full text body and attachment information",
+                description="Search and read emails in Gmail with full text body and attachment information. Supports structured JSON output for programmatic consumption.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -373,7 +374,7 @@ def create_server(user_id, api_key=None):
                         },
                         "max_results": {
                             "type": "integer",
-                            "description": "Maximum number of emails to return (default: 10)",
+                            "description": "Maximum number of emails to return (default: 10, max: 100)",
                         },
                         "include_body": {
                             "type": "boolean",
@@ -382,6 +383,21 @@ def create_server(user_id, api_key=None):
                         "include_attachments_info": {
                             "type": "boolean",
                             "description": "Include attachment information in results (default: true)",
+                        },
+                        "output_format": {
+                            "type": "string",
+                            "enum": ["text", "structured"],
+                            "description": "Output format: 'text' for human-readable (default), 'structured' for machine-readable JSON with typed fields (id, threadId, historyId, from, to, cc, bcc, subject, date, snippet, labels, isUnread, messageId, body, attachments)",
+                        },
+                        "label_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Filter by Gmail label IDs (e.g., ['INBOX', 'UNREAD']). Applied in addition to query. Only used with output_format 'structured'.",
+                        },
+                        "include_headers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Additional headers to include in structured output (e.g., ['Reply-To', 'In-Reply-To']). From, To, Cc, Bcc, Subject, Date are always included. Only used with output_format 'structured'.",
                         },
                     },
                     "required": ["query"],
@@ -431,6 +447,10 @@ def create_server(user_id, api_key=None):
                                 },
                                 "required": ["filename", "content", "mimeType"],
                             },
+                        },
+                        "track_delivery": {
+                            "type": "boolean",
+                            "description": "When true, returns structured JSON with channelMessageId and conversationId for delivery tracking",
                         },
                     },
                     "required": ["to", "subject", "body"],
@@ -540,18 +560,113 @@ def create_server(user_id, api_key=None):
                 raise ValueError("Missing query parameter")
 
             query = arguments["query"]
-            max_results = int(arguments.get("max_results", 10))
+            max_results = min(int(arguments.get("max_results", 10)), 100)
             include_body = arguments.get("include_body", True)
             include_attachments_info = arguments.get("include_attachments_info", True)
+            output_format = arguments.get("output_format", "text")
 
-            results = (
-                gmail_service.users()
-                .messages()
-                .list(userId="me", q=query, maxResults=max_results)
-                .execute()
-            )
+            # Build the list request
+            list_kwargs = {"userId": "me", "q": query, "maxResults": max_results}
+            label_ids = arguments.get("label_ids")
+            if label_ids:
+                list_kwargs["labelIds"] = label_ids
+
+            results = gmail_service.users().messages().list(**list_kwargs).execute()
 
             messages = results.get("messages", [])
+
+            # --- Structured JSON output ---
+            if output_format == "structured":
+                if not messages:
+                    result_data = {
+                        "emails": [],
+                        "resultCount": 0,
+                        "query": query,
+                    }
+                    return [TextContent(type="text", text=json.dumps(result_data))]
+
+                extra_headers = arguments.get("include_headers", [])
+                standard_headers = [
+                    "From",
+                    "To",
+                    "Cc",
+                    "Bcc",
+                    "Subject",
+                    "Date",
+                    "Message-ID",
+                ]
+                all_headers = list(
+                    dict.fromkeys(standard_headers + [h for h in extra_headers])
+                )
+
+                email_objects = []
+                for message in messages:
+                    msg = (
+                        gmail_service.users()
+                        .messages()
+                        .get(userId="me", id=message["id"], format="full")
+                        .execute()
+                    )
+
+                    headers = {}
+                    for header in msg.get("payload", {}).get("headers", []):
+                        if header["name"] in all_headers:
+                            headers[header["name"]] = header["value"]
+
+                    labels = msg.get("labelIds", [])
+
+                    email_obj = {
+                        "id": message["id"],
+                        "threadId": msg.get("threadId", ""),
+                        "historyId": msg.get("historyId", ""),
+                        "from": headers.get("From", ""),
+                        "to": headers.get("To", ""),
+                        "cc": headers.get("Cc", ""),
+                        "bcc": headers.get("Bcc", ""),
+                        "subject": headers.get("Subject", ""),
+                        "date": headers.get("Date", ""),
+                        "snippet": msg.get("snippet", ""),
+                        "labels": labels,
+                        "isUnread": "UNREAD" in labels,
+                        "messageId": headers.get("Message-ID", ""),
+                    }
+
+                    if extra_headers:
+                        email_obj["extraHeaders"] = {
+                            h: headers.get(h, "") for h in extra_headers
+                        }
+
+                    if include_body:
+                        payload = msg.get("payload", {})
+                        body = parse_email_body(payload)
+                        email_obj["body"] = {
+                            "text": body.get("text", ""),
+                            "html": body.get("html", ""),
+                        }
+
+                    if include_attachments_info:
+                        payload = msg.get("payload", {})
+                        attachments = get_attachments_info(payload)
+                        email_obj["attachments"] = [
+                            {
+                                "filename": att["filename"],
+                                "mimeType": att["mimeType"],
+                                "size": att.get("size", 0),
+                                "attachmentId": att.get("attachmentId", ""),
+                            }
+                            for att in attachments
+                        ]
+
+                    email_objects.append(email_obj)
+
+                result_data = {
+                    "emails": email_objects,
+                    "resultCount": len(email_objects),
+                    "query": query,
+                }
+                return [TextContent(type="text", text=json.dumps(result_data))]
+
+            # --- Default text output (unchanged) ---
             if not messages:
                 return [
                     TextContent(
@@ -660,15 +775,57 @@ def create_server(user_id, api_key=None):
                     .execute()
                 )
 
+                track_delivery = arguments.get("track_delivery", False)
+
                 attachment_info = ""
                 if arguments.get("attachments"):
                     num_attachments = len(arguments["attachments"])
                     attachment_info = f" with {num_attachments} attachment(s)"
 
+                if track_delivery:
+                    # Ensure Gmail push notifications are active so delivery
+                    # events (bounces, reads, etc.) are forwarded via Pub/Sub.
+                    # users().watch() is idempotent — safe to call on every send.
+                    pubsub_topic = os.environ.get("GMAIL_PUBSUB_TOPIC")
+                    if pubsub_topic:
+                        try:
+                            watch_response = (
+                                gmail_service.users()
+                                .watch(
+                                    userId="me",
+                                    body={
+                                        "topicName": pubsub_topic,
+                                        "labelIds": ["SENT", "INBOX"],
+                                        "labelFilterBehavior": "INCLUDE",
+                                    },
+                                )
+                                .execute()
+                            )
+                            logger.info(
+                                f"Gmail watch active — historyId={watch_response.get('historyId')}, "
+                                f"expiration={watch_response.get('expiration')}"
+                            )
+                        except Exception as watch_err:
+                            logger.warning(
+                                f"Failed to set Gmail watch (non-blocking): {watch_err}"
+                            )
+                    else:
+                        logger.debug("GMAIL_PUBSUB_TOPIC not set, skipping watch setup")
+
+                # Always return structured JSON with tracking fields.
+                # channelMessageId maps to workflo's messages.channel_message_id column
+                # for matching delivery events back to the sent message.
+                # conversationId maps to Gmail's threadId — used to group messages
+                # in the same email thread.
+                result_data = {
+                    "status": "sent",
+                    "channelMessageId": sent_message.get("id", ""),
+                    "conversationId": sent_message.get("threadId", ""),
+                }
                 return [
                     TextContent(
                         type="text",
-                        text=f"Email sent successfully to {arguments['to']}{attachment_info}. Message ID: {sent_message['id']}",
+                        text=json.dumps(result_data),
                     )
                 ]
             except Exception as e:

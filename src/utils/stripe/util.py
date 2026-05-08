@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 # Stripe OAuth endpoints
 STRIPE_OAUTH_AUTHORIZE_URL = "https://connect.stripe.com/oauth/authorize"
 STRIPE_OAUTH_TOKEN_URL = "https://connect.stripe.com/oauth/token"

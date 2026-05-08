@@ -3,7 +3,6 @@ from typing import Dict, List, Any
 
 from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
 
-
 WEBFLOW_OAUTH_AUTHORIZE_URL = "https://webflow.com/oauth/authorize"
 WEBFLOW_OAUTH_TOKEN_URL = "https://api.webflow.com/oauth/access_token"
 

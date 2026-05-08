@@ -2,7 +2,6 @@ import pytest
 import random
 from tests.utils.test_tools import get_test_id, run_tool_test, run_resources_test
 
-
 TOOL_TESTS = [
     {
         "name": "list_documents",

@@ -1,6 +1,5 @@
 from peakflo.schemas.common import line_item_schema
 
-
 create_invoice_schema = {
     "type": "object",
     "properties": {
