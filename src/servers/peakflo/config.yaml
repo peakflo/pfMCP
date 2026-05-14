@@ -31,3 +31,6 @@ tools:
   - name: "add_action_log"
     description: "Add an action log"
     required_scopes: []
+  - name: "add_invoice_attachment"
+    description: "Add an attachment to an invoice"
+    required_scopes: []
