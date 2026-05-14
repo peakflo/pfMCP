@@ -101,6 +101,11 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
         message = "Action log added successfully"
+    elif name == "add_invoice_attachment":
+        method = "PUT"
+        invoice_external_id = arguments.pop("invoiceExternalId")
+        url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
+        message = "Attachment added successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
