@@ -202,3 +202,42 @@ raise_invoice_dispute_schema = {
         },
     },
 }
+
+add_invoice_attachment_schema = {
+    "type": "object",
+    "properties": {
+        "invoiceExternalId": {
+            "type": "string",
+            "description": "The external ID of the invoice",
+        },
+        "externalId": {
+            "type": "string",
+            "description": "Unique external ID for the attachment",
+        },
+        "name": {
+            "type": "string",
+            "description": "Name of the attachment file",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type e.g. application/pdf",
+        },
+        "data": {
+            "type": "string",
+            "description": "Base64 encoded file content",
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": "ISO 8601 date of attachment creation",
+        },
+        "fileType": {
+            "type": "string",
+            "description": "invoice or other",
+        },
+        "tenantId": {
+            "type": "string",
+            "description": "Tenant ID",
+        },
+    },
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "data", "tenantId"],
+}
