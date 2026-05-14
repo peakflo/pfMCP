@@ -153,6 +153,42 @@ update_invoice_schema = {
     ],
 }
 
+add_invoice_attachment_schema = {
+    "type": "object",
+    "properties": {
+        "invoiceExternalId": {
+            "type": "string",
+            "description": "External ID of the invoice to attach the file to (used in URL path)",
+        },
+        "externalId": {
+            "type": "string",
+            "description": "External ID for the attachment",
+        },
+        "name": {
+            "type": "string",
+            "description": "Attachment file name",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type of the attachment (e.g., application/pdf)",
+        },
+        "data": {
+            "type": "string",
+            "description": "File content encoded in Base64 format",
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of when the attachment was created",
+        },
+        "fileType": {
+            "type": "string",
+            "enum": ["invoice", "other"],
+            "description": "Type of file being attached",
+        },
+    },
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "data"],
+}
+
 raise_invoice_dispute_schema = {
     "type": "object",
     "properties": {

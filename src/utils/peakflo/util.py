@@ -1,50 +1,48 @@
+import os
 import logging
-from typing import Dict, List, Any
-
-from src.utils.oauth.util import run_oauth_flow, refresh_token_if_needed
+from src.auth.factory import create_auth_client
 
 logger = logging.getLogger(__name__)
 
 
-def process_peakflo_token_response(token_response: Dict[str, Any]) -> Dict[str, Any]:
-    """Process Slack token response."""
-    if not token_response.get("ok"):
-        raise ValueError(
-            f"Token exchange failed: {token_response.get('error', 'Unknown error')}"
-        )
+def authenticate_and_save_credentials(user_id: str, service_name: str):
+    """Authenticate with Peakflo and save credentials"""
+    auth_client = create_auth_client()
 
-    # Extract and prepare credentials
-    access_token = token_response.get("access_token")
+    access_token = input("Please enter your Peakflo access token: ").strip()
+    if not access_token:
+        raise ValueError("Access token cannot be empty")
 
-    # Store only what we need
-    return {
-        "access_token": access_token,
-        "token_type": "Bearer",
-    }
+    api_key = input(
+        "Please enter your Peakflo API key (x-api-key, press Enter to skip): "
+    ).strip()
+    client_id = input(
+        "Please enter your Peakflo client ID (x-client-id, press Enter to skip): "
+    ).strip()
 
+    credentials = {"access_token": access_token}
+    if api_key:
+        credentials["api_key"] = api_key
+    if client_id:
+        credentials["client_id"] = client_id
 
-def authenticate_and_save_credentials(
-    user_id: str, service_name: str
-) -> Dict[str, Any]:
-    """Authenticate with Slack and save credentials"""
-    return run_oauth_flow(
-        service_name=service_name,
-        user_id=user_id,
-        scopes=[],
-        auth_url_base="",
-        token_url="",
-        auth_params_builder="",
-        token_data_builder="",
-        process_token_response=process_peakflo_token_response,
-    )
+    auth_client.save_user_credentials(service_name, user_id, credentials)
+    logger.info("Peakflo credentials saved for user %s.", user_id)
+    return credentials
 
 
-async def get_credentials(user_id: str, service_name: str, api_key: str = None) -> str:
-    """Get Slack credentials"""
-    return await refresh_token_if_needed(
-        user_id=user_id,
-        service_name=service_name,
-        token_url="",
-        token_data_builder=lambda *args: {},  # Slack doesn't use refresh tokens
-        api_key=api_key,
-    )
+async def get_credentials(user_id: str, service_name: str, api_key: str = None):
+    """Get Peakflo credentials for the specified user"""
+    auth_client = create_auth_client(api_key=api_key)
+    credentials_data = auth_client.get_user_credentials(service_name, user_id)
+
+    if not credentials_data:
+        error_str = f"Peakflo credentials not found for user {user_id}."
+        if os.environ.get("ENVIRONMENT", "local") == "local":
+            error_str += " Please run authentication first."
+        raise ValueError(error_str)
+
+    if not credentials_data.get("access_token"):
+        raise ValueError(f"Peakflo access token not found for user {user_id}.")
+
+    return credentials_data

@@ -21,7 +21,7 @@ from mcp.types import (
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
-from src.auth.factory import create_auth_client
+from src.utils.peakflo.util import authenticate_and_save_credentials, get_credentials
 
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
@@ -32,43 +32,16 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
-def authenticate_and_save_peakflo_key(user_id):
-    auth_client = create_auth_client()
-
-    api_key = input("Please enter your SerpAPI API key: ").strip()
-    if not api_key:
-        raise ValueError("API key cannot be empty")
-
-    auth_client.save_user_credentials("serpapi", user_id, {"api_key": api_key})
-    return api_key
-
-
-async def get_peakflo_credentials(user_id, api_key=None):
-    auth_client = create_auth_client(api_key=api_key)
-    credentials_data = auth_client.get_user_credentials("peakflo", user_id)
-
-    if not credentials_data:
-        error_str = f"Peakflo API key not found for user {user_id}."
-        if os.environ.get("ENVIRONMENT", "local") == "local":
-            error_str += " Please run authentication first."
-        raise ValueError(error_str)
-
-    token = credentials_data.get("access_token")
-    if not token:
-        raise ValueError(f"Peakflo token not found for user {user_id}.")
-
-    return token
-
-
-async def make_peakflo_request(name, arguments, token):
+async def make_peakflo_request(name, arguments, credentials):
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {credentials['access_token']}",
         "Content-Type": "application/json",
     }
-    tenantId = arguments["tenantId"]
-    # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
-    if "tenantId" in arguments:
-        arguments.pop("tenantId")
+    if credentials.get("api_key"):
+        headers["x-api-key"] = credentials["api_key"]
+    if credentials.get("client_id"):
+        headers["x-client-id"] = credentials["client_id"]
+    tenantId = arguments.pop("tenantId", "")
     if name == "create_invoice":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices"
@@ -85,6 +58,11 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors"
         message = "Vendor created successfully"
+    elif name == "add_invoice_attachment":
+        invoice_external_id = arguments.pop("invoiceExternalId")
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
+        message = "Attachment added to invoice successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -161,10 +139,10 @@ def create_server(user_id, api_key=None):
         if name not in tool_names:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        token = await get_peakflo_credentials(server.user_id, server.api_key)
+        credentials = await get_credentials(server.user_id, SERVICE_NAME, server.api_key)
 
         try:
-            response = await make_peakflo_request(name, arguments, token)
+            response = await make_peakflo_request(name, arguments, credentials)
 
             # Check response status code
             status_code = response.get("_status_code", 0)
@@ -205,7 +183,7 @@ def get_initialization_options(server_instance: Server) -> InitializationOptions
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1].lower() == "auth":
         user_id = "local"
-        authenticate_and_save_peakflo_key(user_id)
+        authenticate_and_save_credentials(user_id, SERVICE_NAME)
     else:
         print("Usage:")
         print("  python main.py auth - Run authentication flow for a user")
