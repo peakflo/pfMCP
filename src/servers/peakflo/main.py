@@ -1,5 +1,6 @@
 import os
 import sys
+import base64
 import httpx
 import logging
 import json
