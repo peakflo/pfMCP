@@ -66,7 +66,7 @@ async def make_peakflo_request(name, arguments, token):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
-    tenantId = arguments["tenantId"]
+    tenantId = arguments.get("tenantId")
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
         arguments.pop("tenantId")
@@ -88,11 +88,6 @@ async def make_peakflo_request(name, arguments, token):
         message = "Vendor created successfully"
     elif name == "add_invoice_attachment":
         invoice_external_id = arguments.pop("invoiceExternalId")
-        file_url = arguments.pop("fileUrl")
-        async with httpx.AsyncClient() as file_client:
-            file_response = await file_client.get(file_url, timeout=60.0)
-            file_response.raise_for_status()
-            arguments["data"] = base64.b64encode(file_response.content).decode("utf-8")
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
         message = "Attachment added to invoice successfully"

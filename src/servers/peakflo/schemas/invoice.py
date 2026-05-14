@@ -172,9 +172,9 @@ add_invoice_attachment_schema = {
             "type": "string",
             "description": "MIME type of the attachment (e.g., application/pdf)",
         },
-        "fileUrl": {
+        "data": {
             "type": "string",
-            "description": "Publicly accessible URL of the file to attach. The server will download and Base64-encode it.",
+            "description": "File content encoded in Base64 format",
         },
         "dateCreated": {
             "type": "string",
@@ -186,7 +186,7 @@ add_invoice_attachment_schema = {
             "description": "Type of file being attached",
         },
     },
-    "required": ["invoiceExternalId", "externalId", "name", "contentType", "fileUrl"],
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "data"],
 }
 
 raise_invoice_dispute_schema = {
