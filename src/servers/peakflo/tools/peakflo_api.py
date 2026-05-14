@@ -9,6 +9,7 @@ from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
     update_invoice_schema,
     raise_invoice_dispute_schema,
+    add_invoice_attachment_schema,
 )
 
 vendor_tools = [
@@ -54,6 +55,11 @@ invoice_tools = [
         name="raise_invoice_dispute",
         description="Raise a dispute for an invoice",
         inputSchema=raise_invoice_dispute_schema,
+    ),
+    Tool(
+        name="add_invoice_attachment",
+        description="Add a PDF attachment to a Peakflo invoice",
+        inputSchema=add_invoice_attachment_schema,
     ),
 ]
 
