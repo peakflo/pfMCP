@@ -31,3 +31,6 @@ tools:
   - name: "add_action_log"
     description: "Add an action log"
     required_scopes: []
+  - name: "add_invoice_attachment"
+    description: "Add a PDF attachment to a Peakflo invoice"
+    required_scopes: []
