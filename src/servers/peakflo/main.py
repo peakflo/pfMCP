@@ -95,7 +95,9 @@ async def make_peakflo_request(name, arguments, token):
                 async with httpx.AsyncClient() as dl_client:
                     dl_response = await dl_client.get(file_url, timeout=60.0)
                     dl_response.raise_for_status()
-                    arguments["data"] = base64.b64encode(dl_response.content).decode("utf-8")
+                    arguments["data"] = base64.b64encode(dl_response.content).decode(
+                        "utf-8"
+                    )
                     logger.info(
                         f"[add_invoice_attachment] Downloaded file from URL "
                         f"({len(dl_response.content)} bytes) and base64-encoded"
