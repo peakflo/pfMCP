@@ -172,9 +172,9 @@ add_invoice_attachment_schema = {
             "type": "string",
             "description": "MIME type of the attachment (e.g., application/pdf)",
         },
-        "data": {
+        "file_url": {
             "type": "string",
-            "description": "File content encoded in Base64 format",
+            "description": "Signed URL to download the file. The server fetches and base64-encodes the content before forwarding to the Peakflo API.",
         },
         "dateCreated": {
             "type": "string",
@@ -186,7 +186,7 @@ add_invoice_attachment_schema = {
             "description": "Type of file being attached",
         },
     },
-    "required": ["invoiceExternalId", "externalId", "name", "contentType", "data"],
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "file_url"],
 }
 
 raise_invoice_dispute_schema = {

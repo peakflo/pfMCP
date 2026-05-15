@@ -58,7 +58,7 @@ invoice_tools = [
     ),
     Tool(
         name="add_invoice_attachment",
-        description="Add an attachment (Base64-encoded file) to an existing invoice",
+        description="Add an attachment to an existing invoice. Accepts a signed file URL; the server downloads and base64-encodes it.",
         inputSchema=add_invoice_attachment_schema,
     ),
 ]
