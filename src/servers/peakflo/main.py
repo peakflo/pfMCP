@@ -88,6 +88,28 @@ async def make_peakflo_request(name, arguments, token):
         message = "Vendor created successfully"
     elif name == "add_invoice_attachment":
         invoice_external_id = arguments.pop("invoiceExternalId")
+        # Download file from signed URL and convert to base64 for the Peakflo API
+        file_url = arguments.pop("file_url", None)
+        if file_url:
+            try:
+                async with httpx.AsyncClient() as dl_client:
+                    dl_response = await dl_client.get(file_url, timeout=60.0)
+                    dl_response.raise_for_status()
+                    arguments["data"] = base64.b64encode(dl_response.content).decode(
+                        "utf-8"
+                    )
+                    logger.info(
+                        f"[add_invoice_attachment] Downloaded file from URL "
+                        f"({len(dl_response.content)} bytes) and base64-encoded"
+                    )
+            except Exception as dl_err:
+                raise ValueError(
+                    f"Failed to download file from file_url: {dl_err}"
+                ) from dl_err
+        elif "data" not in arguments:
+            raise ValueError(
+                "Either file_url or data (base64) is required for add_invoice_attachment"
+            )
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
         message = "Attachment added to invoice successfully"
