@@ -2,6 +2,7 @@ import os
 import sys
 import base64
 import httpx
+from google.cloud import storage as gcs_storage
 import logging
 import json
 from pathlib import Path
@@ -88,9 +89,26 @@ async def make_peakflo_request(name, arguments, token):
         message = "Vendor created successfully"
     elif name == "add_invoice_attachment":
         invoice_external_id = arguments.pop("invoiceExternalId")
+        file_path = arguments.pop("filePath")
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
         message = "Attachment added to invoice successfully"
+
+        # Read file from GCS and Base64 encode it
+        try:
+            bucket_name = os.environ.get("GCS_BUCKET_NAME")
+            gcs_client = gcs_storage.Client()
+            bucket = gcs_client.bucket(bucket_name)
+            blob = bucket.blob(file_path)
+            file_bytes = blob.download_as_bytes()
+            arguments["data"] = base64.b64encode(file_bytes).decode("utf-8")
+            logger.info(f"[add_invoice_attachment] Successfully read and encoded file from GCS: {file_path}")
+        except Exception as e:
+            logger.error(f"[add_invoice_attachment] Failed to read file from GCS: {str(e)}")
+            return {
+                "message": f"Failed to read file from GCS: {str(e)}",
+                "_status_code": 500,
+            }
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
