@@ -102,9 +102,13 @@ async def make_peakflo_request(name, arguments, token):
             blob = bucket.blob(file_path)
             file_bytes = blob.download_as_bytes()
             arguments["data"] = base64.b64encode(file_bytes).decode("utf-8")
-            logger.info(f"[add_invoice_attachment] Successfully read and encoded file from GCS: {file_path}")
+            logger.info(
+                f"[add_invoice_attachment] Successfully read and encoded file from GCS: {file_path}"
+            )
         except Exception as e:
-            logger.error(f"[add_invoice_attachment] Failed to read file from GCS: {str(e)}")
+            logger.error(
+                f"[add_invoice_attachment] Failed to read file from GCS: {str(e)}"
+            )
             return {
                 "message": f"Failed to read file from GCS: {str(e)}",
                 "_status_code": 500,
