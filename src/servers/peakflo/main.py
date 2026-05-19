@@ -129,6 +129,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
         message = "Action log added successfully"
+    elif name == "run_bill_po_matching":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/runBillPoMatching"
+        message = "Bill PO matching completed successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
