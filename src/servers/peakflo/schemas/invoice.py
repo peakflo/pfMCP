@@ -1,4 +1,4 @@
-from peakflo.schemas.common import line_item_schema
+from peakflo.schemas.common import custom_field_schema, line_item_schema
 
 create_invoice_schema = {
     "type": "object",
@@ -59,6 +59,7 @@ create_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
@@ -137,6 +138,7 @@ update_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
