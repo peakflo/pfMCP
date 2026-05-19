@@ -108,6 +108,24 @@ bank_detail_schema = {
     "additionalProperties": True,
 }
 
+custom_field_schema = {
+    "type": "array",
+    "description": "Array of custom fields",
+    "items": {
+        "type": "object",
+        "properties": {
+            "customFieldNumber": {
+                "type": "string",
+                "description": "Custom field identifier (references a custom field definition configured in Peakflo)",
+            },
+            "value": {
+                "description": "Value of the custom field (can be string, number, date string in DD-MM-YYYY format, or array of strings for multi-select)",
+            },
+        },
+        "required": ["customFieldNumber", "value"],
+    },
+}
+
 line_item_schema = {
     "type": "array",
     "description": "Array of line items for the invoice",
@@ -146,6 +164,7 @@ line_item_schema = {
                 "type": "string",
                 "description": "Item reference identifier",
             },
+            "customField": custom_field_schema,
         },
         "required": ["description", "unitAmount", "quantity"],
     },
