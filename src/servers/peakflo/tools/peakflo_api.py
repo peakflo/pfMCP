@@ -1,5 +1,5 @@
 from mcp.types import Tool
-from servers.peakflo.schemas.vendor import read_vendor_output, create_vendor_schema
+from servers.peakflo.schemas.vendor import create_vendor_schema
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     create_task_input_schema,
@@ -31,7 +31,6 @@ vendor_tools = [
             },
             "required": ["externalId", "tenantId"],
         },
-        outputSchema=read_vendor_output,
     ),
     Tool(
         name="create_vendor",
