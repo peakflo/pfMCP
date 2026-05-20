@@ -136,8 +136,10 @@ async def make_peakflo_request(name, arguments, token):
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
+    # Log arguments without large binary fields
+    log_args = {k: (f"<{len(v)} chars>" if k == "data" and isinstance(v, str) and len(v) > 1000 else v) for k, v in arguments.items()}
     logger.info(
-        f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
+        f"[make_peakflo_request] method: {method}, url: {url}, arguments: {log_args}"
     )
     try:
         async with httpx.AsyncClient() as client:
@@ -153,12 +155,19 @@ async def make_peakflo_request(name, arguments, token):
                 f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
             )
 
+            # Strip large binary fields (e.g. base64 file data) before returning
+            response_data = (
+                {k: v for k, v in arguments.items() if k != "data"}
+                if method != "GET"
+                else response.json()
+            )
+
             return {
                 "_status_code": status_code,
                 "message": (status_code == 200 or status_code == 201)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
-                "data": arguments if method != "GET" else response.json(),
+                "data": response_data,
             }
     except httpx.HTTPStatusError as e:
         logger.error(
