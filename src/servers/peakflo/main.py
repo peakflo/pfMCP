@@ -1,5 +1,6 @@
 import os
 import sys
+import base64
 import httpx
 import logging
 import json
@@ -65,7 +66,7 @@ async def make_peakflo_request(name, arguments, token):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
-    tenantId = arguments["tenantId"]
+    tenantId = arguments.get("tenantId")
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
         arguments.pop("tenantId")
@@ -85,6 +86,33 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors"
         message = "Vendor created successfully"
+    elif name == "add_invoice_attachment":
+        invoice_external_id = arguments.pop("invoiceExternalId")
+        # Download file from signed URL and convert to base64 for the Peakflo API
+        file_url = arguments.pop("file_url", None)
+        if file_url:
+            try:
+                async with httpx.AsyncClient() as dl_client:
+                    dl_response = await dl_client.get(file_url, timeout=60.0)
+                    dl_response.raise_for_status()
+                    arguments["data"] = base64.b64encode(dl_response.content).decode(
+                        "utf-8"
+                    )
+                    logger.info(
+                        f"[add_invoice_attachment] Downloaded file from URL "
+                        f"({len(dl_response.content)} bytes) and base64-encoded"
+                    )
+            except Exception as dl_err:
+                raise ValueError(
+                    f"Failed to download file from file_url: {dl_err}"
+                ) from dl_err
+        elif "data" not in arguments:
+            raise ValueError(
+                "Either file_url or data (base64) is required for add_invoice_attachment"
+            )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/invoices/{invoice_external_id}/attachments"
+        message = "Attachment added to invoice successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -101,6 +129,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
         message = "Action log added successfully"
+    elif name == "run_bill_po_matching":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/runBillPoMatching"
+        message = "Bill PO matching completed successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 

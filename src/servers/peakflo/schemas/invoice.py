@@ -1,4 +1,4 @@
-from peakflo.schemas.common import line_item_schema
+from peakflo.schemas.common import custom_field_schema, line_item_schema
 
 create_invoice_schema = {
     "type": "object",
@@ -59,6 +59,7 @@ create_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
@@ -137,6 +138,7 @@ update_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
@@ -151,6 +153,42 @@ update_invoice_schema = {
         "status",
         "invoiceNumber",
     ],
+}
+
+add_invoice_attachment_schema = {
+    "type": "object",
+    "properties": {
+        "invoiceExternalId": {
+            "type": "string",
+            "description": "External ID of the invoice to attach the file to (used in URL path)",
+        },
+        "externalId": {
+            "type": "string",
+            "description": "External ID for the attachment",
+        },
+        "name": {
+            "type": "string",
+            "description": "Attachment file name",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type of the attachment (e.g., application/pdf)",
+        },
+        "file_url": {
+            "type": "string",
+            "description": "Signed URL to download the file. The server fetches and base64-encodes the content before forwarding to the Peakflo API.",
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of when the attachment was created",
+        },
+        "fileType": {
+            "type": "string",
+            "enum": ["invoice", "other"],
+            "description": "Type of file being attached",
+        },
+    },
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "file_url"],
 }
 
 raise_invoice_dispute_schema = {
