@@ -35,7 +35,7 @@ SERVICE_NAME = Path(__file__).parent.name
 # Footer appended to all outgoing messages for transparency.
 # Since messages are posted as the authenticated user (no bot badge),
 # this footer makes it clear the message was sent by an AI agent.
-SENT_FROM_FOOTER = "\n\n_Sent from 20x_"
+SENT_FROM_FOOTER = "\n\n_Sent from <https://peakflo.co/20x-agent-orchestrator|20x>_"
 
 # User-level OAuth scopes required for posting as the user.
 # These are requested as user_scopes in the Nango OAuth flow (xoxp- token).
@@ -1147,7 +1147,10 @@ def process_blocks(blocks, title):
         {
             "type": "context",
             "elements": [
-                {"type": "mrkdwn", "text": "_Sent from 20x_"},
+                {
+                    "type": "mrkdwn",
+                    "text": "_Sent from <https://peakflo.co/20x-agent-orchestrator|20x>_",
+                },
             ],
         }
     )
