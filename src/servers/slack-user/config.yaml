@@ -1,6 +1,6 @@
 name: "Slack User Token pfMCP Server"
 icon: "assets/icon.png"
-description: "Post Slack messages as the authenticated user (no bot badge). Uses user-level OAuth tokens (xoxp-) with a 'Sent from 20x' transparency footer."
+description: "Post Slack messages as the authenticated user (no bot badge). Uses user-level OAuth tokens (xoxp-)."
 documentation_path: "README.md"
 resources:
   - name: "channel"
@@ -17,7 +17,7 @@ tools:
       - "groups:history"
       - "im:read"
   - name: "send_message"
-    description: "Send a message as the authenticated user with 'Sent from 20x' footer"
+    description: "Send a message as the authenticated user"
     required_scopes:
       - "chat:write"
   - name: "create_canvas"

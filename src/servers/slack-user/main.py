@@ -32,10 +32,7 @@ from slack_sdk.errors import SlackApiError
 
 SERVICE_NAME = Path(__file__).parent.name
 
-# Footer appended to all outgoing messages for transparency.
-# Since messages are posted as the authenticated user (no bot badge),
-# this footer makes it clear the message was sent by an AI agent.
-SENT_FROM_FOOTER = "\n\n_Sent from <https://peakflo.co/20x-agent-orchestrator|20x>_"
+PEAKFLO_AI_SLACK_BOT_USER_ID = os.environ.get("PEAKFLO_AI_SLACK_BOT_USER_ID")
 
 # User-level OAuth scopes required for posting as the user.
 # These are requested as user_scopes in the Nango OAuth flow (xoxp- token).
@@ -59,13 +56,19 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
-def append_footer(text: str) -> str:
-    """Append the 'Sent from 20x' footer to a message for transparency.
+def make_footer() -> str:
+    """Create the 'Sent using @Peakflo AI' footer with a proper Slack user mention."""
+    if PEAKFLO_AI_SLACK_BOT_USER_ID:
+        return f"\n\n_Sent using <@{PEAKFLO_AI_SLACK_BOT_USER_ID}>_"
+    return "\n\n_Sent using @Peakflo AI_"
 
-    Since messages posted with a user token appear as if the user typed them,
-    this footer distinguishes AI-generated content from manually typed messages.
+
+def append_footer(text: str) -> str:
+    """Append the 'Sent using @Peakflo AI' footer to a message for transparency.
+    When PEAKFLO_AI_SLACK_BOT_USER_ID env var is set, a proper Slack user
+    mention (<@USER_ID>) is used so the bot is notified.
     """
-    return text + SENT_FROM_FOOTER
+    return text + make_footer()
 
 
 async def create_slack_client(user_id, api_key=None):
@@ -166,8 +169,7 @@ def create_server(user_id, api_key=None):
 
     This server uses user-level OAuth tokens (xoxp-) so that all messages
     are posted as the authenticated user — their real display name, avatar,
-    and no bot badge. A 'Sent from 20x' footer is appended to outgoing
-    messages for transparency.
+    and no bot badge.
     """
     server = Server("slack-user-server")
 
@@ -290,8 +292,7 @@ def create_server(user_id, api_key=None):
                 name="send_message",
                 description=(
                     "Send a message to a Slack channel or user as the authenticated user. "
-                    "The message appears from the user's real name and avatar (no bot badge). "
-                    "A 'Sent from 20x' footer is automatically appended for transparency."
+                    "The message appears from the user's real name and avatar (no bot badge)."
                 ),
                 inputSchema={
                     "type": "object",
@@ -316,8 +317,7 @@ def create_server(user_id, api_key=None):
             Tool(
                 name="create_canvas",
                 description=(
-                    "Create a Slack canvas message with rich content as the authenticated user. "
-                    "A 'Sent from 20x' footer is automatically appended for transparency."
+                    "Create a Slack canvas message with rich content as the authenticated user."
                 ),
                 inputSchema={
                     "type": "object",
@@ -807,13 +807,14 @@ def process_blocks(blocks, title):
         )
 
     # Append a footer section for transparency
+    footer_text = make_footer().strip()
     blocks.append(
         {
             "type": "context",
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": "_Sent from <https://peakflo.co/20x-agent-orchestrator|20x>_",
+                    "text": footer_text,
                 },
             ],
         }
