@@ -44,15 +44,11 @@ SCOPES = [
     "channels:read",
     "channels:history",
     "groups:read",
-    "groups:write",
     "groups:history",
-    "pins:read",
-    "pins:write",
     "reactions:write",
     "files:read",
     "files:write",
     "im:read",
-    "channels:manage",
     "users:read",
 ]
 
@@ -349,25 +345,6 @@ def create_server(user_id, api_key=None):
                 requiredScopes=["chat:write"],
             ),
             Tool(
-                name="add_user_to_channel",
-                description="Add a user to a Slack channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name (with # for names)",
-                        },
-                        "user": {
-                            "type": "string",
-                            "description": "User ID or email to add to the channel",
-                        },
-                    },
-                    "required": ["channel", "user"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
                 name="react_to_message",
                 description="Add a reaction to a message",
                 inputSchema={
@@ -433,44 +410,6 @@ def create_server(user_id, api_key=None):
                 requiredScopes=["channels:history", "groups:history", "im:read"],
             ),
             Tool(
-                name="pin_message",
-                description="Pin a message in a channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name where the message is located",
-                        },
-                        "timestamp": {
-                            "type": "string",
-                            "description": "Timestamp of the message to pin",
-                        },
-                    },
-                    "required": ["channel", "timestamp"],
-                },
-                requiredScopes=["pins:write"],
-            ),
-            Tool(
-                name="unpin_message",
-                description="Unpin a message from a channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name where the message is located",
-                        },
-                        "timestamp": {
-                            "type": "string",
-                            "description": "Timestamp of the message to unpin",
-                        },
-                    },
-                    "required": ["channel", "timestamp"],
-                },
-                requiredScopes=["pins:write"],
-            ),
-            Tool(
                 name="get_user_presence",
                 description="Check a user's online status",
                 inputSchema={
@@ -484,150 +423,6 @@ def create_server(user_id, api_key=None):
                     "required": ["user"],
                 },
                 requiredScopes=["users:read"],
-            ),
-            Tool(
-                name="invite_to_channel",
-                description="Invite users to a channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name to invite users to",
-                        },
-                        "users": {
-                            "type": "string",
-                            "description": "Comma-separated list of user IDs to invite",
-                        },
-                    },
-                    "required": ["channel", "users"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="remove_from_channel",
-                description="Remove a user from a channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name to remove user from",
-                        },
-                        "user": {
-                            "type": "string",
-                            "description": "User ID to remove from channel",
-                        },
-                    },
-                    "required": ["channel", "user"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="list_pinned_items",
-                description="List pinned items in a channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name to list pinned items for",
-                        },
-                    },
-                    "required": ["channel"],
-                },
-                requiredScopes=["pins:read"],
-            ),
-            Tool(
-                name="create_channel",
-                description="Create a new public or private Slack channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Channel name (lowercase, no spaces/periods, max 80 chars)",
-                        },
-                        "is_private": {
-                            "type": "boolean",
-                            "description": "Whether the channel should be private (default: false)",
-                        },
-                        "team_id": {
-                            "type": "string",
-                            "description": "Team ID to create the channel in (optional)",
-                        },
-                    },
-                    "required": ["name"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="update_channel_topic",
-                description="Update a channel's topic",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name (with # for names)",
-                        },
-                        "topic": {
-                            "type": "string",
-                            "description": "New channel topic text",
-                        },
-                    },
-                    "required": ["channel", "topic"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="update_channel_purpose",
-                description="Update a channel's purpose",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name (with # for names)",
-                        },
-                        "purpose": {
-                            "type": "string",
-                            "description": "New channel purpose text",
-                        },
-                    },
-                    "required": ["channel", "purpose"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="archive_channel",
-                description="Archive a Slack channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name (with # for names)",
-                        },
-                    },
-                    "required": ["channel"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
-            ),
-            Tool(
-                name="unarchive_channel",
-                description="Unarchive a Slack channel",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string",
-                            "description": "Channel ID or name (with # for names)",
-                        },
-                    },
-                    "required": ["channel"],
-                },
-                requiredScopes=["channels:manage", "groups:write"],
             ),
         ]
 
@@ -794,23 +589,6 @@ def create_server(user_id, api_key=None):
                     for item in response.get("items", [])
                 ],
             },
-            "add_user_to_channel": {
-                "handler": lambda args: slack_client.conversations_invite(
-                    channel=args["resolved_channel"], users=[args["resolved_user"]]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "resolved_user": (
-                        get_user_id_sync(slack_client, server, args["user"])
-                        if "@" in args["user"] or not args["user"].startswith("U")
-                        else args["user"]
-                    ),
-                },
-            },
             "react_to_message": {
                 "handler": lambda args: slack_client.reactions_add(
                     channel=args["resolved_channel"],
@@ -845,32 +623,6 @@ def create_server(user_id, api_key=None):
                     "timestamp": args["timestamp"],
                 },
             },
-            "pin_message": {
-                "handler": lambda args: slack_client.pins_add(
-                    channel=args["resolved_channel"], timestamp=args["timestamp"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "timestamp": args["timestamp"],
-                },
-            },
-            "unpin_message": {
-                "handler": lambda args: slack_client.pins_remove(
-                    channel=args["resolved_channel"], timestamp=args["timestamp"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "timestamp": args["timestamp"],
-                },
-            },
             "get_user_presence": {
                 "handler": lambda args: slack_client.users_getPresence(
                     user=args["resolved_user"]
@@ -880,94 +632,6 @@ def create_server(user_id, api_key=None):
                         get_user_id_sync(slack_client, server, args["user"])
                         if "@" in args["user"] or not args["user"].startswith("U")
                         else args["user"]
-                    )
-                },
-            },
-            "invite_to_channel": {
-                "handler": lambda args: slack_client.conversations_invite(
-                    channel=args["resolved_channel"], users=args["user_ids"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "user_ids": [u.strip() for u in args["users"].split(",")],
-                },
-            },
-            "remove_from_channel": {
-                "handler": lambda args: slack_client.conversations_kick(
-                    channel=args["resolved_channel"], user=args["resolved_user"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "resolved_user": (
-                        get_user_id_sync(slack_client, server, args["user"])
-                        if not args["user"].startswith("U")
-                        else args["user"]
-                    ),
-                },
-            },
-            "create_channel": {
-                "handler": lambda args: slack_client.conversations_create(
-                    name=args["name"],
-                    is_private=args.get("is_private", False),
-                    team_id=args.get("team_id"),
-                ),
-                "preprocess": lambda args: args,
-            },
-            "update_channel_topic": {
-                "handler": lambda args: slack_client.conversations_setTopic(
-                    channel=args["resolved_channel"], topic=args["topic"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "topic": args["topic"],
-                },
-            },
-            "update_channel_purpose": {
-                "handler": lambda args: slack_client.conversations_setPurpose(
-                    channel=args["resolved_channel"], purpose=args["purpose"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    ),
-                    "purpose": args["purpose"],
-                },
-            },
-            "archive_channel": {
-                "handler": lambda args: slack_client.conversations_archive(
-                    channel=args["resolved_channel"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
-                    )
-                },
-            },
-            "unarchive_channel": {
-                "handler": lambda args: slack_client.conversations_unarchive(
-                    channel=args["resolved_channel"]
-                ),
-                "preprocess": lambda args: {
-                    "resolved_channel": (
-                        get_channel_id_sync(slack_client, server, args["channel"])
-                        if args["channel"].startswith("#")
-                        else args["channel"]
                     )
                 },
             },
