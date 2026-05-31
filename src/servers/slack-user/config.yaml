@@ -24,11 +24,6 @@ tools:
     description: "Create a Slack canvas message as the authenticated user"
     required_scopes:
       - "chat:write"
-  - name: "add_user_to_channel"
-    description: "Add a user to a Slack channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
   - name: "react_to_message"
     description: "Add a reaction to a message"
     required_scopes:
@@ -43,54 +38,7 @@ tools:
       - "channels:history"
       - "groups:history"
       - "im:read"
-  - name: "pin_message"
-    description: "Pin a message in a channel/DM"
-    required_scopes:
-      - "pins:write"
-  - name: "unpin_message"
-    description: "Unpin a message"
-    required_scopes:
-      - "pins:write"
   - name: "get_user_presence"
     description: "Check a user's online status"
     required_scopes:
       - "users:read"
-  - name: "invite_to_channel"
-    description: "Invite user(s) to a channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "remove_from_channel"
-    description: "Remove user from a channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "list_pinned_items"
-    description: "List pinned items in a channel/DM"
-    required_scopes:
-      - "pins:read"
-  - name: "create_channel"
-    description: "Create a new public or private Slack channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "update_channel_topic"
-    description: "Update a channel's topic"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "update_channel_purpose"
-    description: "Update a channel's purpose"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "archive_channel"
-    description: "Archive a Slack channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
-  - name: "unarchive_channel"
-    description: "Unarchive a Slack channel"
-    required_scopes:
-      - "channels:manage"
-      - "groups:write"
