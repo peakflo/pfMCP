@@ -32,7 +32,7 @@ TOOL_TESTS = [
         "regex_extractors": {
             "message_ts": r"message_ts:\s*([0-9.]+)",
         },
-        "description": "Send a message to the channel as the user (should include 'Sent from 20x' footer)",
+        "description": "Send a message to the channel as the user (should include 'Sent using @Peakflo AI' footer)",
         "depends_on": ["channel_id"],
         "setup": lambda context: {"test_id": random_id()},
     },
