@@ -10,12 +10,12 @@ This MCP server enables posting Slack messages **as the authenticated user** (th
 | Display name | Bot name | Your real name |
 | Bot badge | Yes | No |
 | Avatar | Bot icon | Your avatar |
-| Transparency | N/A | "_Sent from 20x_" footer |
+| Transparency | N/A | "_Sent using @Peakflo AI_" footer |
 
 ## Key Behavior
 
 - **Messages appear from the user**: When `send_message` or `create_canvas` is called, the message is posted under the authenticated user's identity.
-- **Transparency footer**: All outgoing messages have `_Sent from 20x_` appended to distinguish AI-generated messages from manually typed ones.
+- **Transparency footer**: All outgoing messages have `_Sent using @Peakflo AI_` appended (with a proper Slack user mention of the bot) to distinguish AI-generated messages from manually typed ones.
 - **User-level OAuth scopes**: The Nango integration (`slack-user`) requests user-level scopes during the OAuth flow, granting a `xoxp-` token instead of a `xoxb-` bot token.
 
 ## Required OAuth Scopes (User Scopes)
