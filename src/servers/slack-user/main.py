@@ -72,14 +72,11 @@ def append_footer(text: str) -> str:
 
 
 async def create_slack_client(user_id, api_key=None):
-    """Create a new Slack client instance using a user token (xoxp-).
-
-    Unlike the bot-based slack server which uses xoxb- tokens, this server
-    uses user-level OAuth tokens so that messages are posted as the
-    authenticated user (their display name, avatar, no bot badge).
-    """
+    logger.info(f"[timing] get_credentials - start for user={user_id}")
     token = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
-    return WebClient(token=token)
+    logger.info(f"[timing] get_credentials - done")
+    client = WebClient(token=token)
+    return client
 
 
 async def enrich_message_with_user_info(slack_client, message):
@@ -641,12 +638,21 @@ def create_server(user_id, api_key=None):
             if name in tool_config:
                 config = tool_config[name]
 
+                logger.info(f"[timing] preprocess - start for tool={name}")
                 args = config["preprocess"](arguments)
+                logger.info(f"[timing] preprocess - done")
+
+                logger.info(f"[timing] handler({name}) - start")
                 response = config["handler"](args)
+                logger.info(f"[timing] handler({name}) - done")
 
                 if "postprocess" in config:
-                    return config["postprocess"](response)
-                return raw_response_processor(response)
+                    result = config["postprocess"](response)
+                    logger.info(f"[timing] postprocess - done")
+                    return result
+                result = raw_response_processor(response)
+                logger.info(f"[timing] raw_response_processor - done")
+                return result
             else:
                 error_response = {"error": f"Unknown tool: {name}"}
                 return [
@@ -690,7 +696,6 @@ if __name__ == "__main__":
 
 # Helper functions for the refactored approach
 def get_channel_id_sync(slack_client, server, channel):
-    """Synchronous wrapper to get channel ID from channel name"""
     if not channel.startswith("#"):
         return channel
 
@@ -703,6 +708,7 @@ def get_channel_id_sync(slack_client, server, channel):
         return server.channel_name_to_id_map[channel_name]
 
     cursor = None
+    first = True
     while True:
         pagination_params = {
             "types": "public_channel,private_channel",
@@ -711,11 +717,17 @@ def get_channel_id_sync(slack_client, server, channel):
         if cursor:
             pagination_params["cursor"] = cursor
 
+        if first:
+            logger.info(f"[timing] conversations_list - start channel={channel}")
+            first = False
         response = slack_client.conversations_list(**pagination_params)
+        if cursor is None:
+            logger.info(f"[timing] conversations_list - first page done")
 
         for ch in response["channels"]:
             server.channel_name_to_id_map[ch["name"]] = ch["id"]
             if ch["name"] == channel_name:
+                logger.info(f"[timing] channel resolved: {channel_name}")
                 return ch["id"]
 
         cursor = response.get("response_metadata", {}).get("next_cursor")
@@ -768,14 +780,16 @@ def get_user_id_sync(slack_client, server, user):
 
 
 def get_channel_or_user_id(slack_client, server, channel_or_user):
-    """Resolve channel or user references to IDs"""
     if channel_or_user.startswith("#"):
         return get_channel_id_sync(slack_client, server, channel_or_user)
     elif channel_or_user.startswith("@"):
         user_name = channel_or_user[1:]
+        logger.info(f"[timing] get_user_id_sync - start user={user_name}")
         user_id = get_user_id_sync(slack_client, server, user_name)
-
+        logger.info(f"[timing] get_user_id_sync - done user={user_id}")
+        logger.info(f"[timing] conversations_open - start user={user_id}")
         dm_response = slack_client.conversations_open(users=user_id)
+        logger.info(f"[timing] conversations_open - done")
         return dm_response["channel"]["id"]
     else:
         return channel_or_user
