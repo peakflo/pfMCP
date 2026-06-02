@@ -46,7 +46,16 @@ def authenticate_and_save_peakflo_key(user_id):
 
 async def get_peakflo_credentials(user_id, api_key=None):
     auth_client = create_auth_client(api_key=api_key)
-    credentials_data = auth_client.get_user_credentials("peakflo", user_id)
+    # Use async version to avoid blocking the event loop.
+    # Sync requests.get() + time.sleep() in the non-async version would block
+    # all concurrent SSE streams on this pf-mcp instance, causing Cloud Run
+    # to truncate responses and workflow-api to hang indefinitely.
+    if hasattr(auth_client, "async_get_user_credentials"):
+        credentials_data = await auth_client.async_get_user_credentials(
+            "peakflo", user_id
+        )
+    else:
+        credentials_data = auth_client.get_user_credentials("peakflo", user_id)
 
     if not credentials_data:
         error_str = f"Peakflo API key not found for user {user_id}."

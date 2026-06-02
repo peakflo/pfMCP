@@ -1,7 +1,9 @@
 import os
 import time
+import asyncio
 import logging
 import requests
+import httpx
 import jwt
 from typing import Optional, Dict, Any, Tuple, TypeVar, Generic, TypedDict
 from requests.exceptions import ConnectionError, Timeout
@@ -195,6 +197,149 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             f"All {self._MAX_RETRIES} retries exhausted for {service_name} connection {connection_id}: {last_error}"
         )
         return None
+
+    async def _async_fetch_connection_with_retries(
+        self, url: str, headers: Dict[str, str], service_name: str, connection_id: str
+    ) -> Optional[httpx.Response]:
+        """
+        Async version of _fetch_connection_with_retries.
+
+        Uses httpx.AsyncClient and asyncio.sleep to avoid blocking the event loop.
+        This prevents SSE stream stalls on the pf-mcp server when Nango is slow.
+        """
+        delay = self._INITIAL_BACKOFF
+        last_error = None
+
+        for attempt in range(self._MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        url, headers=headers, timeout=self._REQUEST_TIMEOUT
+                    )
+
+                if response.status_code == 200:
+                    return response
+
+                if response.status_code == 404:
+                    logger.info(
+                        f"No connection found for {service_name} connection {connection_id}"
+                    )
+                    return None
+
+                if response.status_code in _RETRYABLE_STATUS_CODES:
+                    last_error = f"HTTP {response.status_code}: {response.text}"
+                    logger.warning(
+                        f"[get_user_credentials] retryable error (attempt {attempt + 1}/{self._MAX_RETRIES}) "
+                        f"for {service_name} connection {connection_id}: {last_error}"
+                    )
+                else:
+                    # Non-retryable error (4xx other than 404/429)
+                    logger.error(
+                        f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
+                    )
+                    return None
+
+            except (httpx.ConnectError, httpx.TimeoutException) as e:
+                last_error = str(e)
+                logger.warning(
+                    f"[get_user_credentials] network error (attempt {attempt + 1}/{self._MAX_RETRIES}) "
+                    f"for {service_name} connection {connection_id}: {last_error}"
+                )
+
+            if attempt < self._MAX_RETRIES - 1:
+                await asyncio.sleep(delay)
+                delay *= 2
+
+        logger.error(
+            f"All {self._MAX_RETRIES} retries exhausted for {service_name} connection {connection_id}: {last_error}"
+        )
+        return None
+
+    async def async_get_user_credentials(
+        self, service_name: str, connection_id: str
+    ) -> Optional[CredentialsT]:
+        """
+        Async version of get_user_credentials. Preferred in async contexts (MCP servers).
+
+        Uses httpx.AsyncClient and asyncio.sleep instead of requests/time.sleep
+        to avoid blocking the Python event loop, which would stall concurrent
+        SSE streams and cause Cloud Run to truncate responses.
+        """
+        if not self.secret_key:
+            logger.error("Nango secret key is required to get user credentials")
+            return None
+
+        # Check cache first (cache operations are fast, no need for async)
+        cached = self._get_cached_credentials(service_name, connection_id)
+        if cached is not None:
+            return cached
+
+        try:
+            nango_service_name = self._map_service_name(service_name)
+            auth_type = SERVICE_NAME_MAP.get(service_name, {}).get(
+                "auth_type", AUTH_TYPE_OAUTH2
+            )
+            url = f"{self.api_base_url}/connection/{connection_id}?provider_config_key={nango_service_name}"
+            logger.info(f"[async_get_user_credentials] url: {url}")
+            headers = {"Authorization": f"Bearer {self.secret_key}"}
+
+            response = await self._async_fetch_connection_with_retries(
+                url, headers, service_name, connection_id
+            )
+
+            if response is None:
+                return None
+
+            result = None
+
+            if auth_type == AUTH_TYPE_OAUTH2:
+                credentials: NangoStandardConnectionCredentials = response.json().get(
+                    "credentials"
+                )
+                metadata = response.json().get("metadata", {})
+                credentials["metadata"] = metadata
+                result = credentials
+            elif auth_type == AUTH_TYPE_API_KEY:
+                credentials: NangoApiKeyConnectionCredentials = response.json().get(
+                    "credentials"
+                )
+                result = credentials
+            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
+                connection_data = response.json()
+                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get(
+                    "metadata", {}
+                )
+                logger.info(
+                    f"[async_get_user_credentials] metadata fetched for tenant {metadata.get('tenantId')}"
+                )
+                if (
+                    not metadata.get("tenantId")
+                    or not metadata.get("privateKey")
+                    or not metadata.get("accessToken")
+                ):
+                    logger.error(
+                        f"Missing required fields in metadata for {service_name} connection {connection_id}"
+                    )
+                    return None
+
+                jwt_token_data = self._get_jwt_token(
+                    service_name,
+                    metadata.get("tenantId"),
+                    metadata.get("privateKey"),
+                    metadata.get("accessToken"),
+                )
+                result = jwt_token_data
+
+            if result is not None:
+                self._set_cached_credentials(service_name, connection_id, result)
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving credentials for {service_name} connection {connection_id}: {str(e)}"
+            )
+            return None
 
     def get_user_credentials(
         self, service_name: str, connection_id: str
