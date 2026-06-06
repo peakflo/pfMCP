@@ -974,6 +974,10 @@ def create_server(user_id, api_key=None):
                             "type": "boolean",
                             "description": "Whether to return archived tickets",
                         },
+                        "query": {
+                            "type": "string",
+                            "description": "Full-text search across subject, content, hs_pipeline_stage, and hs_ticket_category. To find tickets by stage, pass the pipeline stage ID (e.g., '1' for New, '4' for Closed). Use list_pipelines with object_type='tickets' to find stage IDs.",
+                        },
                     },
                     "required": [],
                 },
@@ -1991,16 +1995,29 @@ def create_server(user_id, api_key=None):
                     "custom_handler": send_email_handler,
                 },
                 "list_tickets": {
-                    "get_endpoint": lambda args: "https://api.hubapi.com/crm/v3/objects/tickets",
-                    "method": "get",
+                    "get_endpoint": lambda args: (
+                        "https://api.hubapi.com/crm/v3/objects/tickets/search"
+                        if args.get("query")
+                        else "https://api.hubapi.com/crm/v3/objects/tickets"
+                    ),
+                    "method": lambda args: ("post" if args.get("query") else "get"),
                     "prepare_request": lambda args, token: {
-                        "params": {
-                            "limit": min(args.get("limit", 10), 50),
-                            "after": args.get("after"),
-                            "properties": args.get("properties", []),
-                            "associations": args.get("associations", []),
-                            "archived": args.get("archived", False),
-                        }
+                        "payload": (
+                            build_tickets_search_payload(args)
+                            if args.get("query")
+                            else None
+                        ),
+                        "params": (
+                            None
+                            if args.get("query")
+                            else {
+                                "limit": min(args.get("limit", 10), 50),
+                                "after": args.get("after"),
+                                "properties": args.get("properties", []),
+                                "associations": args.get("associations", []),
+                                "archived": args.get("archived", False),
+                            }
+                        ),
                     },
                 },
                 "get_ticket": {
@@ -2670,6 +2687,22 @@ def prepare_ticket_payload(args):
 
     if associations:
         payload["associations"] = associations
+
+    return payload
+
+
+def build_tickets_search_payload(args):
+    """Helper to build search payload for listing tickets with query"""
+    payload = {
+        "limit": min(args.get("limit", 10), 50),
+        "properties": args.get("properties", []),
+    }
+
+    if args.get("after"):
+        payload["after"] = args["after"]
+
+    if args.get("query"):
+        payload["query"] = args["query"]
 
     return payload
 
