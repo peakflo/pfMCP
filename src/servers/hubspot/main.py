@@ -2009,19 +2009,43 @@ def create_server(user_id, api_key=None):
                 "list_tickets": {
                     "get_endpoint": lambda args: (
                         "https://api.hubapi.com/crm/v3/objects/tickets/search"
-                        if (args.get("query") or args.get("pipeline_id") or args.get("stage_id") or args.get("owner_id"))
+                        if (
+                            args.get("query")
+                            or args.get("pipeline_id")
+                            or args.get("stage_id")
+                            or args.get("owner_id")
+                        )
                         else "https://api.hubapi.com/crm/v3/objects/tickets"
                     ),
-                    "method": lambda args: ("post" if (args.get("query") or args.get("pipeline_id") or args.get("stage_id") or args.get("owner_id")) else "get"),
+                    "method": lambda args: (
+                        "post"
+                        if (
+                            args.get("query")
+                            or args.get("pipeline_id")
+                            or args.get("stage_id")
+                            or args.get("owner_id")
+                        )
+                        else "get"
+                    ),
                     "prepare_request": lambda args, token: {
                         "payload": (
                             build_tickets_search_payload(args)
-                            if (args.get("query") or args.get("pipeline_id") or args.get("stage_id") or args.get("owner_id"))
+                            if (
+                                args.get("query")
+                                or args.get("pipeline_id")
+                                or args.get("stage_id")
+                                or args.get("owner_id")
+                            )
                             else None
                         ),
                         "params": (
                             None
-                            if (args.get("query") or args.get("pipeline_id") or args.get("stage_id") or args.get("owner_id"))
+                            if (
+                                args.get("query")
+                                or args.get("pipeline_id")
+                                or args.get("stage_id")
+                                or args.get("owner_id")
+                            )
                             else {
                                 "limit": min(args.get("limit", 10), 50),
                                 "after": args.get("after"),
@@ -2715,11 +2739,29 @@ def build_tickets_search_payload(args):
 
     filters = []
     if args.get("pipeline_id"):
-        filters.append({"propertyName": "hs_pipeline", "operator": "EQ", "value": args["pipeline_id"]})
+        filters.append(
+            {
+                "propertyName": "hs_pipeline",
+                "operator": "EQ",
+                "value": args["pipeline_id"],
+            }
+        )
     if args.get("stage_id"):
-        filters.append({"propertyName": "hs_pipeline_stage", "operator": "EQ", "value": args["stage_id"]})
+        filters.append(
+            {
+                "propertyName": "hs_pipeline_stage",
+                "operator": "EQ",
+                "value": args["stage_id"],
+            }
+        )
     if args.get("owner_id"):
-        filters.append({"propertyName": "hubspot_owner_id", "operator": "EQ", "value": args["owner_id"]})
+        filters.append(
+            {
+                "propertyName": "hubspot_owner_id",
+                "operator": "EQ",
+                "value": args["owner_id"],
+            }
+        )
 
     if filters:
         payload["filterGroups"] = [{"filters": filters}]
