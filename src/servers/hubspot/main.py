@@ -976,7 +976,19 @@ def create_server(user_id, api_key=None):
                         },
                         "query": {
                             "type": "string",
-                            "description": "Full-text search across subject, content, hs_pipeline_stage, and hs_ticket_category. To find tickets by stage, pass the pipeline stage ID (e.g., '1' for New, '4' for Closed). Use list_pipelines with object_type='tickets' to find stage IDs.",
+                            "description": "Full-text search across subject, content, hs_pipeline_stage, and hs_ticket_category",
+                        },
+                        "pipeline_id": {
+                            "type": "string",
+                            "description": "Filter tickets by pipeline ID",
+                        },
+                        "stage_id": {
+                            "type": "string",
+                            "description": "Filter tickets by pipeline stage ID",
+                        },
+                        "owner_id": {
+                            "type": "string",
+                            "description": "Filter tickets by HubSpot owner ID",
                         },
                     },
                     "required": [],
@@ -1997,19 +2009,43 @@ def create_server(user_id, api_key=None):
                 "list_tickets": {
                     "get_endpoint": lambda args: (
                         "https://api.hubapi.com/crm/v3/objects/tickets/search"
-                        if args.get("query")
+                        if (
+                            args.get("query")
+                            or args.get("pipeline_id")
+                            or args.get("stage_id")
+                            or args.get("owner_id")
+                        )
                         else "https://api.hubapi.com/crm/v3/objects/tickets"
                     ),
-                    "method": lambda args: ("post" if args.get("query") else "get"),
+                    "method": lambda args: (
+                        "post"
+                        if (
+                            args.get("query")
+                            or args.get("pipeline_id")
+                            or args.get("stage_id")
+                            or args.get("owner_id")
+                        )
+                        else "get"
+                    ),
                     "prepare_request": lambda args, token: {
                         "payload": (
                             build_tickets_search_payload(args)
-                            if args.get("query")
+                            if (
+                                args.get("query")
+                                or args.get("pipeline_id")
+                                or args.get("stage_id")
+                                or args.get("owner_id")
+                            )
                             else None
                         ),
                         "params": (
                             None
-                            if args.get("query")
+                            if (
+                                args.get("query")
+                                or args.get("pipeline_id")
+                                or args.get("stage_id")
+                                or args.get("owner_id")
+                            )
                             else {
                                 "limit": min(args.get("limit", 10), 50),
                                 "after": args.get("after"),
@@ -2692,7 +2728,7 @@ def prepare_ticket_payload(args):
 
 
 def build_tickets_search_payload(args):
-    """Helper to build search payload for listing tickets with query"""
+    """Helper to build search payload for listing tickets with filters"""
     payload = {
         "limit": min(args.get("limit", 10), 50),
         "properties": args.get("properties", []),
@@ -2700,6 +2736,35 @@ def build_tickets_search_payload(args):
 
     if args.get("after"):
         payload["after"] = args["after"]
+
+    filters = []
+    if args.get("pipeline_id"):
+        filters.append(
+            {
+                "propertyName": "hs_pipeline",
+                "operator": "EQ",
+                "value": args["pipeline_id"],
+            }
+        )
+    if args.get("stage_id"):
+        filters.append(
+            {
+                "propertyName": "hs_pipeline_stage",
+                "operator": "EQ",
+                "value": args["stage_id"],
+            }
+        )
+    if args.get("owner_id"):
+        filters.append(
+            {
+                "propertyName": "hubspot_owner_id",
+                "operator": "EQ",
+                "value": args["owner_id"],
+            }
+        )
+
+    if filters:
+        payload["filterGroups"] = [{"filters": filters}]
 
     if args.get("query"):
         payload["query"] = args["query"]
