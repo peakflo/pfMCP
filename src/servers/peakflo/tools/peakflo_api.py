@@ -1,9 +1,10 @@
 from mcp.types import Tool
-from servers.peakflo.schemas.vendor import read_vendor_output, create_vendor_schema, update_vendor_schema
+from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     create_task_input_schema,
     add_action_log_input_schema,
+    run_bill_po_matching_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -30,7 +31,6 @@ vendor_tools = [
             },
             "required": ["externalId", "tenantId"],
         },
-        outputSchema=read_vendor_output,
     ),
     Tool(
         name="create_vendor",
@@ -63,7 +63,7 @@ invoice_tools = [
     ),
     Tool(
         name="add_invoice_attachment",
-        description="Add an attachment (Base64-encoded file) to an existing invoice",
+        description="Add an attachment to an existing invoice. Accepts a signed file URL; the server downloads and base64-encodes it.",
         inputSchema=add_invoice_attachment_schema,
     ),
 ]
@@ -84,5 +84,10 @@ utility_tools = [
         name="add_action_log",
         description="Add an action log to the vendor or customer, can be used for saving transcripts in action log",
         inputSchema=add_action_log_input_schema,
+    ),
+    Tool(
+        name="run_bill_po_matching",
+        description="Run Purchase Order (PO) matching on an existing bill. Updates line-level PO links and matching details (3-way matching). Use when re-running PO matching after a bill was created without POs, or when POs/bill data changed. Tenant is taken from the auth token. Provide at least one of billId, externalId, or sourceId to identify the bill.",
+        inputSchema=run_bill_po_matching_input_schema,
     ),
 ]

@@ -132,6 +132,7 @@ The following table provides an overview of the current servers implemented in p
 | YouTube | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [YouTube Docs](/src/servers/youtube/README.md) |
 | **Communication Tools** |  |  |
 | Slack | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Slack Docs](/src/servers/slack/README.md) |
+| Slack (User Token) | ✅ Seamless with Nango auth | [Slack User Docs](/src/servers/slack-user/README.md) |
 | Microsoft Teams | ⚠️ Coming soon | [Teams Docs](/src/servers/teams/README.md) |
 | Outlook | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Outlook Docs](/src/servers/outlook/README.md) |
 | Discourse | ✅ Seamless with Gumloop auth | [Discourse Docs](/src/servers/discourse/README.md) |

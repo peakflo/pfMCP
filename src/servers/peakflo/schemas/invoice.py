@@ -1,4 +1,4 @@
-from peakflo.schemas.common import line_item_schema
+from peakflo.schemas.common import custom_field_schema, line_item_schema
 
 create_invoice_schema = {
     "type": "object",
@@ -59,6 +59,7 @@ create_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
@@ -137,6 +138,7 @@ update_invoice_schema = {
             "type": "string",
             "description": "Invoice number identifier",
         },
+        "customField": custom_field_schema,
     },
     "required": [
         "externalId",
@@ -172,9 +174,9 @@ add_invoice_attachment_schema = {
             "type": "string",
             "description": "MIME type of the attachment (e.g., application/pdf)",
         },
-        "fileUrl": {
+        "file_url": {
             "type": "string",
-            "description": "Publicly accessible URL of the file to attach. The server will download and Base64-encode it.",
+            "description": "Signed URL to download the file. The server fetches and base64-encodes the content before forwarding to the Peakflo API.",
         },
         "dateCreated": {
             "type": "string",
@@ -186,7 +188,7 @@ add_invoice_attachment_schema = {
             "description": "Type of file being attached",
         },
     },
-    "required": ["invoiceExternalId", "externalId", "name", "contentType", "fileUrl"],
+    "required": ["invoiceExternalId", "externalId", "name", "contentType", "file_url"],
 }
 
 raise_invoice_dispute_schema = {

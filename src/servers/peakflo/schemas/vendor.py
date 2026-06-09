@@ -2,6 +2,7 @@ from peakflo.schemas.common import (
     contact_schema,
     address_schema,
     bank_detail_schema,
+    custom_field_schema,
 )
 
 create_vendor_schema = {
@@ -71,22 +72,7 @@ create_vendor_schema = {
             "type": "boolean",
             "description": "Whether VAT is applicable",
         },
-        "customField": {
-            "type": "array",
-            "description": "Array of custom fields",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "customFieldNumber": {
-                        "type": "string",
-                        "description": "Custom field identifier",
-                    },
-                    "value": {
-                        "description": "Value of the custom field (can be string, number, date, or array for multi-select)",
-                    },
-                },
-            },
-        },
+        "customField": custom_field_schema,
     },
 }
 
@@ -162,22 +148,7 @@ update_vendor_schema = {
             "type": "boolean",
             "description": "Whether VAT is applicable",
         },
-        "customField": {
-            "type": "array",
-            "description": "Array of custom fields",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "customFieldNumber": {
-                        "type": "string",
-                        "description": "Custom field identifier",
-                    },
-                    "value": {
-                        "description": "Value of the custom field (can be string, number, date, or array for multi-select)",
-                    },
-                },
-            },
-        },
+        "customField": custom_field_schema,
     },
     "required": ["externalId", "tenantId"],
 }

@@ -46,5 +46,10 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "google-analytics",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Slack user-level token integration (xoxp- tokens for posting as the user)
+    "slack-user": {
+        "nango_service_name": "slack-user",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }

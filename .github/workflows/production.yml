@@ -32,6 +32,7 @@ jobs:
           echo "GCS_BUCKET_NAME: ${{ vars.PROD_GCS_BUCKET_NAME }}" >> .envprod.yaml
           echo "GMAIL_PUBSUB_TOPIC: ${{ vars.PROD_GMAIL_PUBSUB_TOPIC }}" >> .envprod.yaml
           echo "OUTLOOK_WEBHOOK_URL: ${{ vars.PROD_OUTLOOK_WEBHOOK_URL }}" >> .envprod.yaml
+          echo "PEAKFLO_AI_SLACK_BOT_USER_ID: ${{ vars.PEAKFLO_AI_SLACK_BOT_USER_ID }}" >> .envprod.yaml
 
       - name: GCP Auth
         uses: google-github-actions/auth@v2.1.2
