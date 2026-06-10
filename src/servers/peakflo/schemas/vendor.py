@@ -77,6 +77,83 @@ create_vendor_schema = {
 }
 
 
+update_vendor_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": "External ID of the vendor to update (used in URL path)",
+        },
+        "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for the vendor",
+        },
+        "companyName": {
+            "type": "string",
+            "description": "Name of the vendor company",
+        },
+        "companyId": {
+            "type": "string",
+            "description": "Unique identifier for the company",
+        },
+        "defaultCurrency": {
+            "type": "string",
+            "description": "Default currency for the vendor (e.g., USD, SGD)",
+        },
+        "addresses": {
+            "type": "array",
+            "description": "Array of vendor addresses",
+            "items": address_schema,
+        },
+        "contacts": {
+            "type": "array",
+            "description": "Array of vendor contacts",
+            "items": contact_schema,
+        },
+        "taxNumber": {
+            "type": "string",
+            "description": "Vendor's tax identification number",
+        },
+        "notes": {
+            "type": "string",
+            "description": "Additional notes about the vendor",
+        },
+        "bankDetails": {
+            "type": "array",
+            "description": "Array of bank account details. Can include additional fields beyond the standard ones.",
+            "items": bank_detail_schema,
+        },
+        "entityType": {
+            "type": "string",
+            "description": "Type of entity (company or individual)",
+            "enum": ["company", "individual"],
+        },
+        "beneficiaryCountry": {
+            "type": "string",
+            "description": "Country code of the beneficiary in ALPHA-2 format",
+        },
+        "vendorFirstName": {
+            "type": "string",
+            "description": "First name of the vendor",
+        },
+        "vendorLastName": {
+            "type": "string",
+            "description": "Last name of the vendor",
+        },
+        "paymentTerms": {
+            "type": "number",
+            "description": "Payment terms in days",
+        },
+        "vatApplicable": {
+            "type": "boolean",
+            "description": "Whether VAT is applicable",
+        },
+        "customField": custom_field_schema,
+    },
+    "required": ["externalId", "tenantId"],
+}
+
+
 read_vendor_output = {
     "type": "object",
     "properties": {

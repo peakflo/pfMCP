@@ -1,5 +1,5 @@
 from mcp.types import Tool
-from servers.peakflo.schemas.vendor import create_vendor_schema
+from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     create_task_input_schema,
@@ -36,6 +36,11 @@ vendor_tools = [
         name="create_vendor",
         description="Create a new vendor in Peakflo with comprehensive details including company information, addresses, contacts, bank details, and custom fields",
         inputSchema=create_vendor_schema,
+    ),
+    Tool(
+        name="update_vendor",
+        description="Update an existing vendor in Peakflo. Supports updating company information, addresses, contacts, bank details, custom fields, VAT settings, payment terms, and more. Only provided fields will be updated.",
+        inputSchema=update_vendor_schema,
     ),
 ]
 
