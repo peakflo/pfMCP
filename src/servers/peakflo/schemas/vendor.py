@@ -160,5 +160,10 @@ read_vendor_output = {
             "type": "boolean",
             "description": "Whether VAT is applicable",
         },
+        "status": {
+            "type": "string",
+            "description": "Current status of the vendor (active, archived, or deleted)",
+            "enum": ["active", "archived", "deleted"],
+        },
     },
 }
