@@ -12,6 +12,8 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import logging
+import re
+import zoneinfo
 from pathlib import Path
 
 from mcp.types import (
@@ -40,6 +42,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(SERVICE_NAME)
 
+# Regex for UTC offset format like +07:00, -05:00
+TZ_OFFSET_RE = re.compile(r"^[+-]\d{2}:\d{2}$")
+
+
+def _validate_timezone(tz: str) -> None:
+    """Validate a timezone string (IANA name or UTC offset)."""
+    if tz.upper() == "UTC" or TZ_OFFSET_RE.match(tz):
+        return
+    try:
+        zoneinfo.ZoneInfo(tz)
+    except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
+        raise ValueError(
+            f"Invalid timezone: '{tz}'. Use IANA name (e.g. 'Asia/Bangkok'), "
+            f"UTC offset (e.g. '+07:00'), or 'UTC'."
+        )
+
 
 async def create_calendar_service(user_id, api_key=None):
     """Create a new Calendar service instance for this request"""
@@ -57,14 +75,24 @@ def format_event(event):
     # Format start time
     if "T" in start:  # This is a datetime
         start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
-        start_formatted = start_dt.strftime("%Y-%m-%d %H:%M")
+        tz_str = start_dt.strftime("%z")
+        if tz_str == "+0000":
+            tz_label = "UTC"
+        else:
+            tz_label = f"UTC{tz_str[:3]}:{tz_str[3:]}"
+        start_formatted = start_dt.strftime("%Y-%m-%d %H:%M") + f" {tz_label}"
     else:  # This is a date
         start_formatted = start
 
     # Format end time
     if "T" in end:  # This is a datetime
         end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
-        end_formatted = end_dt.strftime("%Y-%m-%d %H:%M")
+        tz_str = end_dt.strftime("%z")
+        if tz_str == "+0000":
+            tz_label = "UTC"
+        else:
+            tz_label = f"UTC{tz_str[:3]}:{tz_str[3:]}"
+        end_formatted = end_dt.strftime("%Y-%m-%d %H:%M") + f" {tz_label}"
     else:  # This is a date
         end_formatted = end
 
@@ -198,7 +226,7 @@ def create_server(user_id, api_key=None):
         return [
             Tool(
                 name="list_events",
-                description="List events from Google Calendar for a specified time range",
+                description="List events from Google Calendar for a specified time range. Times are shown in the calendar's local timezone with offset (e.g. '14:00 +07:00').",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -219,7 +247,7 @@ def create_server(user_id, api_key=None):
             ),
             Tool(
                 name="create_event",
-                description="Create a new event in Google Calendar",
+                description="Create a new event in Google Calendar. Datetime inputs are treated as local time in the specified timezone (defaults to UTC if omitted).",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -230,11 +258,15 @@ def create_server(user_id, api_key=None):
                         "summary": {"type": "string", "description": "Event title"},
                         "start_datetime": {
                             "type": "string",
-                            "description": "Start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone",
+                            "description": "Start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD). Treated as local time in the given timezone (defaults to UTC).",
                         },
                         "end_datetime": {
                             "type": "string",
-                            "description": "End date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone",
+                            "description": "End date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD). Treated as local time in the given timezone (defaults to UTC).",
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for start_datetime and end_datetime (e.g. 'Asia/Bangkok', 'America/New_York', '+07:00'). Defaults to 'UTC' if omitted.",
                         },
                         "description": {
                             "type": "string",
@@ -255,7 +287,7 @@ def create_server(user_id, api_key=None):
             ),
             Tool(
                 name="update_event",
-                description="Update an existing event in Google Calendar",
+                description="Update an existing event in Google Calendar. Datetime inputs are treated as local time in the specified timezone (defaults to UTC if omitted).",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -273,11 +305,15 @@ def create_server(user_id, api_key=None):
                         },
                         "start_datetime": {
                             "type": "string",
-                            "description": "New start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone (optional)",
+                            "description": "New start date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD). Treated as local time in the given timezone (defaults to UTC). (optional)",
                         },
                         "end_datetime": {
                             "type": "string",
-                            "description": "New end date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD) in UTC timezone (optional)",
+                            "description": "New end date/time (format: YYYY-MM-DD HH:MM or YYYY-MM-DD). Treated as local time in the given timezone (defaults to UTC). (optional)",
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for start_datetime and end_datetime (e.g. 'Asia/Bangkok', 'America/New_York', '+07:00'). Defaults to 'UTC' if omitted.",
                         },
                         "description": {
                             "type": "string",
@@ -374,6 +410,10 @@ def create_server(user_id, api_key=None):
                 description = arguments.get("description", "")
                 location = arguments.get("location", "")
                 attendees = arguments.get("attendees", [])
+                timezone_str = arguments.get("timezone", "UTC")
+
+                # Validate timezone
+                _validate_timezone(timezone_str)
 
                 # Process start and end times
                 start_datetime = arguments["start_datetime"]
@@ -392,9 +432,11 @@ def create_server(user_id, api_key=None):
                 # Handle start time
                 if start_has_time:
                     try:
-                        # Convert to ISO format for API
                         dt = datetime.strptime(start_datetime, "%Y-%m-%d %H:%M")
-                        event["start"] = {"dateTime": dt.isoformat(), "timeZone": "UTC"}
+                        event["start"] = {
+                            "dateTime": dt.isoformat(),
+                            "timeZone": timezone_str,
+                        }
                     except ValueError:
                         raise ValueError(
                             "Invalid start datetime format. Use YYYY-MM-DD HH:MM"
@@ -405,9 +447,11 @@ def create_server(user_id, api_key=None):
                 # Handle end time
                 if end_has_time:
                     try:
-                        # Convert to ISO format for API
                         dt = datetime.strptime(end_datetime, "%Y-%m-%d %H:%M")
-                        event["end"] = {"dateTime": dt.isoformat(), "timeZone": "UTC"}
+                        event["end"] = {
+                            "dateTime": dt.isoformat(),
+                            "timeZone": timezone_str,
+                        }
                     except ValueError:
                         raise ValueError(
                             "Invalid end datetime format. Use YYYY-MM-DD HH:MM"
@@ -428,12 +472,12 @@ def create_server(user_id, api_key=None):
                 response = f"Event created successfully!\n"
                 response += f"Title: {summary}\n"
                 if start_has_time:
-                    response += f"Start: {start_datetime}\n"
+                    response += f"Start: {start_datetime} ({timezone_str})\n"
                 else:
                     response += f"Start Date: {start_datetime}\n"
 
                 if end_has_time:
-                    response += f"End: {end_datetime}\n"
+                    response += f"End: {end_datetime} ({timezone_str})\n"
                 else:
                     response += f"End Date: {end_datetime}\n"
 
@@ -455,6 +499,10 @@ def create_server(user_id, api_key=None):
 
                 calendar_id = arguments.get("calendar_id", "primary")
                 event_id = arguments["event_id"]
+                timezone_str = arguments.get("timezone")
+
+                if timezone_str is not None:
+                    _validate_timezone(timezone_str)
 
                 # First get the existing event
                 event = (
@@ -477,13 +525,18 @@ def create_server(user_id, api_key=None):
                 if "start_datetime" in arguments:
                     start_datetime = arguments["start_datetime"]
                     start_has_time = len(start_datetime.split()) > 1
+                    tz = (
+                        timezone_str
+                        if timezone_str
+                        else event.get("start", {}).get("timeZone", "UTC")
+                    )
 
                     if start_has_time:
                         try:
                             dt = datetime.strptime(start_datetime, "%Y-%m-%d %H:%M")
                             event["start"] = {
                                 "dateTime": dt.isoformat(),
-                                "timeZone": "UTC",
+                                "timeZone": tz,
                             }
                         except ValueError:
                             raise ValueError(
@@ -496,13 +549,18 @@ def create_server(user_id, api_key=None):
                 if "end_datetime" in arguments:
                     end_datetime = arguments["end_datetime"]
                     end_has_time = len(end_datetime.split()) > 1
+                    tz = (
+                        timezone_str
+                        if timezone_str
+                        else event.get("end", {}).get("timeZone", "UTC")
+                    )
 
                     if end_has_time:
                         try:
                             dt = datetime.strptime(end_datetime, "%Y-%m-%d %H:%M")
                             event["end"] = {
                                 "dateTime": dt.isoformat(),
-                                "timeZone": "UTC",
+                                "timeZone": tz,
                             }
                         except ValueError:
                             raise ValueError(
