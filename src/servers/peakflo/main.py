@@ -1,11 +1,9 @@
 import os
 import sys
-import time
 import base64
 import httpx
 import logging
 import json
-import jwt
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
@@ -35,26 +33,6 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
-def _generate_legacy_jwt(tenant_id, private_key, access_token):
-    """
-    Generate a JWT token from legacy Nango unauthenticated metadata.
-
-    Backward-compatible with connections created before the API key migration.
-    These connections store tenantId, privateKey, and accessToken in Nango
-    metadata instead of using native API key auth.
-    """
-    expires_at = time.time() + 3600
-    payload = {
-        "iss": SERVICE_NAME,
-        "aud": SERVICE_NAME,
-        "acc": access_token,
-        "sub": tenant_id,
-        "iat": time.time(),
-        "exp": expires_at,
-    }
-    return jwt.encode(payload, private_key)
-
-
 def authenticate_and_save_peakflo_key(user_id):
     auth_client = create_auth_client()
 
@@ -71,17 +49,13 @@ async def get_peakflo_credentials(user_id, api_key=None):
     Get Peakflo credentials, supporting both new and legacy auth flows.
 
     New flow (API_KEY): Nango stores the API key natively.
-        credentials = {apiKey: "pk_xxx", metadata: {}}
+        NangoAuthClient returns {apiKey: "pk_xxx"} → we use apiKey directly.
 
     Legacy flow (backward-compat): Old connections stored tenantId, privateKey,
-        and accessToken in Nango metadata. We generate a JWT on-the-fly.
-        credentials = {metadata: {tenantId: ..., privateKey: ..., accessToken: ...}}
+        and accessToken in Nango metadata. NangoAuthClient detects this and
+        generates a JWT internally, returning {access_token: "jwt_xxx", expires_at: ...}.
     """
-    # If API key is provided directly (e.g. for local testing), use it
-    if api_key:
-        return api_key
-
-    auth_client = create_auth_client()
+    auth_client = create_auth_client(api_key=api_key)
     # Use async version to avoid blocking the event loop.
     # Sync requests.get() + time.sleep() in the non-async version would block
     # all concurrent SSE streams on this pf-mcp instance, causing Cloud Run
@@ -102,26 +76,14 @@ async def get_peakflo_credentials(user_id, api_key=None):
     # New flow: native Nango API key
     token = credentials_data.get("apiKey")
     if token:
-        logger.info(f"[get_peakflo_credentials] Using native API key for user {user_id}")
         return token
 
-    # Legacy flow: generate JWT from metadata (backward-compat for old connections)
-    metadata = credentials_data.get("metadata", {})
-    tenant_id = metadata.get("tenantId")
-    private_key = metadata.get("privateKey")
-    access_token = metadata.get("accessToken")
+    # Legacy flow: NangoAuthClient already generated a JWT from metadata
+    token = credentials_data.get("access_token")
+    if token:
+        return token
 
-    if tenant_id and private_key and access_token:
-        logger.info(
-            f"[get_peakflo_credentials] Using legacy JWT flow for user {user_id} "
-            f"(tenant {tenant_id}). Consider migrating to API key auth."
-        )
-        return _generate_legacy_jwt(tenant_id, private_key, access_token)
-
-    raise ValueError(
-        f"Peakflo credentials not found for user {user_id}. "
-        "Expected either an API key or legacy metadata (tenantId, privateKey, accessToken)."
-    )
+    raise ValueError(f"Peakflo token not found for user {user_id}.")
 
 
 async def make_peakflo_request(name, arguments, token):

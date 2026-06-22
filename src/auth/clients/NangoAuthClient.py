@@ -303,9 +303,32 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
                 ) or {}
-                metadata = response.json().get("metadata", {})
-                credentials["metadata"] = metadata
-                result = credentials
+                if credentials.get("apiKey"):
+                    # Native API key connection
+                    result = credentials
+                else:
+                    # Fallback: legacy connection may store credentials in
+                    # metadata (e.g. migrated from AUTH_TYPE_UNAUTHENTICATED).
+                    # Generate a JWT the same way the unauthenticated handler does.
+                    metadata = response.json().get("metadata", {})
+                    if (
+                        metadata.get("tenantId")
+                        and metadata.get("privateKey")
+                        and metadata.get("accessToken")
+                    ):
+                        logger.info(
+                            f"[async_get_user_credentials] API_KEY fallback: using legacy JWT for tenant {metadata.get('tenantId')}"
+                        )
+                        jwt_token_data = self._get_jwt_token(
+                            service_name,
+                            metadata.get("tenantId"),
+                            metadata.get("privateKey"),
+                            metadata.get("accessToken"),
+                        )
+                        result = jwt_token_data
+                    else:
+                        # No apiKey and no legacy metadata — return whatever we got
+                        result = credentials
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 connection_data = response.json()
                 metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get(
@@ -395,14 +418,35 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
-                # Return the credentials data as a dictionary
-                # The caller is responsible for converting to the appropriate credentials type
                 credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
                 ) or {}
-                metadata = response.json().get("metadata", {})
-                credentials["metadata"] = metadata
-                result = credentials
+                if credentials.get("apiKey"):
+                    # Native API key connection
+                    result = credentials
+                else:
+                    # Fallback: legacy connection may store credentials in
+                    # metadata (e.g. migrated from AUTH_TYPE_UNAUTHENTICATED).
+                    # Generate a JWT the same way the unauthenticated handler does.
+                    metadata = response.json().get("metadata", {})
+                    if (
+                        metadata.get("tenantId")
+                        and metadata.get("privateKey")
+                        and metadata.get("accessToken")
+                    ):
+                        logger.info(
+                            f"[get_user_credentials] API_KEY fallback: using legacy JWT for tenant {metadata.get('tenantId')}"
+                        )
+                        jwt_token_data = self._get_jwt_token(
+                            service_name,
+                            metadata.get("tenantId"),
+                            metadata.get("privateKey"),
+                            metadata.get("accessToken"),
+                        )
+                        result = jwt_token_data
+                    else:
+                        # No apiKey and no legacy metadata — return whatever we got
+                        result = credentials
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 # Return the JWT token data
                 connection_data = response.json()
