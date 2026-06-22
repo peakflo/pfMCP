@@ -325,16 +325,19 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
-                credentials: NangoApiKeyConnectionCredentials = response.json().get(
-                    "credentials"
-                ) or {}
+                credentials: NangoApiKeyConnectionCredentials = (
+                    response.json().get("credentials") or {}
+                )
                 if credentials.get("apiKey"):
                     result = credentials
                 else:
                     # Fallback: legacy connection migrated from UNAUTHENTICATED
-                    result = self._resolve_jwt_from_metadata(
-                        response.json(), service_name, connection_id
-                    ) or credentials
+                    result = (
+                        self._resolve_jwt_from_metadata(
+                            response.json(), service_name, connection_id
+                        )
+                        or credentials
+                    )
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 result = self._resolve_jwt_from_metadata(
                     response.json(), service_name, connection_id
@@ -403,16 +406,19 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
-                credentials: NangoApiKeyConnectionCredentials = response.json().get(
-                    "credentials"
-                ) or {}
+                credentials: NangoApiKeyConnectionCredentials = (
+                    response.json().get("credentials") or {}
+                )
                 if credentials.get("apiKey"):
                     result = credentials
                 else:
                     # Fallback: legacy connection migrated from UNAUTHENTICATED
-                    result = self._resolve_jwt_from_metadata(
-                        response.json(), service_name, connection_id
-                    ) or credentials
+                    result = (
+                        self._resolve_jwt_from_metadata(
+                            response.json(), service_name, connection_id
+                        )
+                        or credentials
+                    )
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 result = self._resolve_jwt_from_metadata(
                     response.json(), service_name, connection_id
