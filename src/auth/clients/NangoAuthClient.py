@@ -302,7 +302,9 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             elif auth_type == AUTH_TYPE_API_KEY:
                 credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
-                )
+                ) or {}
+                metadata = response.json().get("metadata", {})
+                credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 connection_data = response.json()
@@ -397,7 +399,9 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 # The caller is responsible for converting to the appropriate credentials type
                 credentials: NangoApiKeyConnectionCredentials = response.json().get(
                     "credentials"
-                )
+                ) or {}
+                metadata = response.json().get("metadata", {})
+                credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
                 # Return the JWT token data

@@ -26,7 +26,7 @@ SERVICE_NAME_MAP = {
     "tldv": {"nango_service_name": "tldv", "auth_type": AUTH_TYPE_API_KEY},
     "peakflo": {
         "nango_service_name": "peakflo",
-        "auth_type": AUTH_TYPE_UNAUTHENTICATED,
+        "auth_type": AUTH_TYPE_API_KEY,
     },
     "netsuite": {
         "nango_service_name": "netsuite-tba",
