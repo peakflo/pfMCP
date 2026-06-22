@@ -26,6 +26,11 @@ from src.auth.factory import create_auth_client
 
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
+# v2 base derived from v1; falls back to None if v1 is unset so the existing
+# v1 error path stays unchanged.
+PEAKFLO_V2_BASE_URL = (
+    PEAKFLO_V1_BASE_URL.replace("/v1", "/v2") if PEAKFLO_V1_BASE_URL else None
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -134,6 +139,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-soa-email"
         message = "SOA email sent successfully"
+    elif name == "send_message":
+        method = "POST"
+        url = f"{PEAKFLO_V2_BASE_URL}/messages/send"
+        message = "Message sent successfully"
     elif name == "create_task":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addAction"
@@ -146,6 +155,20 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/runBillPoMatching"
         message = "Bill PO matching completed successfully"
+    elif name == "update_collection_workflow":
+        external_id = arguments.pop("externalId")
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+        message = "Collection workflow updated successfully"
+    elif name == "update_collection_workflow_action":
+        external_id = arguments.pop("externalId")
+        action_external_id = arguments.pop("actionExternalId")
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+            f"/actions/{action_external_id}"
+        )
+        message = "Collection workflow action updated successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 

@@ -2,9 +2,12 @@ from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
+    send_message_input_schema,
     create_task_input_schema,
     add_action_log_input_schema,
     run_bill_po_matching_input_schema,
+    update_collection_workflow_input_schema,
+    update_collection_workflow_action_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -72,12 +75,26 @@ invoice_tools = [
 utility_tools = [
     Tool(
         name="soa_email",
-        description="Send an SOA email to the vendor",
+        description="Send an SOA email to the vendor. Kept for backwards compat — for new agents use send_message which supports all channels (email/WhatsApp/SMS/Zalo/Line/call_log).",
         inputSchema=soa_email_input_schema,
     ),
     Tool(
+        name="send_message",
+        description=(
+            "Send an ad-hoc message to a customer via email, WhatsApp, SMS, Zalo, "
+            "Line, or log a call. Routes through /v2/messages/send. Use this when "
+            "you need to communicate with a customer directly. For internal tasks "
+            "(assigned to a teammate), use create_task instead."
+        ),
+        inputSchema=send_message_input_schema,
+    ),
+    Tool(
         name="create_task",
-        description="Add an action to the vendor or customer, can be used to create a pay task",
+        description=(
+            "Create an internal task assigned to a user (account manager, "
+            "collector, etc.). Optionally link the task to an invoice/bill/PO "
+            "via objectType + objectExternalId. Routes through /v1/tasks."
+        ),
         inputSchema=create_task_input_schema,
     ),
     Tool(
@@ -89,5 +106,25 @@ utility_tools = [
         name="run_bill_po_matching",
         description="Run Purchase Order (PO) matching on an existing bill. Updates line-level PO links and matching details (3-way matching). Use when re-running PO matching after a bill was created without POs, or when POs/bill data changed. Tenant is taken from the auth token. Provide at least one of billId, externalId, or sourceId to identify the bill.",
         inputSchema=run_bill_po_matching_input_schema,
+    ),
+    Tool(
+        name="update_collection_workflow",
+        description=(
+            "Update top-level fields on a collection workflow (dunning cadence) — "
+            "title, default email template, reply-to, sender name, etc. Partial "
+            "update: only the supplied fields are written. To edit individual "
+            "steps in the cadence, use update_collection_workflow_action."
+        ),
+        inputSchema=update_collection_workflow_input_schema,
+    ),
+    Tool(
+        name="update_collection_workflow_action",
+        description=(
+            "Update a single step inside a collection workflow — channel, "
+            "message body, subject, trigger timing, or enabled flag. Useful for "
+            "swapping a step from email to WhatsApp, rewriting the dunning "
+            "copy on a specific step, or disabling a step without removing it."
+        ),
+        inputSchema=update_collection_workflow_action_input_schema,
     ),
 ]
