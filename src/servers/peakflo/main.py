@@ -169,7 +169,9 @@ async def make_peakflo_request(name, arguments, token):
     elif name == "list_collection_workflows":
         method = "GET"
         query = urlencode(arguments)
-        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows" + (f"?{query}" if query else "")
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows" + (
+            f"?{query}" if query else ""
+        )
         message = "Collection workflows fetched successfully"
     elif name == "get_collection_workflow":
         external_id = arguments.pop("externalId")

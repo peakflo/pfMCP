@@ -576,7 +576,10 @@ list_collection_workflows_input_schema = {
     "type": "object",
     "properties": {
         "limit": {"type": "integer", "minimum": 1, "maximum": 200},
-        "startAfter": {"type": "string", "description": "Cursor returned by a previous list call."},
+        "startAfter": {
+            "type": "string",
+            "description": "Cursor returned by a previous list call.",
+        },
     },
 }
 
@@ -584,7 +587,10 @@ list_collection_workflows_input_schema = {
 get_collection_workflow_input_schema = {
     "type": "object",
     "properties": {
-        "externalId": {"type": "string", "description": "External ID of the workflow to read."},
+        "externalId": {
+            "type": "string",
+            "description": "External ID of the workflow to read.",
+        },
     },
     "required": ["externalId"],
 }
