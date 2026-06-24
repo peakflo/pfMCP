@@ -289,6 +289,13 @@ update_collection_workflow_input_schema = {
 # Useful for "swap step 3 from email to whatsapp" or "rewrite the dunning body
 # on the day-30 step" — the agent can edit one step without rewriting the
 # whole cadence.
+#
+# Field names mirror the API contract exactly: top-level keys map 1:1 to the
+# Joi schema on the server, and channel-specific fields (messageBody, subject,
+# templateId) go inside `actionInfo` — the opaque jsonb where per-channel
+# config lives. The MCP routing layer (main.py) ALSO accepts the shorthand
+# keys `messageBody` / `subject` / `emailTemplateId` and folds them into
+# actionInfo before forwarding, so agents can use whichever feels natural.
 update_collection_workflow_action_input_schema = {
     "type": "object",
     "properties": {
@@ -304,22 +311,19 @@ update_collection_workflow_action_input_schema = {
             "type": "string",
             "description": "Display name of the step.",
         },
+        "actionType": {
+            "type": "string",
+            "description": (
+                "Internal action type — e.g. 'automaticEmail', 'manualEmail', "
+                "'automaticWA', 'automaticSMS'. Determines pipeline behavior; "
+                "should be set when you're switching the step's nature, not "
+                "just its channel."
+            ),
+        },
         "channel": {
             "type": "string",
             "enum": ["email", "whatsapp", "sms", "zalo", "line", "call_log"],
             "description": "Delivery channel for this step.",
-        },
-        "messageBody": {
-            "type": "string",
-            "description": "Message body. Supports template placeholders rendered server-side.",
-        },
-        "subject": {
-            "type": "string",
-            "description": "Email subject. Email channel only.",
-        },
-        "emailTemplateId": {
-            "type": "string",
-            "description": "Pre-built email template to use instead of inline messageBody/subject.",
         },
         "triggerType": {
             "type": "string",
@@ -332,13 +336,51 @@ update_collection_workflow_action_input_schema = {
             ],
             "description": "When this step fires relative to the invoice's lifecycle.",
         },
-        "triggerDays": {
+        "triggerTimePeriod": {
             "type": "integer",
-            "description": "Offset in days for the trigger (e.g., 7 with 'afterDueDate' = fires 7 days after the due date).",
+            "description": (
+                "Offset for the trigger, in days (e.g., 7 with 'afterDueDate' "
+                "= fires 7 days after the due date)."
+            ),
         },
-        "enabled": {
-            "type": "boolean",
-            "description": "Whether the step is active. Disabled steps stay configured but don't fire.",
+        "triggerTimePeriodUntil": {
+            "type": "integer",
+            "description": (
+                "Optional upper bound for repeating triggers — step fires from "
+                "triggerTimePeriod to triggerTimePeriodUntil days."
+            ),
+        },
+        "actionInfo": {
+            "type": "object",
+            "description": (
+                "Opaque per-channel config (jsonb). For email steps include "
+                "{ messageBody, subject, templateId }; for WhatsApp/SMS "
+                "include { messageBody, templateId }, etc. Forwarded as-is to "
+                "the Firestore action document — the downstream pipeline "
+                "validates channel-specific required fields."
+            ),
+            "additionalProperties": True,
+        },
+        "messageBody": {
+            "type": "string",
+            "description": (
+                "Shorthand: folded into actionInfo.messageBody before forwarding. "
+                "Use this OR actionInfo, not both."
+            ),
+        },
+        "subject": {
+            "type": "string",
+            "description": (
+                "Shorthand: folded into actionInfo.subject before forwarding. "
+                "Email channel only."
+            ),
+        },
+        "emailTemplateId": {
+            "type": "string",
+            "description": (
+                "Shorthand: folded into actionInfo.templateId before forwarding. "
+                "Pre-built email template instead of inline messageBody."
+            ),
         },
     },
     "required": ["externalId", "actionExternalId"],
