@@ -189,14 +189,15 @@ create_task_input_schema = {
         },
         "objectType": {
             "type": "string",
-            "enum": ["invoice", "bill", "po"],
-            "description": "Optional document type to link the task to. When set, objectExternalId must also be set.",
+            "enum": ["invoice"],
+            "description": "Optional invoice link. When set, objectExternalId must also be set.",
         },
         "objectExternalId": {
             "type": "string",
-            "description": "Optional external ID of the document (invoice/bill/PO) the task is about. Pair with objectType.",
+            "description": "Optional external ID of the invoice the task is about. Pair with objectType.",
         },
     },
+    "required": ["actionInfo", "customerRef"],
 }
 
 
@@ -260,7 +261,7 @@ send_message_input_schema = {
         },
         "subject": {
             "type": "string",
-            "description": "Email subject. Email channel only — ignored on other channels.",
+            "description": "Email subject. Email channel only; non-email requests are rejected.",
         },
         "recipients": {
             **_send_message_recipient_schema,
@@ -273,24 +274,18 @@ send_message_input_schema = {
         "cc": {
             **_send_message_recipient_schema,
             "description": (
-                "Optional CC recipients. Email channel only — ignored on "
-                "other channels."
+                "Optional CC recipients. Email channel only; non-email requests are rejected."
             ),
         },
         "bcc": {
             **_send_message_recipient_schema,
             "description": (
-                "Optional BCC recipients. Email channel only — ignored "
-                "on other channels."
+                "Optional BCC recipients. Email channel only; non-email requests are rejected."
             ),
         },
         "invoiceExternalId": {
             "type": "string",
             "description": "Optional. External ID of the invoice this message is about. Used as objectExternalId on the action so the message shows up on the invoice's history.",
-        },
-        "billExternalId": {
-            "type": "string",
-            "description": "Optional. External ID of the bill this message is about. Mutually exclusive with invoiceExternalId.",
         },
         "actionName": {
             "type": "string",
@@ -312,6 +307,10 @@ update_collection_workflow_input_schema = {
         "externalId": {
             "type": "string",
             "description": "External ID of the workflow to update.",
+        },
+        "contactSuperior": {
+            "type": "boolean",
+            "description": "Whether the cadence escalates to a superior customer contact when applicable.",
         },
         "title": {
             "type": "string",
@@ -335,6 +334,7 @@ update_collection_workflow_input_schema = {
         },
     },
     "required": ["externalId"],
+    "minProperties": 2,
 }
 
 
@@ -354,8 +354,6 @@ _recipient_spec_schema = {
                 "all",
                 "accountManager",
                 "user",
-                "email",
-                "jobTitle",
             ],
             "description": (
                 "Recipient resolution strategy (peakflo-schema "
@@ -365,19 +363,12 @@ _recipient_spec_schema = {
                 "  notMainContacts — every contact NOT flagged main.\n"
                 "  all — every contact on the customer.\n"
                 "  accountManager — the assigned account manager.\n"
-                "  user — a specific Peakflo user (pair with userId).\n"
-                "  email — an ad-hoc email address (pair with email).\n"
-                "  jobTitle — every contact whose jobTitle matches the "
-                "configured one on the workflow."
+                "  user — a specific Peakflo user (pair with userId)."
             ),
         },
         "userId": {
             "type": "string",
             "description": "Required when type='user'.",
-        },
-        "email": {
-            "type": "string",
-            "description": "Required when type='email'.",
         },
     },
     "required": ["type"],
@@ -428,8 +419,6 @@ update_collection_workflow_action_input_schema = {
                 "manualCall",
                 "manualVisit",
                 "manualReminder",
-                "reminderWebhook",
-                "workflowTrigger",
             ],
             "description": (
                 "Pipeline action type. The prefix encodes BOTH the channel "
@@ -450,9 +439,6 @@ update_collection_workflow_action_input_schema = {
                 "  manualCall — phone-call task.\n"
                 "  manualVisit — in-person visit task.\n"
                 "  manualReminder — generic reminder task.\n"
-                "Integration (rarely set by agents):\n"
-                "  reminderWebhook — POST to a webhook URL on trigger.\n"
-                "  workflowTrigger — kick off another workflow.\n"
                 "Pick the type that matches BOTH the desired channel AND "
                 "whether the step should fire automatically. Changing "
                 "only the message body? Keep the same actionType. "
@@ -513,9 +499,10 @@ update_collection_workflow_action_input_schema = {
             "type": "string",
             "description": (
                 "Email subject line. Email actionTypes only "
-                "(automaticEmail / lod / manualEmail). Supports template "
+                "(automaticEmail / lod / manualEmail). Requests using this "
+                "field for a non-email action are rejected. Supports template "
                 "placeholders, e.g. 'Reminder: {{invoiceNumber}} due in "
-                "3 days'. Silently dropped for non-email actionTypes."
+                "3 days'."
             ),
         },
         "messageBody": {
@@ -569,18 +556,35 @@ update_collection_workflow_action_input_schema = {
             "type": "array",
             "items": _recipient_spec_schema,
             "description": (
-                "Email CC list. Email actionTypes only. Silently dropped "
-                "for non-email actionTypes."
+                "Email CC list. Email actionTypes only; non-email requests are rejected."
             ),
         },
         "bcc": {
             "type": "array",
             "items": _recipient_spec_schema,
             "description": (
-                "Email BCC list. Email actionTypes only. Silently dropped "
-                "for non-email actionTypes."
+                "Email BCC list. Email actionTypes only; non-email requests are rejected."
             ),
         },
     },
     "required": ["externalId", "actionExternalId"],
+    "minProperties": 3,
+}
+
+
+list_collection_workflows_input_schema = {
+    "type": "object",
+    "properties": {
+        "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+        "startAfter": {"type": "string", "description": "Cursor returned by a previous list call."},
+    },
+}
+
+
+get_collection_workflow_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {"type": "string", "description": "External ID of the workflow to read."},
+    },
+    "required": ["externalId"],
 }

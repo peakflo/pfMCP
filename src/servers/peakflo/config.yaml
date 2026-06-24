@@ -34,6 +34,12 @@ tools:
   - name: "create_task"
     description: "Create a task"
     required_scopes: []
+  - name: "list_collection_workflows"
+    description: "List collection workflows"
+    required_scopes: []
+  - name: "get_collection_workflow"
+    description: "Read a collection workflow"
+    required_scopes: []
   - name: "add_action_log"
     description: "Add an action log"
     required_scopes: []

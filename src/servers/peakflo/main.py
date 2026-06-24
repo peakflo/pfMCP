@@ -4,6 +4,7 @@ import base64
 import httpx
 import logging
 import json
+from urllib.parse import urlencode
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
@@ -76,10 +77,14 @@ async def get_peakflo_credentials(user_id, api_key=None):
 
 
 async def make_peakflo_request(name, arguments, token):
+    arguments = dict(arguments or {})
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
+    gateway_key = os.environ.get("PEAKFLO_API_GATEWAY_KEY")
+    if gateway_key:
+        headers["x-api-key"] = gateway_key
     tenantId = arguments.get("tenantId")
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
@@ -140,31 +145,37 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_V1_BASE_URL}/upload-soa-email"
         message = "SOA email sent successfully"
     elif name == "send_message":
-        # MCP exposes invoiceExternalId / billExternalId as agent-friendly
+        if not gateway_key:
+            raise ValueError(
+                "PEAKFLO_API_GATEWAY_KEY is required to send messages through the rate-limited gateway"
+            )
+        # MCP exposes invoiceExternalId as agent-friendly
         # sugar; the API contract uses objectType + objectExternalId and
         # rejects unknown keys (allowUnknown:false). Translate before
         # forwarding. Other fields (recipients/cc/bcc as RecipientSpec,
         # messageBody, subject, …) map 1:1 to the API contract.
         invoice_external_id = arguments.pop("invoiceExternalId", None)
-        bill_external_id = arguments.pop("billExternalId", None)
-        if invoice_external_id and bill_external_id:
-            raise ValueError(
-                "Provide only one of invoiceExternalId or billExternalId, not both"
-            )
         if invoice_external_id:
             arguments["objectType"] = "invoice"
             arguments["objectExternalId"] = invoice_external_id
-        elif bill_external_id:
-            arguments["objectType"] = "bill"
-            arguments["objectExternalId"] = bill_external_id
 
         method = "POST"
         url = f"{PEAKFLO_V2_BASE_URL}/messages/send"
         message = "Message sent successfully"
     elif name == "create_task":
         method = "POST"
-        url = f"{PEAKFLO_V1_BASE_URL}/addAction"
+        url = f"{PEAKFLO_V1_BASE_URL}/tasks"
         message = "Task created successfully"
+    elif name == "list_collection_workflows":
+        method = "GET"
+        query = urlencode(arguments)
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows" + (f"?{query}" if query else "")
+        message = "Collection workflows fetched successfully"
+    elif name == "get_collection_workflow":
+        external_id = arguments.pop("externalId")
+        method = "GET"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+        message = "Collection workflow fetched successfully"
     elif name == "add_action_log":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
@@ -210,12 +221,16 @@ async def make_peakflo_request(name, arguments, token):
                 f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
             )
 
+            try:
+                response_data = response.json() if response.content else None
+            except ValueError:
+                response_data = response.text
             return {
                 "_status_code": status_code,
                 "message": (status_code == 200 or status_code == 201)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
-                "data": arguments if method != "GET" else response.json(),
+                "data": response_data,
             }
     except httpx.HTTPStatusError as e:
         logger.error(

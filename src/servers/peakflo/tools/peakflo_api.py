@@ -8,6 +8,8 @@ from servers.peakflo.schemas.utility import (
     run_bill_po_matching_input_schema,
     update_collection_workflow_input_schema,
     update_collection_workflow_action_input_schema,
+    list_collection_workflows_input_schema,
+    get_collection_workflow_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -92,10 +94,20 @@ utility_tools = [
         name="create_task",
         description=(
             "Create an internal task assigned to a user (account manager, "
-            "collector, etc.). Optionally link the task to an invoice/bill/PO "
+            "collector, etc.). Optionally link the task to an invoice "
             "via objectType + objectExternalId. Routes through /v1/tasks."
         ),
         inputSchema=create_task_input_schema,
+    ),
+    Tool(
+        name="list_collection_workflows",
+        description="List collection workflows for the authenticated tenant before choosing one to edit.",
+        inputSchema=list_collection_workflows_input_schema,
+    ),
+    Tool(
+        name="get_collection_workflow",
+        description="Read a collection workflow and its action steps before editing it.",
+        inputSchema=get_collection_workflow_input_schema,
     ),
     Tool(
         name="add_action_log",
@@ -111,7 +123,7 @@ utility_tools = [
         name="update_collection_workflow",
         description=(
             "Update top-level fields on a collection workflow (dunning cadence) — "
-            "title, default email template, reply-to, sender name, etc. Partial "
+            "title, reply-to, sender name, contact-superior escalation, etc. Partial "
             "update: only the supplied fields are written. To edit individual "
             "steps in the cadence, use update_collection_workflow_action."
         ),
@@ -121,9 +133,9 @@ utility_tools = [
         name="update_collection_workflow_action",
         description=(
             "Update a single step inside a collection workflow — channel, "
-            "message body, subject, trigger timing, or enabled flag. Useful for "
+            "message body, subject, or trigger timing. Useful for "
             "swapping a step from email to WhatsApp, rewriting the dunning "
-            "copy on a specific step, or disabling a step without removing it."
+            "copy on a specific step."
         ),
         inputSchema=update_collection_workflow_action_input_schema,
     ),
