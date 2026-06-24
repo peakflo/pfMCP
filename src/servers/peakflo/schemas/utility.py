@@ -205,6 +205,34 @@ create_task_input_schema = {
 # (peakflo-api) supports more fields (cc, bcc, attachments, templateId,
 # specific contact lists); MCP intentionally exposes a minimal surface so
 # agents don't get confused. Add fields as agent use cases need them.
+# Recipient-spec for /v2/messages/send. Different from the workflow-action
+# recipient spec because send_message IS customer-scoped — so type='specific'
+# with a list of contact externalIds makes sense here. Maps 1:1 to the
+# RecipientSpec the API accepts.
+_send_message_recipient_schema = {
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "enum": ["main_contacts", "all", "specific"],
+            "description": (
+                "How to resolve recipients on the customer:\n"
+                "  main_contacts — every contact flagged isMainContact "
+                "(default for the 'to' field).\n"
+                "  all — every contact on the customer.\n"
+                "  specific — only the contacts in contactExternalIds."
+            ),
+        },
+        "contactExternalIds": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Required when type='specific'.",
+        },
+    },
+    "required": ["type"],
+}
+
+
 send_message_input_schema = {
     "type": "object",
     "properties": {
@@ -219,11 +247,42 @@ send_message_input_schema = {
         },
         "messageBody": {
             "type": "string",
-            "description": "Plain-text message body. Supports {{firstName}}, {{invoiceNumber}}, {{amount}} placeholders rendered server-side.",
+            "description": (
+                "Plain-text message body. Template placeholders are rendered "
+                "server-side. Common ones: {{customerCompanyName}} (payer "
+                "name), {{recipientName}} (contact first name), {{myOrgName}} "
+                "(issuer name), {{invoiceNumber}}, {{invoiceAmountDue}}, "
+                "{{totalOutstanding}}, {{totalAmountOverdue}}, and "
+                "triple-brace HTML links like {{{customerPortalLink}}}. "
+                "Do NOT use {{firstName}} or {{amount}} — those aren't real "
+                "placeholders and won't be substituted."
+            ),
         },
         "subject": {
             "type": "string",
             "description": "Email subject. Email channel only — ignored on other channels.",
+        },
+        "recipients": {
+            **_send_message_recipient_schema,
+            "description": (
+                "Primary recipients ('to'). If omitted, defaults to "
+                "{type: 'main_contacts'} — every contact flagged "
+                "isMainContact on the customer."
+            ),
+        },
+        "cc": {
+            **_send_message_recipient_schema,
+            "description": (
+                "Optional CC recipients. Email channel only — ignored on "
+                "other channels."
+            ),
+        },
+        "bcc": {
+            **_send_message_recipient_schema,
+            "description": (
+                "Optional BCC recipients. Email channel only — ignored "
+                "on other channels."
+            ),
         },
         "invoiceExternalId": {
             "type": "string",
@@ -243,11 +302,10 @@ send_message_input_schema = {
 
 
 # update_collection_workflow — partial update of a dunning cadence.
-# Backs PUT /v1/collection-workflows/:externalId. Agents use this to flip a
-# customer's workflow to a different default template, change the reply-to,
-# or rename the cadence. Action steps are edited via the sibling
-# update_collection_workflow_action tool — keeping them separate keeps each
-# tool's surface small.
+# Backs PUT /v1/collection-workflows/:externalId. Agents use this to change
+# the cadence's sender, reply-to, or rename it. Action steps are edited via
+# the sibling update_collection_workflow_action tool — keeping them
+# separate keeps each tool's surface small.
 update_collection_workflow_input_schema = {
     "type": "object",
     "properties": {
@@ -258,10 +316,6 @@ update_collection_workflow_input_schema = {
         "title": {
             "type": "string",
             "description": "Display name of the cadence.",
-        },
-        "defaultEmailTemplateId": {
-            "type": "string",
-            "description": "Default email template applied to action steps that don't set their own.",
         },
         "sendFromAddress": {
             "type": "string",
@@ -284,18 +338,66 @@ update_collection_workflow_input_schema = {
 }
 
 
-# update_collection_workflow_action — partial update of a single step inside
-# a cadence. Backs PUT /v1/collection-workflows/:externalId/actions/:actionExternalId.
-# Useful for "swap step 3 from email to whatsapp" or "rewrite the dunning body
-# on the day-30 step" — the agent can edit one step without rewriting the
-# whole cadence.
+# Recipient-spec sub-schema for workflow templates. Templates target
+# recipient TYPES (mainContacts, all, accountManager, …), not specific
+# contacts — a template is reusable across customers so binding to a
+# specific contactId doesn't make sense. The API rejects `type='contact'`
+# for that reason.
+_recipient_spec_schema = {
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "enum": [
+                "mainContacts",
+                "notMainContacts",
+                "all",
+                "accountManager",
+                "user",
+                "email",
+                "jobTitle",
+            ],
+            "description": (
+                "Recipient resolution strategy (peakflo-schema "
+                "RecipientType):\n"
+                "  mainContacts — every contact flagged isMainContact=true "
+                "on the customer the cadence runs against.\n"
+                "  notMainContacts — every contact NOT flagged main.\n"
+                "  all — every contact on the customer.\n"
+                "  accountManager — the assigned account manager.\n"
+                "  user — a specific Peakflo user (pair with userId).\n"
+                "  email — an ad-hoc email address (pair with email).\n"
+                "  jobTitle — every contact whose jobTitle matches the "
+                "configured one on the workflow."
+            ),
+        },
+        "userId": {
+            "type": "string",
+            "description": "Required when type='user'.",
+        },
+        "email": {
+            "type": "string",
+            "description": "Required when type='email'.",
+        },
+    },
+    "required": ["type"],
+}
+
+
+# update_collection_workflow_action — partial update of a single step
+# inside a cadence. Backs PUT
+# /v1/collection-workflows/:externalId/actions/:actionExternalId.
 #
-# Field names mirror the API contract exactly: top-level keys map 1:1 to the
-# Joi schema on the server, and channel-specific fields (messageBody, subject,
-# templateId) go inside `actionInfo` — the opaque jsonb where per-channel
-# config lives. The MCP routing layer (main.py) ALSO accepts the shorthand
-# keys `messageBody` / `subject` / `emailTemplateId` and folds them into
-# actionInfo before forwarding, so agents can use whichever feels natural.
+# Every field is sourced from peakflo-schema:
+#   actionType ⊂ BaseActionType (workflow template subset, peakflo-web's
+#     ActionTemplateEditDialog dispatcher is the source of truth)
+#   triggerType = ActionTriggerType (8 values)
+#   paymentLink = ActionInfoPaymentLinkType (enum — NOT a URL)
+#   recipients/cc/bcc = ActionRecipient[]
+#
+# The opaque Firestore `actionInfo` jsonb is NOT exposed — the API maps
+# these flat fields into it server-side (Dmitry: "API for MCP should be
+# almost impossible to break").
 update_collection_workflow_action_input_schema = {
     "type": "object",
     "properties": {
@@ -309,21 +411,54 @@ update_collection_workflow_action_input_schema = {
         },
         "actionName": {
             "type": "string",
-            "description": "Display name of the step.",
+            "description": "Display name of the step (shown in the cadence UI and action logs).",
         },
         "actionType": {
             "type": "string",
+            "enum": [
+                "automaticEmail",
+                "lod",
+                "automaticWA",
+                "automaticSMS",
+                "automaticZalo",
+                "automaticLine",
+                "manualEmail",
+                "manualWhatsapp",
+                "manualLegal",
+                "manualCall",
+                "manualVisit",
+                "manualReminder",
+                "reminderWebhook",
+                "workflowTrigger",
+            ],
             "description": (
-                "Internal action type — e.g. 'automaticEmail', 'manualEmail', "
-                "'automaticWA', 'automaticSMS'. Determines pipeline behavior; "
-                "should be set when you're switching the step's nature, not "
-                "just its channel."
+                "Pipeline action type. The prefix encodes BOTH the channel "
+                "AND whether the step fires automatically — there is no "
+                "separate channel field.\n"
+                "Automatic (fires on trigger and dispatches):\n"
+                "  automaticEmail — sends an email.\n"
+                "  lod — letter-of-demand variant of automaticEmail "
+                "(same template, different pipeline label).\n"
+                "  automaticWA — sends a WhatsApp message.\n"
+                "  automaticSMS — sends an SMS.\n"
+                "  automaticZalo — sends a Zalo message (VN).\n"
+                "  automaticLine — sends a Line message (TH/JP).\n"
+                "Manual (suggested action on the timeline for a human):\n"
+                "  manualEmail — drafted email queued for human review.\n"
+                "  manualWhatsapp — drafted WhatsApp message.\n"
+                "  manualLegal — escalation task to legal.\n"
+                "  manualCall — phone-call task.\n"
+                "  manualVisit — in-person visit task.\n"
+                "  manualReminder — generic reminder task.\n"
+                "Integration (rarely set by agents):\n"
+                "  reminderWebhook — POST to a webhook URL on trigger.\n"
+                "  workflowTrigger — kick off another workflow.\n"
+                "Pick the type that matches BOTH the desired channel AND "
+                "whether the step should fire automatically. Changing "
+                "only the message body? Keep the same actionType. "
+                "Switching from auto-email to a human follow-up? Change "
+                "to manualCall."
             ),
-        },
-        "channel": {
-            "type": "string",
-            "enum": ["email", "whatsapp", "sms", "zalo", "line", "call_log"],
-            "description": "Delivery channel for this step.",
         },
         "triggerType": {
             "type": "string",
@@ -332,54 +467,118 @@ update_collection_workflow_action_input_schema = {
                 "beforeDueDate",
                 "afterDueDate",
                 "dayOfMonth",
+                "dayOfTheWeek",
+                "beforePromiseToPay",
+                "afterPromiseToPay",
                 "none",
             ],
-            "description": "When this step fires relative to the invoice's lifecycle.",
+            "description": (
+                "When the step fires. Combined with triggerTimePeriod:\n"
+                "  afterIssueDate — N days after the invoice's issue "
+                "date (e.g. day 0 = at issue, day 5 = 5 days after).\n"
+                "  beforeDueDate — N days before the due date.\n"
+                "  afterDueDate — N days after the due date (overdue "
+                "reminders, escalations).\n"
+                "  dayOfMonth — fires on a fixed calendar day; "
+                "triggerTimePeriod is the day number (1-31).\n"
+                "  dayOfTheWeek — fires on a fixed weekday; "
+                "triggerTimePeriod is the weekday number (0=Sunday).\n"
+                "  beforePromiseToPay — N days before a recorded "
+                "promise-to-pay date.\n"
+                "  afterPromiseToPay — N days after a recorded "
+                "promise-to-pay date.\n"
+                "  none — manual cadence; runs only when a user "
+                "explicitly triggers it. Pair with manual* actionTypes."
+            ),
         },
         "triggerTimePeriod": {
             "type": "integer",
             "description": (
-                "Offset for the trigger, in days (e.g., 7 with 'afterDueDate' "
-                "= fires 7 days after the due date)."
+                "Offset for the trigger. Days for the *Date / "
+                "*PromiseToPay triggers; calendar day 1-31 for "
+                "dayOfMonth; weekday number 0-6 for dayOfTheWeek. "
+                "Ignored when triggerType='none'."
             ),
         },
         "triggerTimePeriodUntil": {
             "type": "integer",
             "description": (
-                "Optional upper bound for repeating triggers — step fires from "
-                "triggerTimePeriod to triggerTimePeriodUntil days."
-            ),
-        },
-        "actionInfo": {
-            "type": "object",
-            "description": (
-                "Opaque per-channel config (jsonb). For email steps include "
-                "{ messageBody, subject, templateId }; for WhatsApp/SMS "
-                "include { messageBody, templateId }, etc. Forwarded as-is to "
-                "the Firestore action document — the downstream pipeline "
-                "validates channel-specific required fields."
-            ),
-            "additionalProperties": True,
-        },
-        "messageBody": {
-            "type": "string",
-            "description": (
-                "Shorthand: folded into actionInfo.messageBody before forwarding. "
-                "Use this OR actionInfo, not both."
+                "Optional upper bound for repeating triggers — the step "
+                "fires from triggerTimePeriod to triggerTimePeriodUntil "
+                "days past the anchor (e.g. overdue reminder fires every "
+                "day from day 7 to day 30 past due)."
             ),
         },
         "subject": {
             "type": "string",
             "description": (
-                "Shorthand: folded into actionInfo.subject before forwarding. "
-                "Email channel only."
+                "Email subject line. Email actionTypes only "
+                "(automaticEmail / lod / manualEmail). Supports template "
+                "placeholders, e.g. 'Reminder: {{invoiceNumber}} due in "
+                "3 days'. Silently dropped for non-email actionTypes."
             ),
         },
-        "emailTemplateId": {
+        "messageBody": {
             "type": "string",
             "description": (
-                "Shorthand: folded into actionInfo.templateId before forwarding. "
-                "Pre-built email template instead of inline messageBody."
+                "Plain-text message body. Template placeholders are "
+                "rendered server-side. Common ones: "
+                "{{customerCompanyName}} (payer name), {{recipientName}} "
+                "(contact first name), {{myOrgName}} (issuer name), "
+                "{{invoiceNumber}}, {{invoiceAmountDue}}, "
+                "{{totalOutstanding}}, {{totalAmountOverdue}}, and "
+                "triple-brace HTML links like {{{customerPortalLink}}}. "
+                "Don't use {{firstName}} or {{amount}} — those aren't "
+                "real placeholders and won't be substituted."
+            ),
+        },
+        "paymentLink": {
+            "type": "string",
+            "enum": [
+                "customerPortalLink",
+                "currencyPaymentLink",
+                "invoicePaymentLink",
+                "directInvPaymentLink",
+                "directPaymentLink",
+            ],
+            "description": (
+                "Selector for which Peakflo-managed payment link to render "
+                "in the message — NOT a free-form URL. The actual link is "
+                "generated server-side per customer/invoice. "
+                "(peakflo-schema ActionInfoPaymentLinkType):\n"
+                "  customerPortalLink — link to the customer portal "
+                "home.\n"
+                "  invoicePaymentLink — direct link to pay this specific "
+                "invoice.\n"
+                "  currencyPaymentLink — currency-scoped payment landing.\n"
+                "  directPaymentLink / directInvPaymentLink — bypass-portal "
+                "direct payment links."
+            ),
+        },
+        "recipients": {
+            "type": "array",
+            "items": _recipient_spec_schema,
+            "description": (
+                "Primary recipients. Most cadences use "
+                "[{type: 'mainContacts'}] or [{type: 'all'}]. If omitted, "
+                "the existing recipients on the step are kept; to clear, "
+                "pass an empty array."
+            ),
+        },
+        "cc": {
+            "type": "array",
+            "items": _recipient_spec_schema,
+            "description": (
+                "Email CC list. Email actionTypes only. Silently dropped "
+                "for non-email actionTypes."
+            ),
+        },
+        "bcc": {
+            "type": "array",
+            "items": _recipient_spec_schema,
+            "description": (
+                "Email BCC list. Email actionTypes only. Silently dropped "
+                "for non-email actionTypes."
             ),
         },
     },

@@ -141,9 +141,10 @@ async def make_peakflo_request(name, arguments, token):
         message = "SOA email sent successfully"
     elif name == "send_message":
         # MCP exposes invoiceExternalId / billExternalId as agent-friendly
-        # sugar; the API actually accepts objectType + objectExternalId and
-        # rejects unknown keys (allowUnknown: false). Translate here so the
-        # call doesn't get rejected by Joi validation downstream.
+        # sugar; the API contract uses objectType + objectExternalId and
+        # rejects unknown keys (allowUnknown:false). Translate before
+        # forwarding. Other fields (recipients/cc/bcc as RecipientSpec,
+        # messageBody, subject, …) map 1:1 to the API contract.
         invoice_external_id = arguments.pop("invoiceExternalId", None)
         bill_external_id = arguments.pop("billExternalId", None)
         if invoice_external_id and bill_external_id:
@@ -156,6 +157,7 @@ async def make_peakflo_request(name, arguments, token):
         elif bill_external_id:
             arguments["objectType"] = "bill"
             arguments["objectExternalId"] = bill_external_id
+
         method = "POST"
         url = f"{PEAKFLO_V2_BASE_URL}/messages/send"
         message = "Message sent successfully"
@@ -177,26 +179,11 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
         message = "Collection workflow updated successfully"
     elif name == "update_collection_workflow_action":
+        # MCP field names mirror the API contract 1:1 (recipients, cc,
+        # bcc, subject, messageBody, paymentLink, actionType, triggerType,
+        # …). No translation needed.
         external_id = arguments.pop("externalId")
         action_external_id = arguments.pop("actionExternalId")
-        # Fold the agent-friendly shorthand fields into actionInfo. The API
-        # accepts only the canonical keys (actionName, actionType, channel,
-        # triggerType, triggerTimePeriod, triggerTimePeriodUntil, actionInfo)
-        # and rejects anything else; channel-specific config lives in
-        # actionInfo. We merge instead of replacing so agents can supply
-        # actionInfo + shorthand together if needed.
-        action_info = arguments.pop("actionInfo", None) or {}
-        shorthand_to_info = {
-            "messageBody": "messageBody",
-            "subject": "subject",
-            "emailTemplateId": "templateId",
-        }
-        for src, dst in shorthand_to_info.items():
-            val = arguments.pop(src, None)
-            if val is not None:
-                action_info[dst] = val
-        if action_info:
-            arguments["actionInfo"] = action_info
         method = "PUT"
         url = (
             f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
