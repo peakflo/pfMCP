@@ -176,10 +176,10 @@ create_task_input_schema = {
                     "description": "Currency of the amount to pay, for example: USD",
                 },
             },
+            # owner is optional on the API side — when omitted the
+            # handler assigns the task to the customer's account manager.
             "required": [
-                "owner",
                 "dueDate",
-                "details",
                 "amount",
             ],
         },
