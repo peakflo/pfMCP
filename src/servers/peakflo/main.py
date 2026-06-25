@@ -42,15 +42,25 @@ logger = logging.getLogger(SERVICE_NAME)
 def authenticate_and_save_peakflo_key(user_id):
     auth_client = create_auth_client()
 
-    api_key = input("Please enter your SerpAPI API key: ").strip()
+    api_key = input("Please enter your Peakflo API key: ").strip()
     if not api_key:
         raise ValueError("API key cannot be empty")
 
-    auth_client.save_user_credentials("serpapi", user_id, {"api_key": api_key})
+    auth_client.save_user_credentials("peakflo", user_id, {"apiKey": api_key})
     return api_key
 
 
 async def get_peakflo_credentials(user_id, api_key=None):
+    """
+    Get Peakflo credentials, supporting both new and legacy auth flows.
+
+    New flow (API_KEY): Nango stores the API key natively.
+        NangoAuthClient returns {apiKey: "pk_xxx"} → we use apiKey directly.
+
+    Legacy flow (backward-compat): Old connections stored tenantId, privateKey,
+        and accessToken in Nango metadata. NangoAuthClient detects this and
+        generates a JWT internally, returning {access_token: "jwt_xxx", expires_at: ...}.
+    """
     auth_client = create_auth_client(api_key=api_key)
     # Use async version to avoid blocking the event loop.
     # Sync requests.get() + time.sleep() in the non-async version would block
@@ -69,11 +79,17 @@ async def get_peakflo_credentials(user_id, api_key=None):
             error_str += " Please run authentication first."
         raise ValueError(error_str)
 
-    token = credentials_data.get("access_token")
-    if not token:
-        raise ValueError(f"Peakflo token not found for user {user_id}.")
+    # New flow: native Nango API key
+    token = credentials_data.get("apiKey")
+    if token:
+        return token
 
-    return token
+    # Legacy flow: NangoAuthClient already generated a JWT from metadata
+    token = credentials_data.get("access_token")
+    if token:
+        return token
+
+    raise ValueError(f"Peakflo token not found for user {user_id}.")
 
 
 async def make_peakflo_request(name, arguments, token):
