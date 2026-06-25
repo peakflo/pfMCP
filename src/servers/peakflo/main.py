@@ -161,15 +161,11 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_V1_BASE_URL}/upload-soa-email"
         message = "SOA email sent successfully"
     elif name == "send_message":
-        if not gateway_key:
-            raise ValueError(
-                "PEAKFLO_API_GATEWAY_KEY is required to send messages through the rate-limited gateway"
-            )
-        # MCP exposes invoiceExternalId as agent-friendly
-        # sugar; the API contract uses objectType + objectExternalId and
-        # rejects unknown keys (allowUnknown:false). Translate before
-        # forwarding. Other fields (recipients/cc/bcc as RecipientSpec,
-        # messageBody, subject, …) map 1:1 to the API contract.
+        # MCP exposes invoiceExternalId as agent-friendly sugar; the API
+        # contract uses objectType + objectExternalId and rejects unknown
+        # keys (allowUnknown:false). Translate before forwarding. Other
+        # fields (recipients/cc/bcc as RecipientSpec, messageBody, subject,
+        # …) map 1:1 to the API contract.
         invoice_external_id = arguments.pop("invoiceExternalId", None)
         if invoice_external_id:
             arguments["objectType"] = "invoice"
