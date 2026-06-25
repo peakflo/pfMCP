@@ -4,6 +4,7 @@ import base64
 import httpx
 import logging
 import json
+from urllib.parse import urlencode
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
@@ -26,6 +27,11 @@ from src.auth.factory import create_auth_client
 
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
+# v2 base derived from v1; falls back to None if v1 is unset so the existing
+# v1 error path stays unchanged.
+PEAKFLO_V2_BASE_URL = (
+    PEAKFLO_V1_BASE_URL.replace("/v1", "/v2") if PEAKFLO_V1_BASE_URL else None
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -71,10 +77,14 @@ async def get_peakflo_credentials(user_id, api_key=None):
 
 
 async def make_peakflo_request(name, arguments, token):
+    arguments = dict(arguments or {})
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
+    gateway_key = os.environ.get("PEAKFLO_API_GATEWAY_KEY")
+    if gateway_key:
+        headers["x-api-key"] = gateway_key
     tenantId = arguments.get("tenantId")
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
@@ -134,10 +144,40 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-soa-email"
         message = "SOA email sent successfully"
+    elif name == "send_message":
+        if not gateway_key:
+            raise ValueError(
+                "PEAKFLO_API_GATEWAY_KEY is required to send messages through the rate-limited gateway"
+            )
+        # MCP exposes invoiceExternalId as agent-friendly
+        # sugar; the API contract uses objectType + objectExternalId and
+        # rejects unknown keys (allowUnknown:false). Translate before
+        # forwarding. Other fields (recipients/cc/bcc as RecipientSpec,
+        # messageBody, subject, …) map 1:1 to the API contract.
+        invoice_external_id = arguments.pop("invoiceExternalId", None)
+        if invoice_external_id:
+            arguments["objectType"] = "invoice"
+            arguments["objectExternalId"] = invoice_external_id
+
+        method = "POST"
+        url = f"{PEAKFLO_V2_BASE_URL}/messages/send"
+        message = "Message sent successfully"
     elif name == "create_task":
         method = "POST"
-        url = f"{PEAKFLO_V1_BASE_URL}/addAction"
+        url = f"{PEAKFLO_V1_BASE_URL}/tasks"
         message = "Task created successfully"
+    elif name == "list_collection_workflows":
+        method = "GET"
+        query = urlencode(arguments)
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows" + (
+            f"?{query}" if query else ""
+        )
+        message = "Collection workflows fetched successfully"
+    elif name == "get_collection_workflow":
+        external_id = arguments.pop("externalId")
+        method = "GET"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+        message = "Collection workflow fetched successfully"
     elif name == "add_action_log":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addActionLog"
@@ -146,6 +186,23 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/runBillPoMatching"
         message = "Bill PO matching completed successfully"
+    elif name == "update_collection_workflow":
+        external_id = arguments.pop("externalId")
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+        message = "Collection workflow updated successfully"
+    elif name == "update_collection_workflow_action":
+        # MCP field names mirror the API contract 1:1 (recipients, cc,
+        # bcc, subject, messageBody, paymentLink, actionType, triggerType,
+        # …). No translation needed.
+        external_id = arguments.pop("externalId")
+        action_external_id = arguments.pop("actionExternalId")
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+            f"/actions/{action_external_id}"
+        )
+        message = "Collection workflow action updated successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
@@ -166,12 +223,16 @@ async def make_peakflo_request(name, arguments, token):
                 f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
             )
 
+            try:
+                response_data = response.json() if response.content else None
+            except ValueError:
+                response_data = response.text
             return {
                 "_status_code": status_code,
                 "message": (status_code == 200 or status_code == 201)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
-                "data": arguments if method != "GET" else response.json(),
+                "data": response_data,
             }
     except httpx.HTTPStatusError as e:
         logger.error(
