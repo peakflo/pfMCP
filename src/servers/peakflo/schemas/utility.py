@@ -242,9 +242,9 @@ send_message_input_schema = {
             "enum": ["email", "whatsapp", "sms", "zalo", "line", "call_log"],
             "description": "Delivery channel. 'call_log' records a manual call against the customer without sending anything.",
         },
-        "customerExternalId": {
+        "companyExternalId": {
             "type": "string",
-            "description": "External (source) ID of the customer to message.",
+            "description": "External (source) ID of the company to message.",
         },
         "messageBody": {
             "type": "string",
@@ -292,7 +292,7 @@ send_message_input_schema = {
             "description": "Optional display name shown in action logs / dashboards. Defaults to 'Ad-hoc <channel>' if omitted.",
         },
     },
-    "required": ["channel", "customerExternalId", "messageBody"],
+    "required": ["channel", "companyExternalId", "messageBody"],
 }
 
 
