@@ -54,6 +54,12 @@ async def get_peakflo_credentials(user_id, api_key=None):
     """
     Get Peakflo credentials, supporting both new and legacy auth flows.
 
+    Tries two Nango provider config keys in order:
+      1. "peakflo" — legacy connections (unauthenticated/metadata-based) and
+         connections created via the original integration type.
+      2. "peakflo-api-key" — new connections created via the native API_KEY
+         integration type in Nango.
+
     New flow (API_KEY): Nango stores the API key natively.
         NangoAuthClient returns {apiKey: "pk_xxx"} → we use apiKey directly.
 
@@ -62,16 +68,27 @@ async def get_peakflo_credentials(user_id, api_key=None):
         generates a JWT internally, returning {access_token: "jwt_xxx", expires_at: ...}.
     """
     auth_client = create_auth_client(api_key=api_key)
-    # Use async version to avoid blocking the event loop.
-    # Sync requests.get() + time.sleep() in the non-async version would block
-    # all concurrent SSE streams on this pf-mcp instance, causing Cloud Run
-    # to truncate responses and workflow-api to hang indefinitely.
-    if hasattr(auth_client, "async_get_user_credentials"):
-        credentials_data = await auth_client.async_get_user_credentials(
-            "peakflo", user_id
-        )
-    else:
-        credentials_data = auth_client.get_user_credentials("peakflo", user_id)
+    # Try both Nango provider config keys: legacy "peakflo" first, then
+    # "peakflo-api-key" for connections created via the new integration type.
+    # NangoAuthClient caches successful lookups, so subsequent calls are fast.
+    credentials_data = None
+    for service_name in ["peakflo", "peakflo-api-key"]:
+        # Use async version to avoid blocking the event loop.
+        # Sync requests.get() + time.sleep() in the non-async version would block
+        # all concurrent SSE streams on this pf-mcp instance, causing Cloud Run
+        # to truncate responses and workflow-api to hang indefinitely.
+        if hasattr(auth_client, "async_get_user_credentials"):
+            credentials_data = await auth_client.async_get_user_credentials(
+                service_name, user_id
+            )
+        else:
+            credentials_data = auth_client.get_user_credentials(service_name, user_id)
+
+        if credentials_data:
+            logger.info(
+                f"[get_peakflo_credentials] resolved credentials via '{service_name}' for {user_id}"
+            )
+            break
 
     if not credentials_data:
         error_str = f"Peakflo API key not found for user {user_id}."
