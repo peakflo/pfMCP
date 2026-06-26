@@ -266,6 +266,10 @@ async def make_peakflo_request(name, arguments, token):
             f"/actions/{action_external_id}"
         )
         message = "Collection workflow action deleted successfully"
+    elif name == "get_tenant":
+        method = "GET"
+        url = f"{PEAKFLO_V1_BASE_URL}/tenant"
+        message = "Tenant information fetched successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 

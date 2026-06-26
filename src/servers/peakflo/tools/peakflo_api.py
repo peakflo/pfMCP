@@ -180,5 +180,14 @@ utility_tools = [
             "of the cadence keeps firing — only this step is removed."
         ),
         inputSchema=delete_collection_workflow_action_input_schema,
+        name="get_tenant",
+        description=(
+            "Get the current tenant information for the authenticated API key. "
+            "Returns tenantId, companyName, and other tenant profile data."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
     ),
 ]
