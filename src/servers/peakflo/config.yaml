@@ -52,3 +52,15 @@ tools:
   - name: "update_collection_workflow_action"
     description: "Update a single step (action) inside a collection workflow"
     required_scopes: []
+  - name: "create_collection_workflow_action"
+    description: "Append a new step (action) to a collection workflow"
+    required_scopes: []
+  - name: "delete_collection_workflow"
+    description: "Delete a collection workflow template and all its actions"
+    required_scopes: []
+  - name: "get_collection_workflow_action"
+    description: "Read one step (action) of a collection workflow"
+    required_scopes: []
+  - name: "delete_collection_workflow_action"
+    description: "Delete one step (action) from a collection workflow"
+    required_scopes: []

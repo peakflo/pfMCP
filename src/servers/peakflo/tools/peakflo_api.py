@@ -6,6 +6,10 @@ from servers.peakflo.schemas.utility import (
     create_task_input_schema,
     add_action_log_input_schema,
     run_bill_po_matching_input_schema,
+    create_collection_workflow_action_input_schema,
+    delete_collection_workflow_input_schema,
+    delete_collection_workflow_action_input_schema,
+    get_collection_workflow_action_input_schema,
     update_collection_workflow_input_schema,
     update_collection_workflow_action_input_schema,
     list_collection_workflows_input_schema,
@@ -138,5 +142,43 @@ utility_tools = [
             "copy on a specific step."
         ),
         inputSchema=update_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="create_collection_workflow_action",
+        description=(
+            "Append a new step (cadence action) to an existing collection "
+            "workflow. Used to add reminders the template is missing — e.g. "
+            "a −3-day pre-due nudge or a Day-3 overdue email — without "
+            "rewriting the whole cadence. actionExternalId is caller-assigned "
+            "and must be unique within the workflow."
+        ),
+        inputSchema=create_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="delete_collection_workflow",
+        description=(
+            "Delete a collection workflow template and every action under "
+            "it. Customers assigned to this workflow stop receiving its "
+            "cadence."
+        ),
+        inputSchema=delete_collection_workflow_input_schema,
+    ),
+    Tool(
+        name="get_collection_workflow_action",
+        description=(
+            "Read one step (action) of a collection workflow. The parent "
+            "get_collection_workflow already returns nested actions; use "
+            "this when you already know the actionExternalId (e.g. to "
+            "verify a PATCH landed)."
+        ),
+        inputSchema=get_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="delete_collection_workflow_action",
+        description=(
+            "Delete one step (action) from a collection workflow. The rest "
+            "of the cadence keeps firing — only this step is removed."
+        ),
+        inputSchema=delete_collection_workflow_action_input_schema,
     ),
 ]
