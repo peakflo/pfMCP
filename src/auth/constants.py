@@ -28,6 +28,10 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "peakflo",
         "auth_type": AUTH_TYPE_API_KEY,
     },
+    "peakflo-api-key": {
+        "nango_service_name": "peakflo-api-key",
+        "auth_type": AUTH_TYPE_API_KEY,
+    },
     "netsuite": {
         "nango_service_name": "netsuite-tba",
         "auth_type": AUTH_TYPE_TBA,
