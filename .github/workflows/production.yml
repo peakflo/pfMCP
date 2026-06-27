@@ -28,6 +28,7 @@ jobs:
         run: |
           echo "ANTHROPIC_API_KEY: ${{ secrets.PROD_ANTHROPIC_API_KEY }}" >> .envprod.yaml
           echo "NANGO_SECRET_KEY: ${{ secrets.PROD_NANGO_SECRET_KEY }}" >> .envprod.yaml
+          echo "PF_MCP_CREDENTIAL_BROKER_SECRET: ${{ secrets.PROD_PF_MCP_CREDENTIAL_BROKER_SECRET }}" >> .envprod.yaml
           echo "NANGO_HOST: ${{ vars.PROD_NANGO_HOST || 'https://api.nango.dev' }}" >> .envprod.yaml
           echo 'PEAKFLO_API_BASE_URL: "https://api.peakflo.co/v1"' >> .envprod.yaml
           echo "GCS_BUCKET_NAME: ${{ vars.PROD_GCS_BUCKET_NAME }}" >> .envprod.yaml

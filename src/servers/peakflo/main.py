@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
+from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
 
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
@@ -107,6 +108,23 @@ async def get_peakflo_credentials(user_id, api_key=None):
         return token
 
     raise ValueError(f"Peakflo token not found for user {user_id}.")
+
+
+async def get_system_of_record_credentials(
+    tenant_id: str, source_system: str, purpose: str = "workflow"
+):
+    """
+    Resolve credentials for a Peakflo-connected system of record.
+
+    This is for internal tool implementations that call Xero/NetSuite/etc.
+    directly. Do not return this value from an MCP tool.
+    """
+    broker = PeakfloCredentialBrokerClient()
+    return await broker.resolve_system_of_record_credentials(
+        tenant_id=tenant_id,
+        source_system=source_system,
+        purpose=purpose,
+    )
 
 
 async def make_peakflo_request(name, arguments, token):
