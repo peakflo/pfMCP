@@ -81,4 +81,3 @@ class PeakfloCredentialBrokerClient:
             )
 
         return response.json()
-
