@@ -239,9 +239,7 @@ async def make_peakflo_request(name, arguments, token):
         # it.
         external_id = arguments.pop("externalId")
         method = "POST"
-        url = (
-            f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}/actions"
-        )
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}/actions"
         message = "Collection workflow action created successfully"
     elif name == "delete_collection_workflow":
         external_id = arguments.pop("externalId")

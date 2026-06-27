@@ -594,37 +594,35 @@ create_collection_workflow_action_input_schema = {
                 "with 409."
             ),
         },
-        "actionName": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["actionName"],
-        "actionType": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["actionType"],
-        "triggerType": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["triggerType"],
+        "actionName": update_collection_workflow_action_input_schema["properties"][
+            "actionName"
+        ],
+        "actionType": update_collection_workflow_action_input_schema["properties"][
+            "actionType"
+        ],
+        "triggerType": update_collection_workflow_action_input_schema["properties"][
+            "triggerType"
+        ],
         "triggerTimePeriod": update_collection_workflow_action_input_schema[
             "properties"
         ]["triggerTimePeriod"],
         "triggerTimePeriodUntil": update_collection_workflow_action_input_schema[
             "properties"
         ]["triggerTimePeriodUntil"],
-        "subject": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["subject"],
-        "messageBody": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["messageBody"],
-        "paymentLink": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["paymentLink"],
-        "recipients": update_collection_workflow_action_input_schema[
-            "properties"
-        ]["recipients"],
-        "cc": update_collection_workflow_action_input_schema["properties"]["cc"],
-        "bcc": update_collection_workflow_action_input_schema["properties"][
-            "bcc"
+        "subject": update_collection_workflow_action_input_schema["properties"][
+            "subject"
         ],
+        "messageBody": update_collection_workflow_action_input_schema["properties"][
+            "messageBody"
+        ],
+        "paymentLink": update_collection_workflow_action_input_schema["properties"][
+            "paymentLink"
+        ],
+        "recipients": update_collection_workflow_action_input_schema["properties"][
+            "recipients"
+        ],
+        "cc": update_collection_workflow_action_input_schema["properties"]["cc"],
+        "bcc": update_collection_workflow_action_input_schema["properties"]["bcc"],
     },
     "required": [
         "externalId",
