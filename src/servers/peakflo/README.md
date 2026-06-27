@@ -33,6 +33,10 @@ python src/servers/peakflo/main.py auth
 | **run_bill_po_matching** | Run Purchase Order (PO) matching on an existing bill. Updates line-level PO links and 3-way matching details. Use when re-running matching after a bill was created without POs or when POs/bill data changed. Tenant is taken from the auth token; provide at least one of `billId`, `externalId`, or `sourceId` to identify the bill. |
 | **update_collection_workflow** | Update top-level fields on a collection workflow (dunning cadence) — title, default template, reply-to, etc. Partial update; only supplied fields are written. Routes through `PUT /v1/collection-workflows/:externalId`. |
 | **update_collection_workflow_action** | Update a single step inside a collection workflow — channel, message body, trigger timing, enabled flag. Routes through `PUT /v1/collection-workflows/:externalId/actions/:actionExternalId`. |
+| **create_collection_workflow_action** | Append a new step (cadence action) to an existing collection workflow — e.g. add a −3-day pre-due nudge or a Day-3 overdue email. `actionExternalId` is caller-assigned and must be unique within the workflow. Routes through `POST /v1/collection-workflows/:externalId/actions`. |
+| **delete_collection_workflow** | Delete a workflow template and every action under it. Customers assigned to this workflow stop receiving its cadence. Routes through `DELETE /v1/collection-workflows/:externalId`. |
+| **get_collection_workflow_action** | Read one step of a workflow. The parent `get_collection_workflow` already returns nested actions; use this when you already know the `actionExternalId` (e.g. to verify a PATCH landed). Routes through `GET /v1/collection-workflows/:externalId/actions/:actionExternalId`. |
+| **delete_collection_workflow_action** | Delete one step from a workflow's cadence. The rest keeps firing. Routes through `DELETE /v1/collection-workflows/:externalId/actions/:actionExternalId`. |
 
 ### Run
 

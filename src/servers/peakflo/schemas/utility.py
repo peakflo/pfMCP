@@ -572,6 +572,69 @@ update_collection_workflow_action_input_schema = {
 }
 
 
+# create_collection_workflow_action — append a new step to an existing
+# cadence. Backs POST /v1/collection-workflows/:externalId/actions.
+# Same payload shape as the update schema, but the cadence triplet
+# (actionExternalId / actionName / actionType / triggerType /
+# triggerTimePeriod) is required so the new step is fully addressable
+# and schedulable from the moment it lands.
+create_collection_workflow_action_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": "External ID of the parent workflow.",
+        },
+        "actionExternalId": {
+            "type": "string",
+            "description": (
+                "Caller-assigned external ID for the new step. Reuse the same "
+                "value on subsequent update_collection_workflow_action calls. "
+                "Must be unique within the workflow — duplicates are rejected "
+                "with 409."
+            ),
+        },
+        "actionName": update_collection_workflow_action_input_schema["properties"][
+            "actionName"
+        ],
+        "actionType": update_collection_workflow_action_input_schema["properties"][
+            "actionType"
+        ],
+        "triggerType": update_collection_workflow_action_input_schema["properties"][
+            "triggerType"
+        ],
+        "triggerTimePeriod": update_collection_workflow_action_input_schema[
+            "properties"
+        ]["triggerTimePeriod"],
+        "triggerTimePeriodUntil": update_collection_workflow_action_input_schema[
+            "properties"
+        ]["triggerTimePeriodUntil"],
+        "subject": update_collection_workflow_action_input_schema["properties"][
+            "subject"
+        ],
+        "messageBody": update_collection_workflow_action_input_schema["properties"][
+            "messageBody"
+        ],
+        "paymentLink": update_collection_workflow_action_input_schema["properties"][
+            "paymentLink"
+        ],
+        "recipients": update_collection_workflow_action_input_schema["properties"][
+            "recipients"
+        ],
+        "cc": update_collection_workflow_action_input_schema["properties"]["cc"],
+        "bcc": update_collection_workflow_action_input_schema["properties"]["bcc"],
+    },
+    "required": [
+        "externalId",
+        "actionExternalId",
+        "actionName",
+        "actionType",
+        "triggerType",
+        "triggerTimePeriod",
+    ],
+}
+
+
 list_collection_workflows_input_schema = {
     "type": "object",
     "properties": {
@@ -593,4 +656,55 @@ get_collection_workflow_input_schema = {
         },
     },
     "required": ["externalId"],
+}
+
+
+delete_collection_workflow_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": (
+                "External ID of the workflow to delete. Removes the template "
+                "and every action under it; customers assigned to this "
+                "workflow stop receiving its cadence."
+            ),
+        },
+    },
+    "required": ["externalId"],
+}
+
+
+get_collection_workflow_action_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": "External ID of the parent workflow.",
+        },
+        "actionExternalId": {
+            "type": "string",
+            "description": "External ID of the action step to read.",
+        },
+    },
+    "required": ["externalId", "actionExternalId"],
+}
+
+
+delete_collection_workflow_action_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": "External ID of the parent workflow.",
+        },
+        "actionExternalId": {
+            "type": "string",
+            "description": (
+                "External ID of the action step to delete. The rest of the "
+                "cadence keeps firing — only this step is removed."
+            ),
+        },
+    },
+    "required": ["externalId", "actionExternalId"],
 }
