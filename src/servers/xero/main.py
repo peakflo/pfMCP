@@ -355,13 +355,15 @@ async def download_xero_invoice_pdf(
         return response.content
 
 
-def create_server(user_id, api_key=None):
+def create_server(user_id, api_key=None, credential_resolver=None):
     """
     Initialize and configure the Xero MCP server.
 
     Args:
         user_id: The user ID associated with the current session.
         api_key: Optional API key override.
+        credential_resolver: Optional async callable used by wrapper servers that
+            resolve Xero credentials outside Nango.
 
     Returns:
         Server: Configured MCP server instance with registered tools.
@@ -369,6 +371,7 @@ def create_server(user_id, api_key=None):
     server = Server("xero-server")
     server.user_id = user_id
     server.api_key = api_key
+    server.credential_resolver = credential_resolver or get_xero_credentials
 
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
@@ -2412,7 +2415,7 @@ def create_server(user_id, api_key=None):
             arguments = {}
 
         try:
-            access_token, tenant_id = await get_xero_credentials(
+            access_token, tenant_id = await server.credential_resolver(
                 server.user_id, api_key=server.api_key
             )
 
