@@ -369,6 +369,38 @@ async def make_peakflo_request(name, arguments, token):
             f"/actions/{action_external_id}"
         )
         message = "Collection workflow action updated successfully"
+    elif name == "create_collection_workflow_action":
+        # Append a new action. actionExternalId stays in the body — it's
+        # not used for URL routing on POST, only for downstream addressing
+        # when subsequent update_collection_workflow_action calls reference
+        # it.
+        external_id = arguments.pop("externalId")
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}/actions"
+        message = "Collection workflow action created successfully"
+    elif name == "delete_collection_workflow":
+        external_id = arguments.pop("externalId")
+        method = "DELETE"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+        message = "Collection workflow deleted successfully"
+    elif name == "get_collection_workflow_action":
+        external_id = arguments.pop("externalId")
+        action_external_id = arguments.pop("actionExternalId")
+        method = "GET"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+            f"/actions/{action_external_id}"
+        )
+        message = "Collection workflow action fetched successfully"
+    elif name == "delete_collection_workflow_action":
+        external_id = arguments.pop("externalId")
+        action_external_id = arguments.pop("actionExternalId")
+        method = "DELETE"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/collection-workflows/{external_id}"
+            f"/actions/{action_external_id}"
+        )
+        message = "Collection workflow action deleted successfully"
     elif name == "get_tenant":
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/tenant"
