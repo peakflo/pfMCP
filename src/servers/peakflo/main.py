@@ -4,6 +4,7 @@ import base64
 import httpx
 import logging
 import json
+from typing import Any
 from urllib.parse import urlencode
 from pathlib import Path
 
@@ -18,6 +19,9 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 from mcp.types import (
+    CallToolRequest,
+    CallToolRequestParams,
+    ListToolsRequest,
     TextContent,
     Tool,
 )
@@ -25,6 +29,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
+from src.servers.xero import main as xero_main
 
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
@@ -38,6 +43,9 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(SERVICE_NAME)
+
+SOURCE_SYSTEM_XERO = "xero"
+XERO_TOOL_PREFIX = "xero__"
 
 
 def authenticate_and_save_peakflo_key(user_id):
@@ -125,6 +133,117 @@ async def get_system_of_record_credentials(
         source_system=source_system,
         purpose=purpose,
     )
+
+
+def _nested_data(payload: Any) -> dict:
+    if not isinstance(payload, dict):
+        return {}
+    data = payload.get("data")
+    if isinstance(data, dict):
+        nested = data.get("data")
+        return nested if isinstance(nested, dict) else data
+    return payload
+
+
+def _copy_tool(tool: Tool, *, name: str, description: str | None = None) -> Tool:
+    updates = {
+        "name": name,
+        "description": description if description is not None else tool.description,
+    }
+    if hasattr(tool, "model_copy"):
+        return tool.model_copy(update=updates)
+    return tool.copy(update=updates)
+
+
+async def _resolve_peakflo_tenant_context(token: str) -> dict:
+    response = await make_peakflo_request("get_tenant", {}, token)
+    status_code = response.get("_status_code", 0)
+    if status_code < 200 or status_code >= 300:
+        logger.warning(
+            "[peakflo] failed to resolve tenant context",
+            extra={"status_code": status_code},
+        )
+        return {}
+    return _nested_data(response)
+
+
+async def _should_expose_xero_tools(token: str) -> bool:
+    tenant_context = await _resolve_peakflo_tenant_context(token)
+    return str(tenant_context.get("sourceSystem", "")).lower() == SOURCE_SYSTEM_XERO
+
+
+async def _get_prefixed_xero_tools() -> list[Tool]:
+    xero_server = xero_main.create_server("tool-discovery")
+    list_handler = xero_server.request_handlers[ListToolsRequest]
+    result = await list_handler(ListToolsRequest(method="tools/list"))
+    return [
+        _copy_tool(
+            tool,
+            name=f"{XERO_TOOL_PREFIX}{tool.name}",
+            description=f"[Xero] {tool.description or tool.name}",
+        )
+        for tool in result.root.tools
+    ]
+
+
+async def _call_xero_tool_via_peakflo_connection(
+    server: Server,
+    token: str,
+    name: str,
+    arguments: dict | None,
+):
+    tenant_context = await _resolve_peakflo_tenant_context(token)
+    tenant_id = tenant_context.get("tenantId")
+    source_system = str(tenant_context.get("sourceSystem", "")).lower()
+    if not tenant_id or source_system != SOURCE_SYSTEM_XERO:
+        return [
+            TextContent(
+                type="text",
+                text="Xero tools are only available for Peakflo tenants connected to Xero.",
+            )
+        ]
+
+    xero_tool_name = name[len(XERO_TOOL_PREFIX) :]
+
+    async def broker_xero_credentials(user_id: str, api_key: str = None) -> tuple:
+        credentials = await get_system_of_record_credentials(
+            tenant_id=tenant_id,
+            source_system=SOURCE_SYSTEM_XERO,
+            purpose=f"pfmcp:{xero_tool_name}",
+        )
+        credential_body = credentials.get("credentials") or {}
+        access_token = (
+            credentials.get("accessToken")
+            or credential_body.get("access_token")
+            or credential_body.get("accessToken")
+        )
+        xero_tenant_id = (
+            credentials.get("providerTenantId")
+            or credential_body.get("tenantId")
+            or credential_body.get("xeroTenantId")
+        )
+        if not access_token or not xero_tenant_id:
+            raise ValueError(
+                "Peakflo Xero connection is missing accessToken or providerTenantId"
+            )
+        return access_token, xero_tenant_id
+
+    xero_server = xero_main.create_server(
+        server.user_id,
+        api_key=server.api_key,
+        credential_resolver=broker_xero_credentials,
+    )
+    call_handler = xero_server.request_handlers[CallToolRequest]
+    result = await call_handler(
+        CallToolRequest(
+            method="tools/call",
+            params=CallToolRequestParams(
+                name=xero_tool_name,
+                arguments=arguments or {},
+            ),
+        )
+    )
+    return result.root.content
 
 
 async def make_peakflo_request(name, arguments, token):
@@ -343,14 +462,33 @@ def create_server(user_id, api_key=None):
 
     @server.list_tools()
     async def handle_list_tools() -> list[Tool]:
+        try:
+            token = await get_peakflo_credentials(server.user_id, server.api_key)
+            if await _should_expose_xero_tools(token):
+                return [*tools, *(await _get_prefixed_xero_tools())]
+        except Exception as e:
+            logger.warning(f"[peakflo] unable to resolve source-system tools: {e}")
         return tools
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+        token = await get_peakflo_credentials(server.user_id, server.api_key)
+
+        if name.startswith(XERO_TOOL_PREFIX):
+            try:
+                return await _call_xero_tool_via_peakflo_connection(
+                    server, token, name, arguments
+                )
+            except Exception as e:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"Unexpected error performing Xero request: {str(e)}",
+                    )
+                ]
+
         if name not in tool_names:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
-
-        token = await get_peakflo_credentials(server.user_id, server.api_key)
 
         try:
             response = await make_peakflo_request(name, arguments, token)
