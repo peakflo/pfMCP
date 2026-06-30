@@ -2308,12 +2308,17 @@ def create_server(user_id, api_key=None):
 
             # Process the response
             status_code = response.status_code
+            logger.info(f"Tool {name}: HubSpot API responded with status {status_code}")
 
             try:
                 response_data = response.json()
                 response_data["_status_code"] = status_code
             except:
                 response_data = {"_status_code": status_code, "result": response.text}
+
+            # Log result count for list-style tools
+            if isinstance(response_data.get("results"), list):
+                logger.info(f"Tool {name}: returned {len(response_data['results'])} results")
 
             if 200 <= status_code < 300:
                 return [
