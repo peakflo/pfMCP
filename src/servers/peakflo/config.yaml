@@ -23,7 +23,10 @@ tools:
     description: "Fetch vendor details by external ID from Peakflo API"
     required_scopes: []
   - name: "soa_email"
-    description: "Send an SOA email to the vendor"
+    description: "Send an SOA email (kept for backwards compat; prefer send_message)"
+    required_scopes: []
+  - name: "send_message"
+    description: "Send an ad-hoc message (email/WhatsApp/SMS/Zalo/Line/call_log) to a customer via /v2/messages/send"
     required_scopes: []
   - name: "raise_dispute"
     description: "Raise a dispute"
@@ -31,9 +34,33 @@ tools:
   - name: "create_task"
     description: "Create a task"
     required_scopes: []
+  - name: "list_collection_workflows"
+    description: "List collection workflows"
+    required_scopes: []
+  - name: "get_collection_workflow"
+    description: "Read a collection workflow"
+    required_scopes: []
   - name: "add_action_log"
     description: "Add an action log"
     required_scopes: []
   - name: "add_invoice_attachment"
     description: "Add an attachment to an invoice"
+    required_scopes: []
+  - name: "update_collection_workflow"
+    description: "Update top-level fields on a collection workflow (dunning cadence)"
+    required_scopes: []
+  - name: "update_collection_workflow_action"
+    description: "Update a single step (action) inside a collection workflow"
+    required_scopes: []
+  - name: "create_collection_workflow_action"
+    description: "Append a new step (action) to a collection workflow"
+    required_scopes: []
+  - name: "delete_collection_workflow"
+    description: "Delete a collection workflow template and all its actions"
+    required_scopes: []
+  - name: "get_collection_workflow_action"
+    description: "Read one step (action) of a collection workflow"
+    required_scopes: []
+  - name: "delete_collection_workflow_action"
+    description: "Delete one step (action) from a collection workflow"
     required_scopes: []

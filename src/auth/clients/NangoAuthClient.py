@@ -116,6 +116,31 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         )
         return {"access_token": jwt_token, "expires_at": expires_at}
 
+    def _resolve_jwt_from_metadata(
+        self, response_json: dict, service_name: str, connection_id: str
+    ) -> Optional[JWTTokenResponse]:
+        """
+        Try to build a JWT from connection metadata (tenantId, privateKey, accessToken).
+
+        Used by both API_KEY (legacy fallback) and UNAUTHENTICATED auth types.
+        Returns the JWT token dict on success, or None if required fields are missing.
+        """
+        metadata = response_json.get("metadata", {})
+        tenant_id = metadata.get("tenantId")
+        private_key = metadata.get("privateKey")
+        access_token = metadata.get("accessToken")
+
+        if not tenant_id or not private_key or not access_token:
+            logger.error(
+                f"Missing required metadata fields for {service_name} connection {connection_id}"
+            )
+            return None
+
+        logger.info(
+            f"[_resolve_jwt_from_metadata] generating JWT for tenant {tenant_id}"
+        )
+        return self._get_jwt_token(service_name, tenant_id, private_key, access_token)
+
     def _get_cached_credentials(
         self, service_name: str, connection_id: str
     ) -> Optional[CredentialsT]:
@@ -300,35 +325,23 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
-                credentials: NangoApiKeyConnectionCredentials = response.json().get(
-                    "credentials"
+                credentials: NangoApiKeyConnectionCredentials = (
+                    response.json().get("credentials") or {}
                 )
-                result = credentials
-            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
-                connection_data = response.json()
-                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get(
-                    "metadata", {}
-                )
-                logger.info(
-                    f"[async_get_user_credentials] metadata fetched for tenant {metadata.get('tenantId')}"
-                )
-                if (
-                    not metadata.get("tenantId")
-                    or not metadata.get("privateKey")
-                    or not metadata.get("accessToken")
-                ):
-                    logger.error(
-                        f"Missing required fields in metadata for {service_name} connection {connection_id}"
+                if credentials.get("apiKey"):
+                    result = credentials
+                else:
+                    # Fallback: legacy connection migrated from UNAUTHENTICATED
+                    result = (
+                        self._resolve_jwt_from_metadata(
+                            response.json(), service_name, connection_id
+                        )
+                        or credentials
                     )
-                    return None
-
-                jwt_token_data = self._get_jwt_token(
-                    service_name,
-                    metadata.get("tenantId"),
-                    metadata.get("privateKey"),
-                    metadata.get("accessToken"),
+            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
+                result = self._resolve_jwt_from_metadata(
+                    response.json(), service_name, connection_id
                 )
-                result = jwt_token_data
 
             if result is not None:
                 self._set_cached_credentials(service_name, connection_id, result)
@@ -393,39 +406,23 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                 credentials["metadata"] = metadata
                 result = credentials
             elif auth_type == AUTH_TYPE_API_KEY:
-                # Return the credentials data as a dictionary
-                # The caller is responsible for converting to the appropriate credentials type
-                credentials: NangoApiKeyConnectionCredentials = response.json().get(
-                    "credentials"
+                credentials: NangoApiKeyConnectionCredentials = (
+                    response.json().get("credentials") or {}
                 )
-                result = credentials
-            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
-                # Return the JWT token data
-                connection_data = response.json()
-                metadata: NangoUnauthenticatedConnectionMetadata = connection_data.get(
-                    "metadata", {}
-                )
-                logger.info(
-                    f"[get_user_credentials] metadata fetched for tenant {metadata.get('tenantId')}"
-                )
-                # check if metadata has all the required fields
-                if (
-                    not metadata.get("tenantId")
-                    or not metadata.get("privateKey")
-                    or not metadata.get("accessToken")
-                ):
-                    logger.error(
-                        f"Missing required fields in metadata for {service_name} connection {connection_id}"
+                if credentials.get("apiKey"):
+                    result = credentials
+                else:
+                    # Fallback: legacy connection migrated from UNAUTHENTICATED
+                    result = (
+                        self._resolve_jwt_from_metadata(
+                            response.json(), service_name, connection_id
+                        )
+                        or credentials
                     )
-                    return None
-
-                jwt_token_data = self._get_jwt_token(
-                    service_name,
-                    metadata.get("tenantId"),
-                    metadata.get("privateKey"),
-                    metadata.get("accessToken"),
+            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
+                result = self._resolve_jwt_from_metadata(
+                    response.json(), service_name, connection_id
                 )
-                result = jwt_token_data
 
             if result is not None:
                 self._set_cached_credentials(service_name, connection_id, result)

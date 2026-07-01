@@ -28,6 +28,8 @@ jobs:
         run: |
           echo "ANTHROPIC_API_KEY: ${{ secrets.INT_ANTHROPIC_API_KEY }}" >> .envstage.yaml
           echo "NANGO_SECRET_KEY: ${{ secrets.INT_NANGO_SECRET_KEY }}" >> .envstage.yaml
+          echo "PF_MCP_CREDENTIAL_BROKER_SECRET: ${{ secrets.INT_PF_MCP_CREDENTIAL_BROKER_SECRET }}" >> .envstage.yaml
+          echo "NANGO_HOST: ${{ vars.INT_NANGO_HOST || 'https://api.nango.dev' }}" >> .envstage.yaml
           echo 'PEAKFLO_API_BASE_URL: "https://stage-api.peakflo.co/v1"' >> .envstage.yaml
           echo "GCS_BUCKET_NAME: ${{ vars.INT_GCS_BUCKET_NAME }}" >> .envstage.yaml
           echo "GMAIL_PUBSUB_TOPIC: ${{ vars.INT_GMAIL_PUBSUB_TOPIC }}" >> .envstage.yaml

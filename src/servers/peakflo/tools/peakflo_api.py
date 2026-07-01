@@ -2,9 +2,18 @@ from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
+    send_message_input_schema,
     create_task_input_schema,
     add_action_log_input_schema,
     run_bill_po_matching_input_schema,
+    create_collection_workflow_action_input_schema,
+    delete_collection_workflow_input_schema,
+    delete_collection_workflow_action_input_schema,
+    get_collection_workflow_action_input_schema,
+    update_collection_workflow_input_schema,
+    update_collection_workflow_action_input_schema,
+    list_collection_workflows_input_schema,
+    get_collection_workflow_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -72,13 +81,37 @@ invoice_tools = [
 utility_tools = [
     Tool(
         name="soa_email",
-        description="Send an SOA email to the vendor",
+        description="Send an SOA email to the vendor. Kept for backwards compat — for new agents use send_message which supports all channels (email/WhatsApp/SMS/Zalo/Line/call_log).",
         inputSchema=soa_email_input_schema,
     ),
     Tool(
+        name="send_message",
+        description=(
+            "Send an ad-hoc message to a customer via email, WhatsApp, SMS, Zalo, "
+            "Line, or log a call. Routes through /v2/messages/send. Use this when "
+            "you need to communicate with a customer directly. For internal tasks "
+            "(assigned to a teammate), use create_task instead."
+        ),
+        inputSchema=send_message_input_schema,
+    ),
+    Tool(
         name="create_task",
-        description="Add an action to the vendor or customer, can be used to create a pay task",
+        description=(
+            "Create an internal task assigned to a user (account manager, "
+            "collector, etc.). Optionally link the task to an invoice "
+            "via objectType + objectExternalId. Routes through /v1/tasks."
+        ),
         inputSchema=create_task_input_schema,
+    ),
+    Tool(
+        name="list_collection_workflows",
+        description="List collection workflows for the authenticated tenant before choosing one to edit.",
+        inputSchema=list_collection_workflows_input_schema,
+    ),
+    Tool(
+        name="get_collection_workflow",
+        description="Read a collection workflow and its action steps before editing it.",
+        inputSchema=get_collection_workflow_input_schema,
     ),
     Tool(
         name="add_action_log",
@@ -89,5 +122,74 @@ utility_tools = [
         name="run_bill_po_matching",
         description="Run Purchase Order (PO) matching on an existing bill. Updates line-level PO links and matching details (3-way matching). Use when re-running PO matching after a bill was created without POs, or when POs/bill data changed. Tenant is taken from the auth token. Provide at least one of billId, externalId, or sourceId to identify the bill.",
         inputSchema=run_bill_po_matching_input_schema,
+    ),
+    Tool(
+        name="update_collection_workflow",
+        description=(
+            "Update top-level fields on a collection workflow (dunning cadence) — "
+            "title, reply-to, sender name, contact-superior escalation, etc. Partial "
+            "update: only the supplied fields are written. To edit individual "
+            "steps in the cadence, use update_collection_workflow_action."
+        ),
+        inputSchema=update_collection_workflow_input_schema,
+    ),
+    Tool(
+        name="update_collection_workflow_action",
+        description=(
+            "Update a single step inside a collection workflow — channel, "
+            "message body, subject, or trigger timing. Useful for "
+            "swapping a step from email to WhatsApp, rewriting the dunning "
+            "copy on a specific step."
+        ),
+        inputSchema=update_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="create_collection_workflow_action",
+        description=(
+            "Append a new step (cadence action) to an existing collection "
+            "workflow. Used to add reminders the template is missing — e.g. "
+            "a −3-day pre-due nudge or a Day-3 overdue email — without "
+            "rewriting the whole cadence. actionExternalId is caller-assigned "
+            "and must be unique within the workflow."
+        ),
+        inputSchema=create_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="delete_collection_workflow",
+        description=(
+            "Delete a collection workflow template and every action under "
+            "it. Customers assigned to this workflow stop receiving its "
+            "cadence."
+        ),
+        inputSchema=delete_collection_workflow_input_schema,
+    ),
+    Tool(
+        name="get_collection_workflow_action",
+        description=(
+            "Read one step (action) of a collection workflow. The parent "
+            "get_collection_workflow already returns nested actions; use "
+            "this when you already know the actionExternalId (e.g. to "
+            "verify a PATCH landed)."
+        ),
+        inputSchema=get_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="delete_collection_workflow_action",
+        description=(
+            "Delete one step (action) from a collection workflow. The rest "
+            "of the cadence keeps firing — only this step is removed."
+        ),
+        inputSchema=delete_collection_workflow_action_input_schema,
+    ),
+    Tool(
+        name="get_tenant",
+        description=(
+            "Get the current tenant information for the authenticated API key. "
+            "Returns tenantId, companyName, and other tenant profile data."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
     ),
 ]
