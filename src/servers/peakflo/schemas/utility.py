@@ -342,6 +342,40 @@ list_whatsapp_templates_input_schema = {
 }
 
 
+# assign_customer_to_workflow — point a customer's default collection
+# workflow at a specific template. Motivating flow: the AR Golden Workflow
+# Recommender emits "shift these N customers onto golden workflow Y"
+# recommendations based on where each customer sits in the 2×2
+# value×risk segment matrix; this tool is what applies one recommendation
+# per customer. Existing open invoices keep whatever workflow they were
+# created with — only NEW invoices for the customer start running through
+# the reassigned cadence. Bulk re-workflow of open invoices is a separate
+# future operation.
+assign_customer_to_workflow_input_schema = {
+    "type": "object",
+    "properties": {
+        "customerExternalId": {
+            "type": "string",
+            "description": (
+                "External (source) ID of the customer whose default "
+                "collection workflow will be reassigned. Same value shape "
+                "as send_message.companyExternalId."
+            ),
+        },
+        "workflowExternalId": {
+            "type": "string",
+            "description": (
+                "External ID of the collection workflow template to assign "
+                "as this customer's new default cadence. Must belong to the "
+                "authenticated tenant. Discover options via "
+                "list_collection_workflows."
+            ),
+        },
+    },
+    "required": ["customerExternalId", "workflowExternalId"],
+}
+
+
 # update_collection_workflow — partial update of a dunning cadence.
 # Backs PUT /v1/collection-workflows/:externalId. Agents use this to change
 # the cadence's sender, reply-to, or rename it. Action steps are edited via

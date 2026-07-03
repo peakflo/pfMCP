@@ -15,6 +15,7 @@ from servers.peakflo.schemas.utility import (
     list_collection_workflows_input_schema,
     get_collection_workflow_input_schema,
     list_whatsapp_templates_input_schema,
+    assign_customer_to_workflow_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -192,6 +193,19 @@ utility_tools = [
             "type": "object",
             "properties": {},
         },
+    ),
+    Tool(
+        name="assign_customer_to_workflow",
+        description=(
+            "Reassign a customer's default collection workflow (dunning "
+            "cadence) to a specific template. Used to apply an AR Golden "
+            "Workflow recommendation — e.g. 'shift this Large-Doubtful "
+            "account onto the call-led golden workflow'. Discover valid "
+            "workflowExternalIds via list_collection_workflows. "
+            "Only affects NEW invoices for the customer; existing open "
+            "invoices keep whatever workflow they were created with."
+        ),
+        inputSchema=assign_customer_to_workflow_input_schema,
     ),
     Tool(
         name="list_whatsapp_templates",
