@@ -64,3 +64,6 @@ tools:
   - name: "delete_collection_workflow_action"
     description: "Delete one step (action) from a collection workflow"
     required_scopes: []
+  - name: "list_whatsapp_templates"
+    description: "List Meta-approved WhatsApp templates for the tenant (needed before send_message on the whatsapp channel)"
+    required_scopes: []

@@ -37,6 +37,7 @@ python src/servers/peakflo/main.py auth
 | **delete_collection_workflow** | Delete a workflow template and every action under it. Customers assigned to this workflow stop receiving its cadence. Routes through `DELETE /v1/collection-workflows/:externalId`. |
 | **get_collection_workflow_action** | Read one step of a workflow. The parent `get_collection_workflow` already returns nested actions; use this when you already know the `actionExternalId` (e.g. to verify a PATCH landed). Routes through `GET /v1/collection-workflows/:externalId/actions/:actionExternalId`. |
 | **delete_collection_workflow_action** | Delete one step from a workflow's cadence. The rest keeps firing. Routes through `DELETE /v1/collection-workflows/:externalId/actions/:actionExternalId`. |
+| **list_whatsapp_templates** | List Meta-approved WhatsApp templates registered for the tenant. Call this before dispatching a WhatsApp message via `send_message` — the WhatsApp Business API rejects free-form text outside a 24h reply window, so every cold outreach must reference an approved template. Returns an empty list if the tenant has none configured. Routes through `GET /v1/whatsapp-templates`. |
 
 ### Run
 
