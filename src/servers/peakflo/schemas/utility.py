@@ -291,8 +291,54 @@ send_message_input_schema = {
             "type": "string",
             "description": "Optional display name shown in action logs / dashboards. Defaults to 'Ad-hoc <channel>' if omitted.",
         },
+        "messageTemplateId": {
+            "type": "string",
+            "description": (
+                "WhatsApp channel only, REQUIRED for channel='whatsapp'. "
+                "External ID of a Meta-approved WhatsApp template — fetch "
+                "the tenant's approved templates first via "
+                "list_whatsapp_templates, then pass the chosen template's "
+                "externalId here. WhatsApp Business API rejects free-form "
+                "text outside a 24h reply window, so cold outreach must "
+                "always reference an approved template. Rejected on "
+                "non-whatsapp channels."
+            ),
+        },
+        "messageTemplateText": {
+            "type": "string",
+            "description": (
+                "WhatsApp channel only. The template's raw text shape with "
+                "{{1}}, {{2}}, … placeholders — the same 'text' field "
+                "returned by list_whatsapp_templates. Optional; kept on the "
+                "action for downstream tracking."
+            ),
+        },
+        "variableValues": {
+            "type": "object",
+            "additionalProperties": True,
+            "description": (
+                "WhatsApp channel only. Slot-value map for the chosen "
+                "template's {{1}}, {{2}}, … placeholders. Keys mirror the "
+                "template's variableMapping (returned by "
+                "list_whatsapp_templates); values are the strings that fill "
+                "each slot. Optional but usually required by the template."
+            ),
+        },
     },
     "required": ["channel", "companyExternalId", "messageBody"],
+}
+
+
+# list_whatsapp_templates — list Meta-approved WhatsApp templates for the
+# authenticated tenant. Callers use this to build a template picker before
+# dispatching a WhatsApp send via send_message. WhatsApp Business API
+# rejects free-form text outside a 24h reply window, so a cold outreach must
+# always reference an approved template — this tool is the only way for an
+# agent to discover which template IDs are valid to pass as
+# send_message.messageTemplateId.
+list_whatsapp_templates_input_schema = {
+    "type": "object",
+    "properties": {},
 }
 
 

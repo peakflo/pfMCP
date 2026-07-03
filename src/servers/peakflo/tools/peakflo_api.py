@@ -14,6 +14,7 @@ from servers.peakflo.schemas.utility import (
     update_collection_workflow_action_input_schema,
     list_collection_workflows_input_schema,
     get_collection_workflow_input_schema,
+    list_whatsapp_templates_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -191,5 +192,20 @@ utility_tools = [
             "type": "object",
             "properties": {},
         },
+    ),
+    Tool(
+        name="list_whatsapp_templates",
+        description=(
+            "List Meta-approved WhatsApp templates registered for the "
+            "authenticated tenant. Call this before dispatching a WhatsApp "
+            "message via send_message — the WhatsApp Business API rejects "
+            "free-form text outside a 24h reply window, so every cold "
+            "outreach must reference an approved template. Pick a template "
+            "from the response and pass its externalId as "
+            "send_message.messageTemplateId. Returns an empty list if the "
+            "tenant has no approved templates configured — in that case, "
+            "route the send through email/SMS instead."
+        ),
+        inputSchema=list_whatsapp_templates_input_schema,
     ),
 ]
