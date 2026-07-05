@@ -67,3 +67,6 @@ tools:
   - name: "list_whatsapp_templates"
     description: "List Meta-approved WhatsApp templates for the tenant (needed before send_message on the whatsapp channel)"
     required_scopes: []
+  - name: "assign_customer_to_workflow"
+    description: "Reassign a customer's default collection workflow to a specific template (AR Golden Workflow recommendations)"
+    required_scopes: []
