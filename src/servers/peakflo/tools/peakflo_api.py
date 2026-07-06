@@ -16,6 +16,7 @@ from servers.peakflo.schemas.utility import (
     get_collection_workflow_input_schema,
     list_whatsapp_templates_input_schema,
     assign_customer_to_workflow_input_schema,
+    create_collection_workflow_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -193,6 +194,20 @@ utility_tools = [
             "type": "object",
             "properties": {},
         },
+    ),
+    Tool(
+        name="create_collection_workflow",
+        description=(
+            "Create a new collection workflow (dunning cadence) from "
+            "scratch. Creates the workflow SHELL only — title, sender "
+            "identity, cadence settings; add steps afterwards with "
+            "create_collection_workflow_action, one call per step. "
+            "externalId is caller-assigned and must be unique within the "
+            "tenant. Copy defaultEmailTemplateId from an existing workflow "
+            "via list_collection_workflows if unsure. Used to seed the "
+            "golden workflows the AR recommender assigns customers to."
+        ),
+        inputSchema=create_collection_workflow_input_schema,
     ),
     Tool(
         name="assign_customer_to_workflow",

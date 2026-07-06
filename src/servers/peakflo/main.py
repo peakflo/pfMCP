@@ -405,6 +405,10 @@ async def make_peakflo_request(name, arguments, token):
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/tenant"
         message = "Tenant information fetched successfully"
+    elif name == "create_collection_workflow":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows"
+        message = "Collection workflow created successfully"
     elif name == "list_whatsapp_templates":
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/whatsapp-templates"
