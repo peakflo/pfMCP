@@ -291,8 +291,152 @@ send_message_input_schema = {
             "type": "string",
             "description": "Optional display name shown in action logs / dashboards. Defaults to 'Ad-hoc <channel>' if omitted.",
         },
+        "messageTemplateId": {
+            "type": "string",
+            "description": (
+                "WhatsApp channel only, REQUIRED for channel='whatsapp'. "
+                "External ID of a Meta-approved WhatsApp template — fetch "
+                "the tenant's approved templates first via "
+                "list_whatsapp_templates, then pass the chosen template's "
+                "externalId here. WhatsApp Business API rejects free-form "
+                "text outside a 24h reply window, so cold outreach must "
+                "always reference an approved template. Rejected on "
+                "non-whatsapp channels."
+            ),
+        },
+        "messageTemplateText": {
+            "type": "string",
+            "description": (
+                "WhatsApp channel only. The template's raw text shape with "
+                "{{1}}, {{2}}, … placeholders — the same 'text' field "
+                "returned by list_whatsapp_templates. Optional; kept on the "
+                "action for downstream tracking."
+            ),
+        },
+        "variableValues": {
+            "type": "object",
+            "additionalProperties": True,
+            "description": (
+                "WhatsApp channel only. Slot-value map for the chosen "
+                "template's {{1}}, {{2}}, … placeholders. Keys mirror the "
+                "template's variableMapping (returned by "
+                "list_whatsapp_templates); values are the strings that fill "
+                "each slot. Optional but usually required by the template."
+            ),
+        },
     },
     "required": ["channel", "companyExternalId", "messageBody"],
+}
+
+
+# list_whatsapp_templates — list Meta-approved WhatsApp templates for the
+# authenticated tenant. Callers use this to build a template picker before
+# dispatching a WhatsApp send via send_message. WhatsApp Business API
+# rejects free-form text outside a 24h reply window, so a cold outreach must
+# always reference an approved template — this tool is the only way for an
+# agent to discover which template IDs are valid to pass as
+# send_message.messageTemplateId.
+list_whatsapp_templates_input_schema = {
+    "type": "object",
+    "properties": {},
+}
+
+
+# create_collection_workflow — create a new dunning cadence from scratch.
+# Backs POST /v1/collection-workflows. Creates the workflow SHELL only
+# (title, sender identity, cadence-level settings); add steps afterwards
+# with create_collection_workflow_action, one call per step. Motivating
+# flow: seeding the 4 "golden workflows" (one per 2×2 value×risk segment
+# quadrant) that the AR Golden Workflow Recommender assigns customers to
+# via assign_customer_to_workflow.
+create_collection_workflow_input_schema = {
+    "type": "object",
+    "properties": {
+        "externalId": {
+            "type": "string",
+            "description": (
+                "Caller-assigned external ID for the new workflow. Must be "
+                "unique within the tenant (409 on collision). This is the "
+                "address every other workflow tool uses — pick a stable, "
+                "readable slug like 'golden-hv-hr-call-led'."
+            ),
+        },
+        "title": {
+            "type": "string",
+            "description": "Display name shown in the Peakflo dashboard's Workflows page.",
+        },
+        "defaultEmailTemplateId": {
+            "type": "string",
+            "description": (
+                "SendGrid dynamic template ID used for the cadence's email "
+                "steps (shape: 'd-<32 hex chars>'). Copy it from an existing "
+                "workflow via list_collection_workflows if unsure — tenants "
+                "typically reuse one template for all cadences."
+            ),
+        },
+        "sendFromAddress": {
+            "type": "string",
+            "description": "Sender email address for outbound mail from this cadence. Optional.",
+        },
+        "emailName": {
+            "type": "string",
+            "description": "Friendly From-name shown to recipients (e.g., 'Acme Collections'). Optional.",
+        },
+        "minimumContactDelay": {
+            "type": "integer",
+            "minimum": 0,
+            "description": (
+                "Minimum days between automated contacts on this cadence. "
+                "Optional, defaults to 0 (no throttle)."
+            ),
+        },
+        "replyToAddress": {
+            "type": "string",
+            "description": "Reply-To header for outbound mail. Optional.",
+        },
+        "contactSuperior": {
+            "type": "boolean",
+            "description": (
+                "Whether the cadence escalates to a superior customer "
+                "contact when applicable. Optional."
+            ),
+        },
+    },
+    "required": ["externalId", "title", "defaultEmailTemplateId"],
+}
+
+
+# assign_customer_to_workflow — point a customer's default collection
+# workflow at a specific template. Motivating flow: the AR Golden Workflow
+# Recommender emits "shift these N customers onto golden workflow Y"
+# recommendations based on where each customer sits in the 2×2
+# value×risk segment matrix; this tool is what applies one recommendation
+# per customer. Existing open invoices keep whatever workflow they were
+# created with — only NEW invoices for the customer start running through
+# the reassigned cadence. Bulk re-workflow of open invoices is a separate
+# future operation.
+assign_customer_to_workflow_input_schema = {
+    "type": "object",
+    "properties": {
+        "customerExternalId": {
+            "type": "string",
+            "description": (
+                "External (source) ID of the customer whose default "
+                "collection workflow will be reassigned. Same value shape "
+                "as send_message.companyExternalId."
+            ),
+        },
+        "workflowExternalId": {
+            "type": "string",
+            "description": (
+                "External ID of the collection workflow template to assign "
+                "as this customer's new default cadence. Must belong to the "
+                "authenticated tenant. Discover options via "
+                "list_collection_workflows."
+            ),
+        },
+    },
+    "required": ["customerExternalId", "workflowExternalId"],
 }
 
 

@@ -405,6 +405,22 @@ async def make_peakflo_request(name, arguments, token):
         method = "GET"
         url = f"{PEAKFLO_V1_BASE_URL}/tenant"
         message = "Tenant information fetched successfully"
+    elif name == "create_collection_workflow":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/collection-workflows"
+        message = "Collection workflow created successfully"
+    elif name == "list_whatsapp_templates":
+        method = "GET"
+        url = f"{PEAKFLO_V1_BASE_URL}/whatsapp-templates"
+        message = "WhatsApp templates listed successfully"
+    elif name == "assign_customer_to_workflow":
+        customer_external_id = arguments.pop("customerExternalId")
+        method = "POST"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/customers/"
+            f"{customer_external_id}/assign-workflow"
+        )
+        message = "Customer workflow assigned successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 

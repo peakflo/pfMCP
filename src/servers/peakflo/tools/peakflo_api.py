@@ -14,6 +14,9 @@ from servers.peakflo.schemas.utility import (
     update_collection_workflow_action_input_schema,
     list_collection_workflows_input_schema,
     get_collection_workflow_input_schema,
+    list_whatsapp_templates_input_schema,
+    assign_customer_to_workflow_input_schema,
+    create_collection_workflow_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -191,5 +194,47 @@ utility_tools = [
             "type": "object",
             "properties": {},
         },
+    ),
+    Tool(
+        name="create_collection_workflow",
+        description=(
+            "Create a new collection workflow (dunning cadence) from "
+            "scratch. Creates the workflow SHELL only — title, sender "
+            "identity, cadence settings; add steps afterwards with "
+            "create_collection_workflow_action, one call per step. "
+            "externalId is caller-assigned and must be unique within the "
+            "tenant. Copy defaultEmailTemplateId from an existing workflow "
+            "via list_collection_workflows if unsure. Used to seed the "
+            "golden workflows the AR recommender assigns customers to."
+        ),
+        inputSchema=create_collection_workflow_input_schema,
+    ),
+    Tool(
+        name="assign_customer_to_workflow",
+        description=(
+            "Reassign a customer's default collection workflow (dunning "
+            "cadence) to a specific template. Used to apply an AR Golden "
+            "Workflow recommendation — e.g. 'shift this Large-Doubtful "
+            "account onto the call-led golden workflow'. Discover valid "
+            "workflowExternalIds via list_collection_workflows. "
+            "Only affects NEW invoices for the customer; existing open "
+            "invoices keep whatever workflow they were created with."
+        ),
+        inputSchema=assign_customer_to_workflow_input_schema,
+    ),
+    Tool(
+        name="list_whatsapp_templates",
+        description=(
+            "List Meta-approved WhatsApp templates registered for the "
+            "authenticated tenant. Call this before dispatching a WhatsApp "
+            "message via send_message — the WhatsApp Business API rejects "
+            "free-form text outside a 24h reply window, so every cold "
+            "outreach must reference an approved template. Pick a template "
+            "from the response and pass its externalId as "
+            "send_message.messageTemplateId. Returns an empty list if the "
+            "tenant has no approved templates configured — in that case, "
+            "route the send through email/SMS instead."
+        ),
+        inputSchema=list_whatsapp_templates_input_schema,
     ),
 ]
