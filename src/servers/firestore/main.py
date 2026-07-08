@@ -154,6 +154,33 @@ def convert_firestore_to_serializable(obj):
         return str(obj)
 
 
+def parse_select_fields(value) -> Optional[List[str]]:
+    """
+    Parse optional field projection for query_collection.
+
+    Accepts a comma-separated string (e.g. "code,name,sourceData.code") or a list
+    of field path strings. Document id is always included separately as `_id` in
+    each returned record, so `id` / `_id` tokens in the input are ignored for
+    Firestore `.select()`.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        raw_fields = [str(field).strip() for field in value]
+    elif isinstance(value, str):
+        raw_fields = [part.strip() for part in value.split(",")]
+    else:
+        return None
+
+    fields = [field for field in raw_fields if field]
+    if not fields:
+        return None
+
+    reserved = {"id", "_id", "document_id", "documentId"}
+    return [field for field in fields if field not in reserved]
+
+
 def process_document_data(data, client):
     """Process document data to handle complex field types"""
     if isinstance(data, dict):
@@ -364,7 +391,7 @@ def create_server(user_id, api_key=None):
         return [
             Tool(
                 name="query_collection",
-                description="Query a Firestore collection with advanced filtering, ordering, and pagination. Use this to search for documents that match specific criteria, sort results, and limit the number of returned documents. Perfect for finding specific data within a collection.\n\nUsage Examples:\n- Find all users with status 'active': collection_path='users', filters=[{field:'status', op:'EQUAL', compare_value:{string_value:'active'}}]\n- Get recent orders: collection_path='orders', order={orderBy:'created_at', orderByDirection:'DESCENDING'}, limit=20\n- Search by email: collection_path='users', filters=[{field:'email', op:'EQUAL', compare_value:{string_value:'user@example.com'}}]\n- Filter by timestamp (using date_value): collection_path='orders', filters=[{field:'created_at', op:'GREATER_THAN', compare_value:{date_value:'2023-10-23T00:00:00Z'}}]\n- Get orders from last week: collection_path='orders', filters=[{field:'created_at', op:'GREATER_THAN_OR_EQUAL', compare_value:{date_value:'2023-10-16T00:00:00Z'}}]",
+                description="Query a Firestore collection with advanced filtering, ordering, and pagination. Use this to search for documents that match specific criteria, sort results, and limit the number of returned documents. Perfect for finding specific data within a collection.\n\nUsage Examples:\n- Find all users with status 'active': collection_path='users', filters=[{field:'status', op:'EQUAL', compare_value:{string_value:'active'}}]\n- Get recent orders: collection_path='orders', order={orderBy:'created_at', orderByDirection:'DESCENDING'}, limit=20\n- Search by email: collection_path='users', filters=[{field:'email', op:'EQUAL', compare_value:{string_value:'user@example.com'}}]\n- Filter by timestamp (using date_value): collection_path='orders', filters=[{field:'created_at', op:'GREATER_THAN', compare_value:{date_value:'2023-10-23T00:00:00Z'}}]\n- Get orders from last week: collection_path='orders', filters=[{field:'created_at', op:'GREATER_THAN_OR_EQUAL', compare_value:{date_value:'2023-10-16T00:00:00Z'}}]\n- Return only selected fields: collection_path='companies/tenant/accounts', select_fields='code,name,accountName'",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -458,6 +485,10 @@ def create_server(user_id, api_key=None):
                     "limit": {
                         "type": "number",
                         "description": "Maximum number of documents to return (default: 10, max recommended: 100 for performance)",
+                    },
+                    "select_fields": {
+                        "type": "string",
+                        "description": "Optional comma-separated list of document field paths to return (e.g. 'code,name,accountName,sourceData.code'). When set, Firestore returns only these fields plus the document id as `_id`. Omit to return full documents.",
                     },
                     "use_emulator": {
                         "type": "boolean",
@@ -606,6 +637,7 @@ def create_server(user_id, api_key=None):
                 filters = arguments.get("filters", [])
                 order = arguments.get("order")
                 limit = arguments.get("limit", 10)
+                select_fields = parse_select_fields(arguments.get("select_fields"))
                 database = arguments.get("database", "(default)")
 
                 if not collection_path:
@@ -714,6 +746,13 @@ def create_server(user_id, api_key=None):
                         )
                     else:
                         query = query.order_by(order_by)
+
+                # Apply optional field projection before limit
+                if select_fields:
+                    query = query.select(select_fields)
+                    logger.info(
+                        f"Applying Firestore field projection: {select_fields}"
+                    )
 
                 # Apply limit
                 query = query.limit(limit)

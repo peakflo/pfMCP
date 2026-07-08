@@ -37,6 +37,7 @@ Query a Firestore collection with filters, ordering, and limits.
   - `compare_value`: Value to compare against (with type-specific properties)
 - `order` (optional): Ordering specification with `orderBy` field and `orderByDirection`
 - `limit` (optional): Maximum number of documents to return (default: 10)
+- `select_fields` (optional): Comma-separated document field paths to return (e.g. `code,name,accountName,sourceData.code`). When set, only these fields are fetched from Firestore; each document still includes `_id` with the document id. Omit to return full documents.
 - `database` (optional): Database ID (defaults to "(default)")
 - `use_emulator` (optional): Use Firestore emulator (default: false)
 
@@ -56,6 +57,22 @@ Query a Firestore collection with filters, ordering, and limits.
     "orderByDirection": "ASCENDING"
   },
   "limit": 50
+}
+```
+
+**Field projection example:**
+```json
+{
+  "collection_path": "companies/0xpfuatSG/accounts",
+  "filters": [
+    {
+      "field": "parentCompanyId",
+      "op": "EQUAL",
+      "compare_value": {"string_value": "0xpfuatSG"}
+    }
+  ],
+  "select_fields": "code,name,accountName,sourceData.code",
+  "limit": 2000
 }
 ```
 
