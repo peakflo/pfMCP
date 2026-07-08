@@ -169,7 +169,26 @@ async def _resolve_peakflo_tenant_context(token: str) -> dict:
 
 async def _should_expose_xero_tools(token: str) -> bool:
     tenant_context = await _resolve_peakflo_tenant_context(token)
-    return str(tenant_context.get("sourceSystem", "")).lower() == SOURCE_SYSTEM_XERO
+    if str(tenant_context.get("sourceSystem", "")).lower() == SOURCE_SYSTEM_XERO:
+        return True
+
+    tenant_id = tenant_context.get("tenantId")
+    if not tenant_id:
+        return False
+
+    try:
+        await get_system_of_record_credentials(
+            tenant_id=tenant_id,
+            source_system=SOURCE_SYSTEM_XERO,
+            purpose="pfmcp:tool-discovery",
+        )
+        return True
+    except Exception as e:
+        logger.info(
+            "[peakflo] Xero tools not exposed; no resolvable Xero connection",
+            extra={"tenant_id": tenant_id, "error": str(e)},
+        )
+        return False
 
 
 async def _get_prefixed_xero_tools() -> list[Tool]:
@@ -194,8 +213,7 @@ async def _call_xero_tool_via_peakflo_connection(
 ):
     tenant_context = await _resolve_peakflo_tenant_context(token)
     tenant_id = tenant_context.get("tenantId")
-    source_system = str(tenant_context.get("sourceSystem", "")).lower()
-    if not tenant_id or source_system != SOURCE_SYSTEM_XERO:
+    if not tenant_id:
         return [
             TextContent(
                 type="text",
