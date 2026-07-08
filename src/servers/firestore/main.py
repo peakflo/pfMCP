@@ -750,9 +750,7 @@ def create_server(user_id, api_key=None):
                 # Apply optional field projection before limit
                 if select_fields:
                     query = query.select(select_fields)
-                    logger.info(
-                        f"Applying Firestore field projection: {select_fields}"
-                    )
+                    logger.info(f"Applying Firestore field projection: {select_fields}")
 
                 # Apply limit
                 query = query.limit(limit)
