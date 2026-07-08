@@ -63,12 +63,12 @@ Query a Firestore collection with filters, ordering, and limits.
 **Field projection example:**
 ```json
 {
-  "collection_path": "companies/0xpfuatSG/accounts",
+  "collection_path": "companies/acme-corp/accounts",
   "filters": [
     {
       "field": "parentCompanyId",
       "op": "EQUAL",
-      "compare_value": {"string_value": "0xpfuatSG"}
+      "compare_value": {"string_value": "acme-corp"}
     }
   ],
   "select_fields": "code,name,accountName,sourceData.code",
