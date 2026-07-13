@@ -30,6 +30,7 @@ from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
 from src.servers.xero import main as xero_main
+from src.servers.netsuite import main as netsuite_main
 
 SERVICE_NAME = Path(__file__).parent.name
 PEAKFLO_V1_BASE_URL = os.environ.get("PEAKFLO_API_BASE_URL")
@@ -45,7 +46,9 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 SOURCE_SYSTEM_XERO = "xero"
+SOURCE_SYSTEM_NETSUITE = "netsuite"
 XERO_TOOL_PREFIX = "xero__"
+NETSUITE_TOOL_PREFIX = "netsuite__"
 
 
 def authenticate_and_save_peakflo_key(user_id):
@@ -167,60 +170,45 @@ async def _resolve_peakflo_tenant_context(token: str) -> dict:
     return _nested_data(response)
 
 
-async def _should_expose_xero_tools(token: str) -> bool:
+async def _resolve_source_system(token: str) -> str:
+    """Return the lowercased sourceSystem the Peakflo tenant is connected to."""
     tenant_context = await _resolve_peakflo_tenant_context(token)
-    return str(tenant_context.get("sourceSystem", "")).lower() == SOURCE_SYSTEM_XERO
+    return str(tenant_context.get("sourceSystem", "")).lower()
 
 
-async def _get_prefixed_xero_tools() -> list[Tool]:
-    xero_server = xero_main.create_server("tool-discovery")
-    list_handler = xero_server.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    return [
-        _copy_tool(
-            tool,
-            name=f"{XERO_TOOL_PREFIX}{tool.name}",
-            description=f"[Xero] {tool.description or tool.name}",
-        )
-        for tool in result.root.tools
-    ]
+def _pick_credential(*sources: dict):
+    """Return the first non-empty value found across the given key sequences.
+
+    Called as _pick_credential(container, "keyA", "keyB", ...) — the first
+    positional is the dict, the rest are candidate keys.
+    """
+    container, *keys = sources
+    for key in keys:
+        value = container.get(key)
+        if value:
+            return value
+    return None
 
 
-async def _call_xero_tool_via_peakflo_connection(
-    server: Server,
-    token: str,
-    name: str,
-    arguments: dict | None,
-):
-    tenant_context = await _resolve_peakflo_tenant_context(token)
-    tenant_id = tenant_context.get("tenantId")
-    source_system = str(tenant_context.get("sourceSystem", "")).lower()
-    if not tenant_id or source_system != SOURCE_SYSTEM_XERO:
-        return [
-            TextContent(
-                type="text",
-                text="Xero tools are only available for Peakflo tenants connected to Xero.",
-            )
-        ]
+def _build_xero_credential_resolver(tenant_id: str, tool_name: str):
+    """Return an async resolver yielding (access_token, xero_tenant_id) for Xero."""
 
-    xero_tool_name = name[len(XERO_TOOL_PREFIX) :]
-
-    async def broker_xero_credentials(user_id: str, api_key: str = None) -> tuple:
+    async def resolver(user_id: str = None, api_key: str = None) -> tuple:
         credentials = await get_system_of_record_credentials(
             tenant_id=tenant_id,
             source_system=SOURCE_SYSTEM_XERO,
-            purpose=f"pfmcp:{xero_tool_name}",
+            purpose=f"pfmcp:{tool_name}",
         )
-        credential_body = credentials.get("credentials") or {}
+        body = credentials.get("credentials") or {}
         access_token = (
             credentials.get("accessToken")
-            or credential_body.get("access_token")
-            or credential_body.get("accessToken")
+            or body.get("access_token")
+            or body.get("accessToken")
         )
         xero_tenant_id = (
             credentials.get("providerTenantId")
-            or credential_body.get("tenantId")
-            or credential_body.get("xeroTenantId")
+            or body.get("tenantId")
+            or body.get("xeroTenantId")
         )
         if not access_token or not xero_tenant_id:
             raise ValueError(
@@ -228,17 +216,143 @@ async def _call_xero_tool_via_peakflo_connection(
             )
         return access_token, xero_tenant_id
 
-    xero_server = xero_main.create_server(
+    return resolver
+
+
+def _build_netsuite_credential_resolver(tenant_id: str, tool_name: str):
+    """Return an async resolver yielding NetSuiteClient kwargs.
+
+    Supports both auth shapes Peakflo may hold for a NetSuite connection:
+      * OAuth 2.0 — accountId + accessToken
+      * Token-Based Auth (OAuth 1.0a) — accountId + consumer/token key & secret
+    """
+
+    async def resolver(user_id: str = None, api_key: str = None) -> dict:
+        credentials = await get_system_of_record_credentials(
+            tenant_id=tenant_id,
+            source_system=SOURCE_SYSTEM_NETSUITE,
+            purpose=f"pfmcp:{tool_name}",
+        )
+        body = credentials.get("credentials") or {}
+
+        def pick(*keys):
+            return _pick_credential(credentials, *keys) or _pick_credential(body, *keys)
+
+        account_id = pick(
+            "accountId", "account_id", "providerAccountId", "realm", "providerTenantId"
+        )
+        access_token = pick("accessToken", "access_token")
+        consumer_key = pick("consumerKey", "consumer_key")
+        consumer_secret = pick("consumerSecret", "consumer_secret")
+        token_id = pick("tokenId", "token_id", "tokenKey", "token_key")
+        token_secret = pick("tokenSecret", "token_secret")
+
+        if not account_id:
+            raise ValueError("Peakflo NetSuite connection is missing accountId")
+
+        has_tba = all([consumer_key, consumer_secret, token_id, token_secret])
+        if not access_token and not has_tba:
+            raise ValueError(
+                "Peakflo NetSuite connection is missing an OAuth 2.0 access_token "
+                "or the full Token-Based Auth credential set"
+            )
+
+        return {
+            "account_id": account_id,
+            "access_token": access_token,
+            "consumer_key": consumer_key,
+            "consumer_secret": consumer_secret,
+            "token_id": token_id,
+            "token_secret": token_secret,
+        }
+
+    return resolver
+
+
+# Registry of Peakflo-connected systems of record whose native provider tools we
+# surface through the Peakflo MCP server when the tenant is connected to them.
+# Adding an accounting/ERP source here is all it takes to expose its tools.
+SOURCE_SYSTEM_INTEGRATIONS = {
+    SOURCE_SYSTEM_XERO: {
+        "module": xero_main,
+        "prefix": XERO_TOOL_PREFIX,
+        "label": "Xero",
+        "resolver_builder": _build_xero_credential_resolver,
+    },
+    SOURCE_SYSTEM_NETSUITE: {
+        "module": netsuite_main,
+        "prefix": NETSUITE_TOOL_PREFIX,
+        "label": "NetSuite",
+        "resolver_builder": _build_netsuite_credential_resolver,
+    },
+}
+
+
+async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
+    """List the provider's tools, prefixed/labelled, for the connected source system."""
+    integration = SOURCE_SYSTEM_INTEGRATIONS.get(source_system)
+    if not integration:
+        return []
+    inner_server = integration["module"].create_server("tool-discovery")
+    list_handler = inner_server.request_handlers[ListToolsRequest]
+    result = await list_handler(ListToolsRequest(method="tools/list"))
+    prefix = integration["prefix"]
+    label = integration["label"]
+    return [
+        _copy_tool(
+            tool,
+            name=f"{prefix}{tool.name}",
+            description=f"[{label}] {tool.description or tool.name}",
+        )
+        for tool in result.root.tools
+    ]
+
+
+def _match_source_system_tool(name: str):
+    """Return (source_system, integration) for a prefixed tool name, else (None, None)."""
+    for source_system, integration in SOURCE_SYSTEM_INTEGRATIONS.items():
+        if name.startswith(integration["prefix"]):
+            return source_system, integration
+    return None, None
+
+
+async def _call_source_system_tool_via_peakflo_connection(
+    server: Server,
+    token: str,
+    source_system: str,
+    integration: dict,
+    name: str,
+    arguments: dict | None,
+):
+    tenant_context = await _resolve_peakflo_tenant_context(token)
+    tenant_id = tenant_context.get("tenantId")
+    tenant_source_system = str(tenant_context.get("sourceSystem", "")).lower()
+    label = integration["label"]
+    if not tenant_id or tenant_source_system != source_system:
+        return [
+            TextContent(
+                type="text",
+                text=(
+                    f"{label} tools are only available for Peakflo tenants "
+                    f"connected to {label}."
+                ),
+            )
+        ]
+
+    inner_tool_name = name[len(integration["prefix"]) :]
+    credential_resolver = integration["resolver_builder"](tenant_id, inner_tool_name)
+
+    inner_server = integration["module"].create_server(
         server.user_id,
         api_key=server.api_key,
-        credential_resolver=broker_xero_credentials,
+        credential_resolver=credential_resolver,
     )
-    call_handler = xero_server.request_handlers[CallToolRequest]
+    call_handler = inner_server.request_handlers[CallToolRequest]
     result = await call_handler(
         CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
-                name=xero_tool_name,
+                name=inner_tool_name,
                 arguments=arguments or {},
             ),
         )
@@ -480,8 +594,12 @@ def create_server(user_id, api_key=None):
     async def handle_list_tools() -> list[Tool]:
         try:
             token = await get_peakflo_credentials(server.user_id, server.api_key)
-            if await _should_expose_xero_tools(token):
-                return [*tools, *(await _get_prefixed_xero_tools())]
+            source_system = await _resolve_source_system(token)
+            if source_system in SOURCE_SYSTEM_INTEGRATIONS:
+                return [
+                    *tools,
+                    *(await _get_prefixed_source_system_tools(source_system)),
+                ]
         except Exception as e:
             logger.warning(f"[peakflo] unable to resolve source-system tools: {e}")
         return tools
@@ -490,16 +608,20 @@ def create_server(user_id, api_key=None):
     async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
         token = await get_peakflo_credentials(server.user_id, server.api_key)
 
-        if name.startswith(XERO_TOOL_PREFIX):
+        source_system, integration = _match_source_system_tool(name)
+        if integration:
             try:
-                return await _call_xero_tool_via_peakflo_connection(
-                    server, token, name, arguments
+                return await _call_source_system_tool_via_peakflo_connection(
+                    server, token, source_system, integration, name, arguments
                 )
             except Exception as e:
                 return [
                     TextContent(
                         type="text",
-                        text=f"Unexpected error performing Xero request: {str(e)}",
+                        text=(
+                            f"Unexpected error performing "
+                            f"{integration['label']} request: {str(e)}"
+                        ),
                     )
                 ]
 

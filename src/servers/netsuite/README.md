@@ -5,10 +5,44 @@ The NetSuite MCP Server provides seamless integration with NetSuite's REST API, 
 ## Features
 
 - **Record Management**: Create and update records of any type in NetSuite
-- **Vendor Search**: Search for vendors by email address or name
+- **Vendor Search**: Search for vendors by email address or name (via SuiteQL)
 - **SuiteQL Execution**: Run custom SuiteQL queries for advanced data retrieval
-- **Authentication**: Secure OAuth 1.0a authentication with NetSuite
+- **Authentication**: Token-Based Authentication (OAuth 1.0a / HMAC-SHA256) **or** OAuth 2.0 Bearer
 - **Error Handling**: Comprehensive error handling with retry logic
+
+## Endpoints & Authentication
+
+All tools call the **SuiteTalk REST Web Services** on
+`https://{account_id}.suitetalk.api.netsuite.com/services/rest` (the account id
+is lowercased and `_` → `-`, e.g. `1234567_SB1` → `1234567-sb1`):
+
+- Records: `POST /record/v1/{type}`, `PATCH /record/v1/{type}/{id}`
+- SuiteQL: `POST /query/v1/suiteql` (with `Prefer: transient`)
+
+The client selects its auth mode automatically from whichever credentials are
+present:
+
+| Mode | Credentials | Header |
+|------|-------------|--------|
+| Token-Based Auth (OAuth 1.0a) | `account_id` + `consumer_key`/`consumer_secret` + `token_id`/`token_secret` | `Authorization: OAuth ...` (HMAC-SHA256, realm = account id) |
+| OAuth 2.0 | `account_id` + `access_token` | `Authorization: Bearer {access_token}` |
+
+## Access via a Peakflo connection (shared credentials)
+
+Just like Xero, NetSuite tools are surfaced automatically through the **Peakflo
+MCP server** when a Peakflo tenant is connected to NetSuite (`sourceSystem =
+"netsuite"`). The Peakflo server:
+
+1. Resolves the tenant's `sourceSystem` via `GET /v1/tenant`.
+2. If it is `netsuite`, lists the NetSuite tools prefixed with `netsuite__`
+   (e.g. `netsuite__execute_suiteql`).
+3. On a `netsuite__*` call, resolves short-lived NetSuite credentials from the
+   Peakflo credential broker (`POST /internal/credentials/system-of-record/resolve`
+   with `sourceSystem: "netsuite"`) and injects them into this server via a
+   `credential_resolver` — so agents never see the raw credentials.
+
+No env-var setup is needed for this path; Peakflo owns credential storage and
+refresh. The env-var setup below is only for running this server standalone.
 
 ## Prerequisites
 

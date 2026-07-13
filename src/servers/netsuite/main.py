@@ -7,6 +7,8 @@ from typing import Dict, Any, Optional
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from requests_oauthlib import OAuth1
+from oauthlib.oauth1 import SIGNATURE_HMAC_SHA256, SIGNATURE_TYPE_AUTH_HEADER
 
 project_root = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -28,23 +30,46 @@ logger = logging.getLogger(SERVICE_NAME)
 
 
 class NetSuiteClient:
-    """NetSuite REST API client"""
+    """
+    NetSuite SuiteTalk REST API client.
+
+    Supports the two authentication modes NetSuite exposes for REST:
+
+    * Token-Based Authentication (OAuth 1.0a / TBA) — the default for
+      integrations. Requires account_id + consumer_key/secret + token_id/secret
+      and signs each request with HMAC-SHA256.
+    * OAuth 2.0 Bearer — when Peakflo holds a short-lived OAuth 2.0 access token
+      for the tenant's NetSuite connection. Requires account_id + access_token.
+
+    The auth mode is selected automatically from whichever credentials are
+    present, so the same client works for both the env-var (TBA) path and the
+    Peakflo credential-broker path.
+    """
 
     def __init__(
         self,
         account_id: str,
-        consumer_key: str,
-        consumer_secret: str,
-        token_id: str,
-        token_secret: str,
+        consumer_key: Optional[str] = None,
+        consumer_secret: Optional[str] = None,
+        token_id: Optional[str] = None,
+        token_secret: Optional[str] = None,
+        access_token: Optional[str] = None,
     ):
+        if not account_id:
+            raise ValueError("NetSuite account_id is required")
+
         self.account_id = account_id
         self.consumer_key = consumer_key
         self.consumer_secret = consumer_secret
         self.token_id = token_id
         self.token_secret = token_secret
+        self.access_token = access_token
+
+        # The SuiteTalk REST host uses the account id lowercased with '_' -> '-'
+        # (e.g. account "1234567_SB1" -> host "1234567-sb1.suitetalk...").
+        host_account = account_id.lower().replace("_", "-")
         self.base_url = (
-            f"https://{account_id}.restlets.api.netsuite.com/rest/platform/v1"
+            f"https://{host_account}.suitetalk.api.netsuite.com/services/rest"
         )
 
         # Set up retry strategy
@@ -58,98 +83,116 @@ class NetSuiteClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
-    def _get_headers(self) -> Dict[str, str]:
-        """Get authentication headers for NetSuite API"""
-        # Note: This is a simplified implementation
-        # In production, you'd want to implement proper OAuth 1.0a signature
-        return {
+    def _auth(self) -> Optional[OAuth1]:
+        """
+        Build the OAuth 1.0a (TBA) request signer, or None when using OAuth 2.0.
+        """
+        if self.access_token:
+            return None
+        if all(
+            [self.consumer_key, self.consumer_secret, self.token_id, self.token_secret]
+        ):
+            return OAuth1(
+                client_key=self.consumer_key,
+                client_secret=self.consumer_secret,
+                resource_owner_key=self.token_id,
+                resource_owner_secret=self.token_secret,
+                signature_method=SIGNATURE_HMAC_SHA256,
+                signature_type=SIGNATURE_TYPE_AUTH_HEADER,
+                # NetSuite requires the account id (canonical upper form) as the
+                # OAuth realm.
+                realm=self.account_id.upper(),
+            )
+        raise ValueError(
+            "NetSuite credentials are incomplete: provide an OAuth 2.0 access_token "
+            "or the full TBA set (consumer_key, consumer_secret, token_id, token_secret)."
+        )
+
+    def _headers(self, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.consumer_key}",
-            "X-NetSuite-Account": self.account_id,
+            "Accept": "application/json",
         }
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        if extra:
+            headers.update(extra)
+        return headers
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        url = f"{self.base_url}{path}"
+        try:
+            response = self.session.request(
+                method,
+                url,
+                json=json_body,
+                headers=self._headers(extra_headers),
+                auth=self._auth(),
+                timeout=60,
+            )
+            response.raise_for_status()
+            if response.content:
+                try:
+                    return response.json()
+                except ValueError:
+                    return {"raw": response.text}
+            return {}
+        except requests.exceptions.RequestException as e:
+            detail = ""
+            if getattr(e, "response", None) is not None:
+                detail = e.response.text
+            logger.error(f"NetSuite {method} {path} failed: {e} {detail}")
+            raise Exception(f"NetSuite {method} {path} failed: {e} {detail}")
 
     def create_record(self, record_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new record in NetSuite"""
-        url = f"{self.base_url}/record/{record_type}"
-        headers = self._get_headers()
-
-        try:
-            response = self.session.post(url, json=data, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error creating {record_type} record: {e}")
-            raise Exception(f"Failed to create {record_type} record: {str(e)}")
+        """Create a new record in NetSuite via the SuiteTalk REST record API."""
+        return self._request("POST", f"/record/v1/{record_type}", json_body=data)
 
     def update_record(
         self, record_type: str, record_id: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Update an existing record in NetSuite"""
-        url = f"{self.base_url}/record/{record_type}/{record_id}"
-        headers = self._get_headers()
+        """Update an existing record in NetSuite via the SuiteTalk REST record API."""
+        return self._request(
+            "PATCH", f"/record/v1/{record_type}/{record_id}", json_body=data
+        )
 
-        try:
-            response = self.session.patch(url, json=data, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error updating {record_type} record {record_id}: {e}")
-            raise Exception(
-                f"Failed to update {record_type} record {record_id}: {str(e)}"
-            )
+    def execute_suiteql(
+        self, query: str, limit: int = 1000, offset: int = 0
+    ) -> Dict[str, Any]:
+        """Execute a SuiteQL query via the SuiteTalk REST query API."""
+        path = f"/query/v1/suiteql?limit={limit}&offset={offset}"
+        # SuiteQL requires the "Prefer: transient" header.
+        return self._request(
+            "POST",
+            path,
+            json_body={"q": query},
+            extra_headers={"Prefer": "transient"},
+        )
 
     def search_vendor_by_email(self, email: str) -> Dict[str, Any]:
-        """Search for a vendor by email address"""
-        url = f"{self.base_url}/search"
-        headers = self._get_headers()
-
-        search_query = {
-            "type": "vendor",
-            "filters": [{"field": "email", "operator": "is", "value": email}],
-        }
-
-        try:
-            response = self.session.post(url, json=search_query, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error searching vendor by email {email}: {e}")
-            raise Exception(f"Failed to search vendor by email {email}: {str(e)}")
+        """Search for a vendor by email address (implemented via SuiteQL)."""
+        safe = email.replace("'", "''")
+        query = (
+            "SELECT id, entityid, companyname, email FROM vendor "
+            f"WHERE email = '{safe}' AND isinactive = 'F'"
+        )
+        return self.execute_suiteql(query)
 
     def search_vendor_by_name(self, vendor_name: str) -> Dict[str, Any]:
-        """Search for a vendor by name"""
-        url = f"{self.base_url}/search"
-        headers = self._get_headers()
-
-        search_query = {
-            "type": "vendor",
-            "filters": [
-                {"field": "entityid", "operator": "contains", "value": vendor_name}
-            ],
-        }
-
-        try:
-            response = self.session.post(url, json=search_query, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error searching vendor by name {vendor_name}: {e}")
-            raise Exception(f"Failed to search vendor by name {vendor_name}: {str(e)}")
-
-    def execute_suiteql(self, query: str) -> Dict[str, Any]:
-        """Execute a SuiteQL query"""
-        url = f"{self.base_url}/query"
-        headers = self._get_headers()
-
-        query_data = {"q": query}
-
-        try:
-            response = self.session.post(url, json=query_data, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error executing SuiteQL query: {e}")
-            raise Exception(f"Failed to execute SuiteQL query: {str(e)}")
+        """Search for a vendor by name, partial match (implemented via SuiteQL)."""
+        safe = vendor_name.replace("'", "''")
+        query = (
+            "SELECT id, entityid, companyname, email FROM vendor "
+            f"WHERE UPPER(entityid) LIKE UPPER('%{safe}%') AND isinactive = 'F'"
+        )
+        return self.execute_suiteql(query)
 
 
 async def get_netsuite_credentials(
@@ -185,13 +228,20 @@ async def get_netsuite_credentials(
     return credentials
 
 
-def create_server(user_id: str, api_key: Optional[str] = None):
+def create_server(
+    user_id: str, api_key: Optional[str] = None, credential_resolver=None
+):
     """
     Initializes and configures a NetSuite MCP server instance.
 
     Args:
         user_id (str): The unique user identifier for session context.
         api_key (Optional[str]): Optional API key for user auth context.
+        credential_resolver: Optional async callable used by wrapper servers
+            (e.g. the Peakflo server) to resolve NetSuite credentials outside the
+            default env-var path. It receives (user_id, api_key) and must return a
+            dict of NetSuiteClient kwargs (account_id + TBA fields and/or
+            access_token). Defaults to get_netsuite_credentials.
 
     Returns:
         Server: Configured server instance with all NetSuite tools registered.
@@ -199,6 +249,7 @@ def create_server(user_id: str, api_key: Optional[str] = None):
     server = Server("netsuite-server")
     server.user_id = user_id
     server.api_key = api_key
+    server.credential_resolver = credential_resolver or get_netsuite_credentials
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
@@ -310,8 +361,9 @@ def create_server(user_id: str, api_key: Optional[str] = None):
             raise ValueError("Missing arguments")
 
         try:
-            # Get NetSuite credentials
-            credentials = await get_netsuite_credentials(user_id, api_key)
+            # Get NetSuite credentials (env-var default, or broker-resolved when
+            # invoked through the Peakflo server via credential_resolver).
+            credentials = await server.credential_resolver(user_id, api_key)
             netsuite_client = NetSuiteClient(**credentials)
 
             if name == "create_record":
