@@ -10,7 +10,6 @@ This MCP server provides comprehensive integration with Google Cloud Firestore, 
 - **Update Documents**: Modify existing documents with partial updates
 - **List Collections**: Discover available collections in your Firestore database
 - **Complex Field Types**: Support for timestamps and document references
-- **Emulator Support**: Work with Firestore emulator for development and testing
 
 ## Authentication
 
@@ -39,7 +38,6 @@ Query a Firestore collection with filters, ordering, and limits.
 - `limit` (optional): Maximum number of documents to return (default: 10)
 - `select_fields` (optional): Comma-separated document field paths to return (e.g. `code,name,accountName,sourceData.code`). When set, only these fields are fetched from Firestore; each document still includes `_id` with the document id. Omit to return full documents.
 - `database` (optional): Database ID (defaults to "(default)")
-- `use_emulator` (optional): Use Firestore emulator (default: false)
 
 **Example:**
 ```json
@@ -83,7 +81,6 @@ Retrieve a single document by its path.
 **Parameters:**
 - `document_path` (required): Full path to the document (e.g., "users/user123")
 - `database` (optional): Database ID (defaults to "(default)")
-- `use_emulator` (optional): Use Firestore emulator (default: false)
 
 **Example:**
 ```json
@@ -101,7 +98,6 @@ Create a new document in a Firestore collection with support for complex field t
 - `document_data` (required): Document data with field names and values (cannot be empty)
 - `document_id` (optional): Custom document ID (auto-generated if not provided)
 - `database` (optional): Database ID (defaults to "(default)")
-- `use_emulator` (optional): Use Firestore emulator (default: false)
 
 **Example:**
 ```json
@@ -131,7 +127,6 @@ Update an existing document in Firestore with partial updates.
 - `document_path` (required): Full path to the document (e.g., "users/user123")
 - `document_data` (required): Document data to update (cannot be empty)
 - `database` (optional): Database ID (defaults to "(default)")
-- `use_emulator` (optional): Use Firestore emulator (default: false)
 
 **Example:**
 ```json
@@ -158,7 +153,6 @@ List all collections in the database.
 
 **Parameters:**
 - `database` (optional): Database ID (defaults to "(default)")
-- `use_emulator` (optional): Use Firestore emulator (default: false)
 
 ## Filter Operators
 
@@ -224,10 +218,6 @@ When creating or updating documents, use special syntax for complex field types:
   }
 }
 ```
-
-## Emulator Support
-
-To use the Firestore emulator, set `use_emulator: true` in your tool calls. Make sure the Firestore emulator is running on `localhost:8080`.
 
 ## Error Handling
 

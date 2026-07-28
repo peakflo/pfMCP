@@ -239,9 +239,7 @@ def process_document_data(data, client):
         return data
 
 
-async def create_firestore_client(
-    user_id, api_key=None, project_id=None, use_emulator=False
-):
+async def create_firestore_client(user_id, api_key=None, project_id=None):
     """Create a Firestore client"""
     try:
         # Get Google OAuth2 credentials
@@ -288,9 +286,6 @@ async def create_firestore_client(
                 logger.warning(
                     "No project_id found in metadata or Application Default Credentials"
                 )
-
-        if use_emulator:
-            os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8080"
 
         # Create Firestore client with OAuth2 credentials
         client = firestore.Client(project=final_project_id, credentials=credentials)
@@ -490,11 +485,6 @@ def create_server(user_id, api_key=None):
                         "type": "string",
                         "description": "Optional comma-separated list of document field paths to return (e.g. 'code,name,accountName,sourceData.code'). When set, Firestore returns only these fields plus the document id as `_id`. Omit to return full documents.",
                     },
-                    "use_emulator": {
-                        "type": "boolean",
-                        "default": False,
-                        "description": "Target the Firestore emulator if true.",
-                    },
                     "required": ["collection_path"],
                 },
                 # outputSchema={
@@ -517,11 +507,6 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "Database id to use. Defaults to `(default)` if unspecified.",
                         },
-                        "use_emulator": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Target the Firestore emulator if true.",
-                        },
                     },
                     "required": ["document_path"],
                 },
@@ -539,11 +524,6 @@ def create_server(user_id, api_key=None):
                         "database": {
                             "type": "string",
                             "description": "Database id to use. Defaults to `(default)` if unspecified.",
-                        },
-                        "use_emulator": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Target the Firestore emulator if true.",
                         },
                     },
                 },
@@ -576,11 +556,6 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "Database id to use. Defaults to `(default)` if unspecified.",
                         },
-                        "use_emulator": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Target the Firestore emulator if true.",
-                        },
                     },
                     "required": ["collection_path", "document_data"],
                 },
@@ -604,11 +579,6 @@ def create_server(user_id, api_key=None):
                             "type": "string",
                             "description": "Database id to use. Defaults to `(default)` if unspecified.",
                         },
-                        "use_emulator": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Target the Firestore emulator if true.",
-                        },
                     },
                     "required": ["document_path", "document_data"],
                 },
@@ -624,13 +594,12 @@ def create_server(user_id, api_key=None):
         )
 
         arguments = arguments or {}
+        if "use_emulator" in arguments:
+            logger.warning("Ignoring unsupported Firestore argument: use_emulator")
+            arguments.pop("use_emulator", None)
 
         try:
-            client = await create_firestore_client(
-                server.user_id,
-                server.api_key,
-                use_emulator=arguments.get("use_emulator", False),
-            )
+            client = await create_firestore_client(server.user_id, server.api_key)
 
             if name == "query_collection":
                 collection_path = arguments.get("collection_path")
