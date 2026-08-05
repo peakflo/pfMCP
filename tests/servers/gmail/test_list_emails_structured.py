@@ -5,6 +5,7 @@ filtering, and edge cases without requiring real credentials.
 """
 
 import json
+import base64
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from base64 import urlsafe_b64encode
@@ -374,6 +375,83 @@ async def test_max_results_capped_at_100(single_email_service):
     mock_messages = single_email_service.users().messages()
     call_kwargs = mock_messages.list.call_args
     assert call_kwargs.kwargs.get("maxResults", call_kwargs[1].get("maxResults")) == 100
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(strict=True, reason="read_emails does not accept a page token")
+async def test_page_token_is_forwarded_to_gmail():
+    service = _build_mock_gmail_service(
+        messages_list_response={"messages": []},
+        message_get_responses=None,
+    )
+
+    await _invoke_tool(service, {"page_token": "page-1"})
+
+    service.users().messages().list.assert_called_with(
+        userId="me",
+        q="in:inbox",
+        maxResults=10,
+        pageToken="page-1",
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True, reason="structured output discards Gmail's next page token"
+)
+async def test_structured_output_preserves_next_page_token():
+    service = _build_mock_gmail_service(
+        messages_list_response={"messages": [], "nextPageToken": "page-2"},
+        message_get_responses=None,
+    )
+
+    data = await _invoke_tool(service)
+
+    assert data["nextPageToken"] == "page-2"
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True, reason="get_attachment returns signed URL text instead of attachment bytes"
+)
+async def test_get_attachment_returns_binary_resource():
+    with (
+        patch(
+            "src.servers.gmail.main.create_gmail_service",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ),
+        patch(
+            "src.servers.gmail.main.download_attachment",
+            return_value=b"hello world",
+        ),
+        patch("src.servers.gmail.main.get_storage_service") as storage_factory,
+    ):
+        storage_factory.return_value.upload_temporary.return_value = (
+            "https://storage.test/attachment"
+        )
+
+        from src.servers.gmail.main import create_server
+
+        server_instance = create_server("test_user", api_key="test_key")
+        handler = server_instance.request_handlers[CallToolRequest]
+        result = await handler(
+            CallToolRequest(
+                method="tools/call",
+                params=CallToolRequestParams(
+                    name="get_attachment",
+                    arguments={
+                        "email_id": "msg-1",
+                        "attachment_id": "att-1",
+                        "filename": "invoice.pdf",
+                    },
+                ),
+            )
+        )
+
+    content = result.root.content[0]
+    assert content.type == "resource"
+    assert base64.b64decode(content.resource.blob) == b"hello world"
 
 
 @pytest.mark.asyncio
