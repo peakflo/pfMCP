@@ -24,6 +24,7 @@ from mcp.types import (
     Tool,
     ImageContent,
     EmbeddedResource,
+    ResourceLink,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server import NotificationOptions, Server
@@ -376,6 +377,10 @@ def create_server(user_id, api_key=None):
                             "type": "integer",
                             "description": "Maximum number of emails to return (default: 10, max: 100)",
                         },
+                        "page_token": {
+                            "type": "string",
+                            "description": "Token returned by a previous structured read_emails call",
+                        },
                         "include_body": {
                             "type": "boolean",
                             "description": "Include email body text in results (default: true)",
@@ -545,7 +550,7 @@ def create_server(user_id, api_key=None):
     @server.call_tool()
     async def handle_call_tool(
         name: str, arguments: dict | None
-    ) -> list[TextContent | ImageContent | EmbeddedResource]:
+    ) -> list[TextContent | ImageContent | EmbeddedResource | ResourceLink]:
         """Handle email tool execution requests"""
         logger.info(
             f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
@@ -567,6 +572,8 @@ def create_server(user_id, api_key=None):
 
             # Build the list request
             list_kwargs = {"userId": "me", "q": query, "maxResults": max_results}
+            if arguments.get("page_token"):
+                list_kwargs["pageToken"] = arguments["page_token"]
             label_ids = arguments.get("label_ids")
             if label_ids:
                 list_kwargs["labelIds"] = label_ids
@@ -583,6 +590,8 @@ def create_server(user_id, api_key=None):
                         "resultCount": 0,
                         "query": query,
                     }
+                    if results.get("nextPageToken"):
+                        result_data["nextPageToken"] = results["nextPageToken"]
                     return [TextContent(type="text", text=json.dumps(result_data))]
 
                 extra_headers = arguments.get("include_headers", [])
@@ -664,6 +673,8 @@ def create_server(user_id, api_key=None):
                     "resultCount": len(email_objects),
                     "query": query,
                 }
+                if results.get("nextPageToken"):
+                    result_data["nextPageToken"] = results["nextPageToken"]
                 return [TextContent(type="text", text=json.dumps(result_data))]
 
             # --- Default text output (unchanged) ---
@@ -1042,7 +1053,14 @@ def create_server(user_id, api_key=None):
                         f"Size: {size_kb:.1f} KB\n"
                         f"Download URL (expires in 1 hour): {download_url}"
                     ),
-                )
+                ),
+                ResourceLink(
+                    type="resource_link",
+                    name=filename,
+                    uri=download_url,
+                    mimeType=mime_type,
+                    size=len(att_data),
+                ),
             ]
 
         raise ValueError(f"Unknown tool: {name}")

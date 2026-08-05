@@ -95,7 +95,7 @@ discount_schema = {
             "description": "Discount duration - bare value, or object for First N days/cycles or a Specific date",
         },
     },
-    "required": ["name", "amount", "amountType"],
+    "required": ["externalId", "name", "amount", "amountType"],
 }
 
 

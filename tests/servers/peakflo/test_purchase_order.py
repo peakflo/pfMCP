@@ -114,9 +114,14 @@ def test_nested_financial_schemas_mirror_api():
     assert item_props["taxes"]["items"] == tax_schema
     assert set(tax_schema["required"]) == {"name", "amount", "amountType"}
 
-    # Discounts mirror discountInputSchema (name/amount/amountType required)
+    # Default API configuration also requires externalId.
     assert item_props["discounts"]["items"] == discount_schema
-    assert set(discount_schema["required"]) == {"name", "amount", "amountType"}
+    assert set(discount_schema["required"]) == {
+        "externalId",
+        "name",
+        "amount",
+        "amountType",
+    }
 
 
 def test_tax_amount_type_and_category_enums():
@@ -132,24 +137,6 @@ def test_tax_amount_type_and_category_enums():
     ]
 
 
-@pytest.mark.xfail(
-    strict=True, reason="integrations/api unconditionally maps taxes and discounts"
-)
-def test_line_items_require_tax_and_discount_arrays():
-    with pytest.raises(ValidationError):
-        _validate_item(
-            {
-                "sourceId": "line-1",
-                "name": "Line item",
-                "quantity": 1,
-                "unitPrice": 10,
-            }
-        )
-
-
-@pytest.mark.xfail(
-    strict=True, reason="integrations/api default discount config requires externalId"
-)
 def test_discounts_require_external_id():
     with pytest.raises(ValidationError):
         _validate_item(
@@ -170,29 +157,25 @@ def test_discounts_require_external_id():
         )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="integrations/api silently drops nested discount duration"
-)
-def test_nested_discount_duration_is_not_advertised_until_api_normalizes_it():
-    with pytest.raises(ValidationError):
-        _validate_item(
-            {
-                "sourceId": "line-1",
-                "name": "Line item",
-                "quantity": 1,
-                "unitPrice": 10,
-                "taxes": [],
-                "discounts": [
-                    {
-                        "externalId": "discount-1",
-                        "name": "Promo",
-                        "amount": 1,
-                        "amountType": "Flat",
-                        "duration": {
-                            "duration": "First N days",
-                            "durationNumber": 3,
-                        },
-                    }
-                ],
-            }
-        )
+def test_nested_discount_duration_remains_supported():
+    _validate_item(
+        {
+            "sourceId": "line-1",
+            "name": "Line item",
+            "quantity": 1,
+            "unitPrice": 10,
+            "taxes": [],
+            "discounts": [
+                {
+                    "externalId": "discount-1",
+                    "name": "Promo",
+                    "amount": 1,
+                    "amountType": "Flat",
+                    "duration": {
+                        "duration": "First N days",
+                        "durationNumber": 3,
+                    },
+                }
+            ],
+        }
+    )

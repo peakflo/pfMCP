@@ -5,7 +5,6 @@ filtering, and edge cases without requiring real credentials.
 """
 
 import json
-import base64
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from base64 import urlsafe_b64encode
@@ -378,7 +377,6 @@ async def test_max_results_capped_at_100(single_email_service):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="read_emails does not accept a page token")
 async def test_page_token_is_forwarded_to_gmail():
     service = _build_mock_gmail_service(
         messages_list_response={"messages": []},
@@ -396,9 +394,6 @@ async def test_page_token_is_forwarded_to_gmail():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True, reason="structured output discards Gmail's next page token"
-)
 async def test_structured_output_preserves_next_page_token():
     service = _build_mock_gmail_service(
         messages_list_response={"messages": [], "nextPageToken": "page-2"},
@@ -411,10 +406,7 @@ async def test_structured_output_preserves_next_page_token():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True, reason="get_attachment returns signed URL text instead of attachment bytes"
-)
-async def test_get_attachment_returns_binary_resource():
+async def test_get_attachment_returns_machine_readable_resource_link():
     with (
         patch(
             "src.servers.gmail.main.create_gmail_service",
@@ -449,9 +441,13 @@ async def test_get_attachment_returns_binary_resource():
             )
         )
 
-    content = result.root.content[0]
-    assert content.type == "resource"
-    assert base64.b64decode(content.resource.blob) == b"hello world"
+    resource_link = next(
+        content for content in result.root.content if content.type == "resource_link"
+    )
+    assert str(resource_link.uri) == "https://storage.test/attachment"
+    assert resource_link.name == "invoice.pdf"
+    assert resource_link.mimeType == "application/octet-stream"
+    assert resource_link.size == 11
 
 
 @pytest.mark.asyncio
