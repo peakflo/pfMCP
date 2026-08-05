@@ -8,6 +8,9 @@ custom-field schema reuse) without requiring MCP or live credentials.
 import sys
 import os
 
+import pytest
+from jsonschema import Draft7Validator, ValidationError
+
 _SERVERS_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "src", "servers"
 )
@@ -21,6 +24,22 @@ from peakflo.schemas.purchase_order import (
     discount_schema,
 )
 from peakflo.schemas.common import custom_field_schema
+
+
+def _validate_item(item):
+    payload = {
+        "externalId": "po-1",
+        "tenantId": "tenant-1",
+        "POAmount": 10,
+        "currency": "USD",
+        "issueDate": "2026-08-01",
+        "dueDate": "2026-08-31",
+        "status": "draft",
+        "items": [item],
+        "PONumber": "PO-1",
+        "vendorId": "vendor-1",
+    }
+    Draft7Validator(update_purchase_order_schema).validate(payload)
 
 
 def test_schema_required_fields_match_api_contract():
@@ -95,9 +114,14 @@ def test_nested_financial_schemas_mirror_api():
     assert item_props["taxes"]["items"] == tax_schema
     assert set(tax_schema["required"]) == {"name", "amount", "amountType"}
 
-    # Discounts mirror discountInputSchema (name/amount/amountType required)
+    # Default API configuration also requires externalId.
     assert item_props["discounts"]["items"] == discount_schema
-    assert set(discount_schema["required"]) == {"name", "amount", "amountType"}
+    assert set(discount_schema["required"]) == {
+        "externalId",
+        "name",
+        "amount",
+        "amountType",
+    }
 
 
 def test_tax_amount_type_and_category_enums():
@@ -111,3 +135,47 @@ def test_tax_amount_type_and_category_enums():
         "StampDuty",
         "Other",
     ]
+
+
+def test_discounts_require_external_id():
+    with pytest.raises(ValidationError):
+        _validate_item(
+            {
+                "sourceId": "line-1",
+                "name": "Line item",
+                "quantity": 1,
+                "unitPrice": 10,
+                "taxes": [],
+                "discounts": [
+                    {
+                        "name": "Promo",
+                        "amount": 1,
+                        "amountType": "Flat",
+                    }
+                ],
+            }
+        )
+
+
+def test_nested_discount_duration_remains_supported():
+    _validate_item(
+        {
+            "sourceId": "line-1",
+            "name": "Line item",
+            "quantity": 1,
+            "unitPrice": 10,
+            "taxes": [],
+            "discounts": [
+                {
+                    "externalId": "discount-1",
+                    "name": "Promo",
+                    "amount": 1,
+                    "amountType": "Flat",
+                    "duration": {
+                        "duration": "First N days",
+                        "durationNumber": 3,
+                    },
+                }
+            ],
+        }
+    )
