@@ -10,6 +10,7 @@ from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
+from servers.peakflo.schemas.purchase_order import to_data_uri
 
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
@@ -360,6 +361,41 @@ async def _call_source_system_tool_via_peakflo_connection(
     return result.root.content
 
 
+# Peakflo's attachment size limit; base64 inflates the encoded payload by
+# ~33%, so this is checked against the raw (pre-encoding) byte size.
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+
+def _ensure_within_attachment_size_limit(byte_size: int) -> None:
+    if byte_size > MAX_ATTACHMENT_BYTES:
+        raise ValueError(
+            f"Attachment is {byte_size} bytes, which exceeds the "
+            f"{MAX_ATTACHMENT_BYTES}-byte ({MAX_ATTACHMENT_BYTES // (1024 * 1024)}MB) "
+            "attachment size limit."
+        )
+
+
+async def _download_and_encode(file_url: str) -> tuple[str, int]:
+    """Download a file and return (base64-encoded content, byte length)."""
+    async with httpx.AsyncClient() as dl_client:
+        dl_response = await dl_client.get(file_url, timeout=60.0)
+        dl_response.raise_for_status()
+        content = dl_response.content
+    _ensure_within_attachment_size_limit(len(content))
+    return base64.b64encode(content).decode("utf-8"), len(content)
+
+
+_SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
+
+
+def _redact_for_log(arguments: dict) -> dict:
+    """Return a copy of arguments with sensitive payloads replaced."""
+    return {
+        key: ("<redacted>" if key in _SENSITIVE_ARG_KEYS else value)
+        for key, value in arguments.items()
+    }
+
+
 async def make_peakflo_request(name, arguments, token):
     arguments = dict(arguments or {})
     headers = {
@@ -399,16 +435,11 @@ async def make_peakflo_request(name, arguments, token):
         file_url = arguments.pop("file_url", None)
         if file_url:
             try:
-                async with httpx.AsyncClient() as dl_client:
-                    dl_response = await dl_client.get(file_url, timeout=60.0)
-                    dl_response.raise_for_status()
-                    arguments["data"] = base64.b64encode(dl_response.content).decode(
-                        "utf-8"
-                    )
-                    logger.info(
-                        f"[add_invoice_attachment] Downloaded file from URL "
-                        f"({len(dl_response.content)} bytes) and base64-encoded"
-                    )
+                arguments["data"], _ = await _download_and_encode(file_url)
+                logger.info(
+                    f"[add_invoice_attachment] Downloaded file from URL and "
+                    f"base64-encoded"
+                )
             except Exception as dl_err:
                 raise ValueError(
                     f"Failed to download file from file_url: {dl_err}"
@@ -425,6 +456,41 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/purchase-order/{external_id}"
         message = "Purchase order updated successfully"
+    elif name == "add_purchase_order_attachment":
+        po_external_id = arguments.pop("poExternalId")
+        file_url = arguments.pop("file_url", None)
+        if file_url:
+            try:
+                raw_base64, byte_size = await _download_and_encode(file_url)
+                # The PO attachment endpoint decodes base64.split(",")[1], so
+                # forward a data-URI string and derive fileSize from the
+                # downloaded bytes.
+                arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
+                arguments["fileSize"] = byte_size
+                logger.info(
+                    f"[add_purchase_order_attachment] Downloaded file from URL "
+                    f"({byte_size} bytes) and base64-encoded"
+                )
+            except Exception as dl_err:
+                raise ValueError(
+                    f"Failed to download file from file_url: {dl_err}"
+                ) from dl_err
+        elif "base64" not in arguments:
+            raise ValueError(
+                "Either file_url or base64 is required for "
+                "add_purchase_order_attachment"
+            )
+        else:
+            # Normalize a raw base64 payload (no data-URI prefix) so the
+            # endpoint's base64.split(",")[1] decode yields the file content.
+            _ensure_within_attachment_size_limit(arguments["fileSize"])
+            arguments["base64"] = to_data_uri(
+                arguments["base64"],
+                arguments.get("contentType", "application/octet-stream"),
+            )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/purchase-order/{po_external_id}/attachments"
+        message = "Attachment added to purchase order successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -544,7 +610,8 @@ async def make_peakflo_request(name, arguments, token):
         raise ValueError(f"Unknown tool call: {name}")
 
     logger.info(
-        f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
+        f"[make_peakflo_request] method: {method}, url: {url}, "
+        f"arguments: {_redact_for_log(arguments)}"
     )
     try:
         async with httpx.AsyncClient() as client:
