@@ -354,6 +354,13 @@ ap_attachment_file_types = [
 ]
 
 
+def to_data_uri(raw_base64: str, content_type: str) -> str:
+    """Wrap raw base64 as a data URI unless it already is one."""
+    if "," in raw_base64:
+        return raw_base64
+    return f"data:{content_type};base64,{raw_base64}"
+
+
 add_purchase_order_attachment_schema = {
     "type": "object",
     "description": (
@@ -411,5 +418,9 @@ add_purchase_order_attachment_schema = {
         },
     },
     "required": ["poExternalId", "id", "name", "contentType", "fileType"],
+    "oneOf": [
+        {"required": ["file_url"]},
+        {"required": ["base64", "fileSize"]},
+    ],
     "additionalProperties": False,
 }

@@ -20,6 +20,7 @@ from peakflo.schemas.purchase_order import (
     update_purchase_order_schema,
     add_purchase_order_attachment_schema,
     ap_attachment_file_types,
+    to_data_uri,
     po_item_schema,
     wht_schema,
     tax_schema,
@@ -257,3 +258,45 @@ def test_attachment_rejects_invalid_file_type():
     payload["fileType"] = "garbage"
     with pytest.raises(ValidationError):
         Draft7Validator(add_purchase_order_attachment_schema).validate(payload)
+
+
+def test_attachment_requires_file_source():
+    schema = add_purchase_order_attachment_schema
+
+    # Neither file_url nor base64 supplied -> invalid (mirrors the API
+    # contract that base64 + fileSize are always required in the body).
+    payload = _valid_attachment()
+    payload.pop("file_url")
+    with pytest.raises(ValidationError):
+        Draft7Validator(schema).validate(payload)
+
+
+def test_attachment_base64_requires_file_size():
+    schema = add_purchase_order_attachment_schema
+
+    # base64 without fileSize -> invalid; the API body always requires both.
+    payload = _valid_attachment()
+    payload.pop("file_url")
+    payload["base64"] = "aGVsbG8="
+    with pytest.raises(ValidationError):
+        Draft7Validator(schema).validate(payload)
+
+
+def test_attachment_rejects_file_url_and_base64_together():
+    # Providing both file_url and base64 is ambiguous -> rejected by oneOf.
+    payload = _valid_attachment()
+    payload["base64"] = "aGVsbG8="
+    payload["fileSize"] = 5
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_purchase_order_attachment_schema).validate(payload)
+
+
+def test_to_data_uri_wraps_raw_base64():
+    assert to_data_uri("aGVsbG8=", "application/pdf") == (
+        "data:application/pdf;base64,aGVsbG8="
+    )
+
+
+def test_to_data_uri_leaves_existing_data_uri_untouched():
+    data_uri = "data:application/pdf;base64,aGVsbG8="
+    assert to_data_uri(data_uri, "application/pdf") == data_uri
