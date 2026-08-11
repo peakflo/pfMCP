@@ -24,6 +24,7 @@ python src/servers/peakflo/main.py auth
 | **create_invoice** | Create an invoice with line items, customer info, and financial breakdown. |
 | **update_invoice** | Update an existing invoice. |
 | **update_purchase_order** | Update an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId`). Full-object update — supply the complete field set; `customField` replaces the existing custom-field array (no merge); `status` is carried for validation but does not transition the PO. |
+| **add_purchase_order_attachment** | Add an attachment to an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId/attachments`). Supply the file via a signed `file_url` (server downloads, base64-encodes, and computes `fileSize`) or directly via `base64` (with `fileSize`). Supports AP attachment file types (invoice, statement, cabinet, paymentProof, fakturPajak, whtFile, etc.). |
 | **raise_invoice_dispute** | Raise a dispute for an invoice. |
 | **soa_email** | Send an SOA (statement of account) email to the vendor. Kept for backwards compat — prefer `send_message` for new use cases. |
 | **send_message** | Send an ad-hoc message to a customer via email/WhatsApp/SMS/Zalo/Line, or log a manual call. Channel-first; routes through `/v2/messages/send`. |

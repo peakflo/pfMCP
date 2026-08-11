@@ -332,3 +332,84 @@ update_purchase_order_schema = {
     ],
     "additionalProperties": False,
 }
+
+
+# AP attachment file type enum, mirroring ApAttachmentType in
+# peakflo-schema/src/schemas/ap/constants.ts
+ap_attachment_file_types = [
+    "transaction",
+    "statement",
+    "cabinet",
+    "invoice",
+    "other",
+    "paymentProof",
+    "incomingFile",
+    "customFieldFile",
+    "fakturPajak",
+    "payerReceipt",
+    "whtFile",
+    "eStampFile",
+    "shippingList",
+    "dscSigned",
+]
+
+
+add_purchase_order_attachment_schema = {
+    "type": "object",
+    "description": (
+        "Add an attachment to an existing purchase order. Supply the file "
+        "via a signed 'file_url' (the server downloads it, base64-encodes the "
+        "content and computes fileSize) or directly via 'base64' (in which "
+        "case 'fileSize' must also be provided)."
+    ),
+    "properties": {
+        "poExternalId": {
+            "type": "string",
+            "description": "External ID of the purchase order to attach the file to (used in URL path)",
+        },
+        "tenantId": {
+            "type": "string",
+            "description": "Tenant ID",
+        },
+        "id": {
+            "type": "string",
+            "description": "Attachment id",
+        },
+        "name": {
+            "type": "string",
+            "description": "Attachment file name, e.g. ENOVA-ACCLIVIS-170326-1.pdf",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type of the attachment (e.g., application/pdf)",
+        },
+        "fileSize": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Byte size of the attachment. Computed automatically when file_url is provided; required when supplying base64 directly.",
+        },
+        "file_url": {
+            "type": "string",
+            "description": "Signed URL to download the file. The server fetches the file, base64-encodes its content, and computes fileSize before forwarding to the Peakflo API.",
+        },
+        "base64": {
+            "type": "string",
+            "description": "Base64-encoded file content (a data URI or raw base64). Provide this, or file_url, to supply the file. When provided directly, fileSize is required.",
+        },
+        "fileType": {
+            "type": "string",
+            "enum": ap_attachment_file_types,
+            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned",
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of when the attachment was created",
+        },
+        "includeWhenSent": {
+            "type": "boolean",
+            "description": "Whether to include this attachment when the purchase order is sent (default true)",
+        },
+    },
+    "required": ["poExternalId", "id", "name", "contentType", "fileType"],
+    "additionalProperties": False,
+}

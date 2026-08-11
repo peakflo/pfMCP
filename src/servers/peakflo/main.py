@@ -425,6 +425,48 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/purchase-order/{external_id}"
         message = "Purchase order updated successfully"
+    elif name == "add_purchase_order_attachment":
+        po_external_id = arguments.pop("poExternalId")
+        file_url = arguments.pop("file_url", None)
+        if file_url:
+            try:
+                async with httpx.AsyncClient() as dl_client:
+                    dl_response = await dl_client.get(file_url, timeout=60.0)
+                    dl_response.raise_for_status()
+                    content = dl_response.content
+                    # The PO attachment endpoint decodes
+                    # base64.split(",")[1], so forward a data-URI string and
+                    # derive fileSize from the downloaded bytes.
+                    arguments["base64"] = (
+                        f"data:{arguments['contentType']};base64,"
+                        + base64.b64encode(content).decode("utf-8")
+                    )
+                    arguments["fileSize"] = len(content)
+                    logger.info(
+                        f"[add_purchase_order_attachment] Downloaded file from "
+                        f"URL ({len(content)} bytes) and base64-encoded"
+                    )
+            except Exception as dl_err:
+                raise ValueError(
+                    f"Failed to download file from file_url: {dl_err}"
+                ) from dl_err
+        elif "base64" not in arguments:
+            raise ValueError(
+                "Either file_url or base64 is required for "
+                "add_purchase_order_attachment"
+            )
+        else:
+            # Normalize a raw base64 payload (no data-URI prefix) so the
+            # endpoint's base64.split(",")[1] decode yields the file content.
+            raw_base64 = arguments["base64"]
+            if "," not in raw_base64:
+                arguments["base64"] = (
+                    f"data:{arguments.get('contentType', 'application/octet-stream')}"
+                    f";base64,{raw_base64}"
+                )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/purchase-order/{po_external_id}/attachments"
+        message = "Attachment added to purchase order successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
