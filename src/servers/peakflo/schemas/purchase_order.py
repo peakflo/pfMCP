@@ -408,14 +408,6 @@ add_purchase_order_attachment_schema = {
             "enum": ap_attachment_file_types,
             "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned",
         },
-        "dateCreated": {
-            "type": "string",
-            "description": "ISO 8601 timestamp of when the attachment was created",
-        },
-        "includeWhenSent": {
-            "type": "boolean",
-            "description": "Whether to include this attachment when the purchase order is sent (default true)",
-        },
     },
     "required": ["poExternalId", "id", "name", "contentType", "fileType"],
     "oneOf": [

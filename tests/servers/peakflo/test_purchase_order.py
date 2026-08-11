@@ -300,3 +300,14 @@ def test_to_data_uri_wraps_raw_base64():
 def test_to_data_uri_leaves_existing_data_uri_untouched():
     data_uri = "data:application/pdf;base64,aGVsbG8="
     assert to_data_uri(data_uri, "application/pdf") == data_uri
+
+
+def test_attachment_rejects_api_ignored_fields():
+    # includeWhenSent / dateCreated are ignored by the downstream API
+    # (api/functions/src/utils/attachment.ts hardcodes includeWhenSent=false
+    # and dateCreated=now), so they must not be advertised or accepted.
+    for field in ("includeWhenSent", "dateCreated"):
+        payload = _valid_attachment()
+        payload[field] = True if field == "includeWhenSent" else "2026-08-11T00:00:00Z"
+        with pytest.raises(ValidationError):
+            Draft7Validator(add_purchase_order_attachment_schema).validate(payload)

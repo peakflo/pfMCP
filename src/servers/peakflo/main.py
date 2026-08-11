@@ -370,6 +370,17 @@ async def _download_and_encode(file_url: str) -> tuple[str, int]:
     return base64.b64encode(content).decode("utf-8"), len(content)
 
 
+_SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
+
+
+def _redact_for_log(arguments: dict) -> dict:
+    """Return a copy of arguments with sensitive payloads replaced."""
+    return {
+        key: ("<redacted>" if key in _SENSITIVE_ARG_KEYS else value)
+        for key, value in arguments.items()
+    }
+
+
 async def make_peakflo_request(name, arguments, token):
     arguments = dict(arguments or {})
     headers = {
@@ -583,7 +594,8 @@ async def make_peakflo_request(name, arguments, token):
         raise ValueError(f"Unknown tool call: {name}")
 
     logger.info(
-        f"[make_peakflo_request] method: {method}, url: {url}, arguments: {arguments}"
+        f"[make_peakflo_request] method: {method}, url: {url}, "
+        f"arguments: {_redact_for_log(arguments)}"
     )
     try:
         async with httpx.AsyncClient() as client:
