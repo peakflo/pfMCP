@@ -365,9 +365,10 @@ add_purchase_order_attachment_schema = {
     "type": "object",
     "description": (
         "Add an attachment to an existing purchase order. Supply the file "
-        "via a signed 'file_url' (the server downloads it, base64-encodes the "
-        "content and computes fileSize) or directly via 'base64' (in which "
-        "case 'fileSize' must also be provided)."
+        "via exactly one of: a signed 'file_url' (the server downloads it, "
+        "base64-encodes the content and computes fileSize), or directly via "
+        "'base64' (in which case 'fileSize' must also be provided). "
+        "Providing both is rejected. Files over 10MB are rejected."
     ),
     "properties": {
         "poExternalId": {
@@ -411,8 +412,8 @@ add_purchase_order_attachment_schema = {
     },
     "required": ["poExternalId", "id", "name", "contentType", "fileType"],
     "oneOf": [
-        {"required": ["file_url"]},
-        {"required": ["base64", "fileSize"]},
+        {"required": ["file_url"], "not": {"required": ["base64"]}},
+        {"required": ["base64", "fileSize"], "not": {"required": ["file_url"]}},
     ],
     "additionalProperties": False,
 }

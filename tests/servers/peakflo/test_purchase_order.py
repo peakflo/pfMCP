@@ -1,8 +1,10 @@
 """
-Network-free unit tests for the Peakflo update_purchase_order tool.
+Network-free unit tests for the Peakflo purchase-order tools
+(update_purchase_order, add_purchase_order_attachment).
 
 Covers the schema contract (required fields, replace semantics, shared
-custom-field schema reuse) without requiring MCP or live credentials.
+custom-field schema reuse, file-source exclusivity) without requiring MCP
+or live credentials.
 """
 
 import sys
@@ -311,3 +313,16 @@ def test_attachment_rejects_api_ignored_fields():
         payload[field] = True if field == "includeWhenSent" else "2026-08-11T00:00:00Z"
         with pytest.raises(ValidationError):
             Draft7Validator(add_purchase_order_attachment_schema).validate(payload)
+
+
+def test_attachment_rejects_file_url_and_base64_without_file_size():
+    # file_url + base64 together, with fileSize omitted, used to slip
+    # through: the file_url branch of oneOf matched (only requires
+    # file_url) while the base64 branch failed (missing fileSize), so
+    # oneOf saw exactly one match and passed. The "not" constraints on
+    # each branch make the two sources mutually exclusive regardless of
+    # which other fields are present.
+    payload = _valid_attachment()
+    payload["base64"] = "aGVsbG8="
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_purchase_order_attachment_schema).validate(payload)

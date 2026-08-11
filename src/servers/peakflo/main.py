@@ -361,12 +361,27 @@ async def _call_source_system_tool_via_peakflo_connection(
     return result.root.content
 
 
+# Peakflo's attachment size limit; base64 inflates the encoded payload by
+# ~33%, so this is checked against the raw (pre-encoding) byte size.
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+
+def _ensure_within_attachment_size_limit(byte_size: int) -> None:
+    if byte_size > MAX_ATTACHMENT_BYTES:
+        raise ValueError(
+            f"Attachment is {byte_size} bytes, which exceeds the "
+            f"{MAX_ATTACHMENT_BYTES}-byte ({MAX_ATTACHMENT_BYTES // (1024 * 1024)}MB) "
+            "attachment size limit."
+        )
+
+
 async def _download_and_encode(file_url: str) -> tuple[str, int]:
     """Download a file and return (base64-encoded content, byte length)."""
     async with httpx.AsyncClient() as dl_client:
         dl_response = await dl_client.get(file_url, timeout=60.0)
         dl_response.raise_for_status()
         content = dl_response.content
+    _ensure_within_attachment_size_limit(len(content))
     return base64.b64encode(content).decode("utf-8"), len(content)
 
 
@@ -468,6 +483,7 @@ async def make_peakflo_request(name, arguments, token):
         else:
             # Normalize a raw base64 payload (no data-URI prefix) so the
             # endpoint's base64.split(",")[1] decode yields the file content.
+            _ensure_within_attachment_size_limit(arguments["fileSize"])
             arguments["base64"] = to_data_uri(
                 arguments["base64"],
                 arguments.get("contentType", "application/octet-stream"),
