@@ -35,6 +35,7 @@ Search and read emails in Gmail with full text body and attachment metadata.
 Parameters:
 - `query` (string, required) — Gmail search query (e.g. `from:someone@example.com`, `subject:important`)
 - `max_results` (integer) — Maximum number of emails to return (default: 10)
+- `page_token` (string) — Token returned by the previous structured response
 - `include_body` (boolean) — Include email body text in results (default: true)
 - `include_attachments_info` (boolean) — Include attachment metadata in results (default: true)
 
@@ -47,7 +48,7 @@ Parameters:
 - `email_id` (string, required) — ID of the email containing the attachment
 - `attachment_id` (string, required) — ID of the attachment (from `read_emails` results)
 
-Returns a signed URL (expires in 1 hour) to download the file.
+Returns the signed URL as both human-readable text and an MCP resource link.
 
 **Storage configuration:**
 - For local development: set `STORAGE_PROVIDER=local` (files saved to `LOCAL_STORAGE_DIR`, defaults to `/tmp/pfmcp-attachments`)

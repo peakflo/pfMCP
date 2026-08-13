@@ -1,14 +1,19 @@
 from typing import List
 from mcp.types import Tool
 
-from peakflo.tools.peakflo_api import vendor_tools, invoice_tools, utility_tools
+from peakflo.tools.peakflo_api import (
+    vendor_tools,
+    invoice_tools,
+    purchase_order_tools,
+    utility_tools,
+)
 
 
 class PeakfloApiToolFactory:
 
     @staticmethod
     def get_all_tools() -> List[Tool]:
-        return [*vendor_tools, *invoice_tools, *utility_tools]
+        return [*vendor_tools, *invoice_tools, *purchase_order_tools, *utility_tools]
 
     @staticmethod
     def build_tool(tool_schema: dict) -> Tool:
