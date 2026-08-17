@@ -491,6 +491,40 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/purchase-order/{po_external_id}/attachments"
         message = "Attachment added to purchase order successfully"
+    elif name == "add_bill_attachment":
+        bill_external_id = arguments.pop("billExternalId")
+        file_url = arguments.pop("file_url", None)
+        if file_url:
+            try:
+                raw_base64, byte_size = await _download_and_encode(file_url)
+                # The bill attachment endpoint decodes base64.split(",")[1], so
+                # forward a data-URI string and derive fileSize from the
+                # downloaded bytes.
+                arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
+                arguments["fileSize"] = byte_size
+                logger.info(
+                    f"[add_bill_attachment] Downloaded file from URL "
+                    f"({byte_size} bytes) and base64-encoded"
+                )
+            except Exception as dl_err:
+                raise ValueError(
+                    f"Failed to download file from file_url: {dl_err}"
+                ) from dl_err
+        elif "base64" not in arguments:
+            raise ValueError(
+                "Either file_url or base64 is required for " "add_bill_attachment"
+            )
+        else:
+            # Normalize a raw base64 payload (no data-URI prefix) so the
+            # endpoint's base64.split(",")[1] decode yields the file content.
+            _ensure_within_attachment_size_limit(arguments["fileSize"])
+            arguments["base64"] = to_data_uri(
+                arguments["base64"],
+                arguments.get("contentType", "application/octet-stream"),
+            )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
+        message = "Attachment added to bill successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
