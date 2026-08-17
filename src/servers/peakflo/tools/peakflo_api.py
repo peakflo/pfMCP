@@ -28,6 +28,7 @@ from servers.peakflo.schemas.purchase_order import (
     update_purchase_order_schema,
     add_purchase_order_attachment_schema,
 )
+from servers.peakflo.schemas.bill import add_bill_attachment_schema
 
 vendor_tools = [
     Tool(
@@ -95,6 +96,15 @@ purchase_order_tools = [
         name="add_purchase_order_attachment",
         description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
         inputSchema=add_purchase_order_attachment_schema,
+    ),
+]
+
+
+bill_tools = [
+    Tool(
+        name="add_bill_attachment",
+        description="Add an attachment to an existing bill by its external ID (PUT /v1/bill/:billExternalId/attachments). Accepts exactly one file source: a signed file URL (file_url) which the server downloads, base64-encodes and computes fileSize automatically, or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        inputSchema=add_bill_attachment_schema,
     ),
 ]
 
