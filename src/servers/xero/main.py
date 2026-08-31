@@ -436,6 +436,12 @@ def create_server(user_id, api_key=None, credential_resolver=None):
                             "description": "Page number for pagination (starts at 1)",
                             "minimum": 1,
                         },
+                        "pageSize": {
+                            "type": "integer",
+                            "description": "Number of invoices per page (1-100, defaults to 10)",
+                            "minimum": 1,
+                            "maximum": 100,
+                        },
                         "contactIds": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -2460,7 +2466,13 @@ def create_server(user_id, api_key=None, credential_resolver=None):
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
             elif name == "list_invoices":
-                params = {"order": "Date DESC", "pageSize": 10}
+                page_size = arguments.get("pageSize", 10)
+                if not isinstance(page_size, int) or isinstance(page_size, bool):
+                    raise ValueError("pageSize must be an integer between 1 and 100")
+                if page_size < 1 or page_size > 100:
+                    raise ValueError("pageSize must be between 1 and 100")
+
+                params = {"order": "Date DESC", "pageSize": page_size}
                 page = arguments.get("page", 1)
                 params["page"] = page
 
