@@ -52,6 +52,29 @@ async def test_schema_new_tools_exist():
         assert tool.name == tool_name
 
 
+async def test_list_invoices_schema_exposes_bounded_page_size():
+    tool = await _get_tool_schema("list_invoices")
+    page_size = tool.inputSchema["properties"]["pageSize"]
+
+    assert page_size["type"] == "integer"
+    assert page_size["minimum"] == 1
+    assert page_size["maximum"] == 100
+
+
+async def test_list_invoices_passes_page_size_to_xero():
+    _, api_mock = await _invoke(
+        "list_invoices",
+        {"page": 3, "pageSize": 100},
+        api_responses=[{"Invoices": []}],
+    )
+
+    assert api_mock.call_args.args[0] == "/api.xro/2.0/Invoices"
+    params = api_mock.call_args.kwargs["params"]
+    assert params["page"] == 3
+    assert params["pageSize"] == 100
+    assert params["order"] == "Date DESC"
+
+
 async def test_list_bank_transfers_builds_expected_where_clause():
     _, api_mock = await _invoke(
         "list_bank_transfers",
