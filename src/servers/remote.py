@@ -4,22 +4,20 @@ import uvicorn
 import argparse
 import importlib.util
 from pathlib import Path
-import threading
 import contextlib
-import time
-import json
-from typing import Dict, Any, AsyncIterator
+from typing import AsyncIterator
 from starlette.routing import Route, Mount
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
 from starlette.types import Receive, Scope, Send
-from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # Production mode: set DEBUG=true in environment to enable debug mode
 DEBUG_MODE = os.environ.get("DEBUG", "false").lower() == "true"
 
 from mcp.server.lowlevel import Server
-from mcp.server import streamable_http_manager
+
+from http_lifecycle import McpHttpLifecycle, StreamingSessionRegistry
 
 # Configure logging
 logging.basicConfig(
@@ -29,35 +27,6 @@ logger = logging.getLogger("pfmcp-server")
 
 # Dictionary to store servers
 servers = {}
-
-# Prometheus metrics
-active_connections = Gauge(
-    "gumcp_active_connections", "Number of active SSE connections", ["server"]
-)
-connection_total = Counter(
-    "gumcp_connection_total", "Total number of SSE connections", ["server"]
-)
-
-# Default metrics port
-METRICS_PORT = 9091
-
-
-def debug_session_store(event: str, session_id: str = None):
-    """Debug session management state with structured JSON logging
-
-    Args:
-        event: Description of the event that triggered this debug log
-        session_id: Optional specific session to look for. If None, shows all sessions.
-    """
-
-    debug_data = {
-        "event": event,
-        "timestamp": time.time(),
-        "session_id": session_id,
-        "stateless_mode": True,
-    }
-
-    logger.debug(f"SESSION_DEBUG: {json.dumps(debug_data, indent=2)}")
 
 
 def discover_servers():
@@ -105,26 +74,9 @@ def discover_servers():
     logger.info(f"Discovered {len(servers)} servers")
 
 
-def create_metrics_app():
-    """Create a separate Starlette app just for metrics"""
-
-    async def metrics_endpoint(request):
-        """Prometheus metrics endpoint"""
-        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-    routes = [Route("/metrics", endpoint=metrics_endpoint)]
-
-    app = Starlette(
-        debug=DEBUG_MODE,
-        routes=routes,
-    )
-
-    return app
-
-
 # @profile
 def create_server_for_session(server_name: str, session_key_encoded: str) -> Server:
-    """Create a stateless MCP server for a specific session"""
+    """Create an isolated MCP server for one authenticated endpoint."""
 
     # Parse user_id and api_key from session_key_encoded
     user_id = None
@@ -136,74 +88,49 @@ def create_server_for_session(server_name: str, session_key_encoded: str) -> Ser
     else:
         user_id = session_key_encoded
 
-    session_key = f"{server_name}:{session_key_encoded}"
-
-    logger.info(f"Creating stateless server for {server_name} with session: {user_id}")
-
-    # Debug session state
-    debug_session_store("stateless_server_creation", session_key)
+    # Never log session_key_encoded: pfMCP URLs may contain an API key.
+    logger.info(f"Creating MCP server for {server_name} and user: {user_id}")
 
     # Get server factory and create server instance
     server_info = servers[server_name]
     create_server = server_info["create_server"]
-    get_init_options = server_info["get_initialization_options"]
-
     # Create and return the server instance directly
     server = create_server(user_id, api_key)
-
-    # Increment metrics
-    connection_total.labels(server=server_name).inc()
 
     return server
 
 
 def create_starlette_app():
-    """Create a Starlette app with stateless MCP servers"""
+    """Create an app with one-shot and guarded streaming MCP lifecycles."""
 
     # Discover and load all servers
     discover_servers()
 
-    # Create session managers for each server
-    session_managers = {}
-
-    for server_name in servers.keys():
-        # Create a session manager factory for this server
-        def create_session_manager_for_server(name):
-            def session_manager_factory(scope: Scope):
-                # Extract session_key from the path
-                path_parts = scope["path"].strip("/").split("/")
-                if len(path_parts) >= 2 and path_parts[0] == name:
-                    session_key_encoded = path_parts[1]
-
-                    # Create server for this session
-                    server = create_server_for_session(name, session_key_encoded)
-
-                    # Create session manager with stateless mode
-                    return streamable_http_manager.StreamableHTTPSessionManager(
-                        app=server,
-                        event_store=None,
-                        json_response=False,
-                        stateless=True,
-                    )
-                return None
-
-            return session_manager_factory
-
-        session_managers[server_name] = create_session_manager_for_server(server_name)
+    streaming_registry = StreamingSessionRegistry()
+    lifecycle = McpHttpLifecycle(streaming_registry)
 
     # Create handlers for each server
     def create_server_handler(server_name: str):
         async def handle_server_request(
             scope: Scope, receive: Receive, send: Send
         ) -> None:
-            session_manager = session_managers[server_name](scope)
-            if session_manager:
-                async with session_manager.run():
-                    await session_manager.handle_request(scope, receive, send)
-            else:
+            path_parts = scope["path"].strip("/").split("/")
+            if len(path_parts) < 2 or path_parts[0] != server_name:
                 # Return 404 if session manager couldn't be created
                 response = Response("Session not found", status_code=404)
                 await response(scope, receive, send)
+                return
+
+            session_key_encoded = path_parts[1]
+            endpoint_key = f"{server_name}:{session_key_encoded}"
+            await lifecycle.handle(
+                endpoint_key,
+                server_name,
+                lambda: create_server_for_session(server_name, session_key_encoded),
+                scope,
+                receive,
+                send,
+            )
 
         return handle_server_request
 
@@ -216,7 +143,7 @@ def create_starlette_app():
         # Mount the server handler at /{server_name}/
         routes.append(Mount(f"/{server_name}", app=handler))
 
-        logger.info(f"Added stateless routes for server: {server_name}")
+        logger.info(f"Added managed routes for server: {server_name}")
 
     # Health checks — do not expose server list in unauthenticated endpoints
     async def root_handler(request):
@@ -225,7 +152,7 @@ def create_starlette_app():
             {
                 "status": "ok",
                 "message": "pfMCP server running",
-                "mode": "stateless",
+                "mode": "managed",
                 "server_count": len(servers),
             }
         )
@@ -235,19 +162,25 @@ def create_starlette_app():
     async def health_check(request):
         """Health check endpoint"""
         return JSONResponse(
-            {"status": "ok", "mode": "stateless", "server_count": len(servers)}
+            {"status": "ok", "mode": "managed", "server_count": len(servers)}
         )
 
     routes.append(Route("/health_check", endpoint=health_check))
 
+    async def metrics_endpoint(request):
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    routes.append(Route("/metrics", endpoint=metrics_endpoint))
+
     @contextlib.asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         """Application lifespan context manager"""
-        logger.info("Application started with stateless MCP servers!")
-        try:
-            yield
-        finally:
-            logger.info("Application shutting down...")
+        logger.info("Application started with managed MCP lifecycle")
+        async with streaming_registry.run():
+            try:
+                yield
+            finally:
+                logger.info("Application shutting down...")
 
     app = Starlette(
         debug=DEBUG_MODE,
@@ -258,16 +191,9 @@ def create_starlette_app():
     return app
 
 
-def run_metrics_server(host, port):
-    """Run a separate metrics server on the specified port"""
-    metrics_app = create_metrics_app()
-    logger.info(f"Starting metrics server on {host}:{port}")
-    uvicorn.run(metrics_app, host=host, port=port)
-
-
 def main():
     """Main entry point for the Starlette server"""
-    parser = argparse.ArgumentParser(description="guMCP Stateless Server")
+    parser = argparse.ArgumentParser(description="pfMCP managed HTTP server")
     parser.add_argument("--host", default="0.0.0.0", help="Host for Starlette server")
     parser.add_argument(
         "--port", type=int, default=8000, help="Port for Starlette server"
@@ -275,16 +201,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Start metrics server in background
-    metrics_thread = threading.Thread(
-        target=run_metrics_server, args=(args.host, METRICS_PORT), daemon=True
-    )
-    metrics_thread.start()
-    logger.info(f"Starting Metrics server on http://{args.host}:{METRICS_PORT}/metrics")
-
     # Run the main Starlette server
     app = create_starlette_app()
-    logger.info(f"Starting stateless Starlette server on {args.host}:{args.port}")
+    logger.info(f"Starting managed Starlette server on {args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
 
 

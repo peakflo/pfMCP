@@ -1,0 +1,56 @@
+displayName: MCP lifecycle and pfMCP cost guardrails
+combiner: OR
+notificationChannels:
+  - __NOTIFICATION_CHANNEL__
+documentation:
+  content: >-
+    MCP lifecycle regression: inspect workflow-api client open/close balance,
+    pf-mcp receive streams, GET/POST traffic, and Cloud Run instance count.
+  mimeType: text/markdown
+conditions:
+  - displayName: MCP client opens exceed closes
+    conditionPrometheusQueryLanguage:
+      duration: 300s
+      evaluationInterval: 60s
+      query: >-
+        sum(increase(logging_googleapis_com:user_mcp_clients_opened[10m]))
+        - sum(increase(logging_googleapis_com:user_mcp_clients_closed[10m])) > 5
+  - displayName: MCP cleanup failure
+    conditionPrometheusQueryLanguage:
+      duration: 0s
+      evaluationInterval: 60s
+      query: sum(increase(logging_googleapis_com:user_mcp_cleanup_failures[5m])) > 0
+  - displayName: pfMCP active session growth
+    conditionPrometheusQueryLanguage:
+      duration: 300s
+      evaluationInterval: 60s
+      query: >-
+        sum(increase(logging_googleapis_com:user_pfmcp_sessions_opened[10m]))
+        - sum(increase(logging_googleapis_com:user_pfmcp_sessions_closed[10m])) > 5
+  - displayName: pfMCP receive stream reconnect
+    conditionPrometheusQueryLanguage:
+      duration: 0s
+      evaluationInterval: 60s
+      query: sum(increase(logging_googleapis_com:user_pfmcp_stream_reconnects[5m])) > 0
+  - displayName: pfMCP receive stream older than four minutes
+    conditionPrometheusQueryLanguage:
+      duration: 0s
+      evaluationInterval: 60s
+      query: sum(increase(logging_googleapis_com:user_pfmcp_old_streams[5m])) > 0
+  - displayName: pfMCP GET to POST ratio above ten percent
+    conditionPrometheusQueryLanguage:
+      duration: 300s
+      evaluationInterval: 60s
+      query: >-
+        sum(rate(logging_googleapis_com:user_pfmcp_http_get[10m]))
+        / clamp_min(sum(rate(logging_googleapis_com:user_pfmcp_http_post[10m])), 0.001) > 0.1
+  - displayName: pfMCP instance count above canary baseline
+    conditionPrometheusQueryLanguage:
+      duration: 600s
+      evaluationInterval: 60s
+      query: >-
+        sum(run_googleapis_com:container_instance_count{resource_project_id="__PROJECT_ID__",resource_service_name="pf-mcp"}) > 3
+alertStrategy:
+  autoClose: 1800s
+  notificationRateLimit:
+    period: 900s
