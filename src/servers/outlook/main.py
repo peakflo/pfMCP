@@ -399,7 +399,7 @@ def create_server(user_id, api_key=None):
 
                 # Build request parameters
                 params = {
-                    "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments",
+                    "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,conversationId",
                     "$top": count,
                     "$orderby": "receivedDateTime desc",
                 }
@@ -525,6 +525,7 @@ def create_server(user_id, api_key=None):
 
                     email_info = {
                         "id": email.get("id"),
+                        "conversationId": email.get("conversationId", ""),
                         "subject": subject,
                         "from": {"name": from_name, "email": from_email},
                         "to": to_recipients,
