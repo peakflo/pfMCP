@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 
 from mcp.types import TextContent, Tool, ImageContent, EmbeddedResource
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client

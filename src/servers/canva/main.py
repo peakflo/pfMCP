@@ -14,10 +14,9 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from mcp.types import (
-    AnyUrl,
     Resource,
     TextContent,
     ImageContent,
@@ -431,7 +430,7 @@ def create_server(user_id: str, api_key: str = None) -> Server:
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read a Canva design resource"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

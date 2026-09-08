@@ -19,11 +19,12 @@ annotated-types==0.7.0
     # via pydantic
 anthropic==0.49.0
     # via -r requirements.in
-anyio==4.9.0
+anyio==4.15.1
     # via
     #   anthropic
     #   browserbase
     #   httpx
+    #   httpx2
     #   mcp
     #   sse-starlette
     #   starlette
@@ -157,11 +158,14 @@ h11==0.16.0
     # via
     #   -r requirements.in
     #   httpcore
+    #   httpcore2
     #   uvicorn
 httpcore==1.0.9
     # via
     #   -r requirements.in
     #   httpx
+httpcore2==2.12.0
+    # via httpx2
 httplib2==0.22.0
     # via
     #   google-api-python-client
@@ -171,14 +175,14 @@ httpx==0.28.1
     #   anthropic
     #   atproto
     #   browserbase
-    #   mcp
     #   notion-client
-httpx-sse==0.4.0
+httpx2==2.12.0
     # via mcp
-idna==3.10
+idna==3.19
     # via
     #   anyio
     #   httpx
+    #   httpx2
     #   requests
     #   snowflake-connector-python
     #   yarl
@@ -202,8 +206,10 @@ mailchimp-marketing==3.0.80
     # via -r requirements.in
 mailerlite==0.1.10
     # via -r requirements.in
-mcp==1.12.3
+mcp==2.2.0
     # via -r requirements.in
+mcp-types==2.2.0
+    # via mcp
 more-itertools==10.6.0
     # via simple-salesforce
 multidict==6.2.0
@@ -214,6 +220,8 @@ notion-client==2.3.0
     # via -r requirements.in
 oauthlib==3.2.2
     # via requests-oauthlib
+opentelemetry-api==1.44.0
+    # via mcp
 packaging==24.2
     # via snowflake-connector-python
 platformdirs==4.3.7
@@ -253,17 +261,15 @@ pyasn1-modules==0.4.2
     # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==2.11.3
+pydantic==2.13.5
     # via
     #   anthropic
     #   atproto
     #   browserbase
     #   mcp
-    #   pydantic-settings
-pydantic-core==2.33.1
+    #   mcp-types
+pydantic-core==2.46.5
     # via pydantic
-pydantic-settings==2.8.1
-    # via mcp
 pyee==12.1.1
     # via playwright
 pygithub==2.6.1
@@ -271,6 +277,7 @@ pygithub==2.6.1
 pyjwt[crypto]==2.10.1
     # via
     #   intuit-oauth
+    #   mcp
     #   pygithub
     #   simple-salesforce
     #   snowflake-connector-python
@@ -288,9 +295,7 @@ python-dateutil==2.9.0.post0
 python-docx==1.1.2
     # via -r requirements.in
 python-dotenv==1.1.0
-    # via
-    #   -r requirements.in
-    #   pydantic-settings
+    # via -r requirements.in
 python-multipart==0.0.20
     # via mcp
 python-quickbooks==0.9.11
@@ -352,7 +357,6 @@ slack-sdk==3.35.0
 sniffio==1.3.1
     # via
     #   anthropic
-    #   anyio
     #   browserbase
 snowflake-connector-python==3.14.0
     # via -r requirements.in
@@ -360,28 +364,35 @@ sortedcontainers==2.4.0
     # via snowflake-connector-python
 soupsieve==2.6
     # via beautifulsoup4
-sse-starlette==2.2.1
+sse-starlette==3.0.3
     # via mcp
 starlette==0.46.1
     # via
     #   -r requirements.in
     #   mcp
-    #   sse-starlette
 stone==3.3.1
     # via dropbox
 stripe==12.0.0
     # via -r requirements.in
 tomlkit==0.13.2
     # via snowflake-connector-python
+truststore==0.10.4
+    # via
+    #   httpcore2
+    #   httpx2
 twilio==9.5.2
     # via -r requirements.in
-typing-extensions==4.13.0
+typing-extensions==4.16.0
     # via
     #   anthropic
+    #   anyio
     #   atproto
     #   beautifulsoup4
     #   browserbase
     #   grpcio
+    #   mcp
+    #   mcp-types
+    #   opentelemetry-api
     #   pydantic
     #   pydantic-core
     #   pyee
@@ -391,8 +402,10 @@ typing-extensions==4.13.0
     #   snowflake-connector-python
     #   stripe
     #   typing-inspection
-typing-inspection==0.4.0
-    # via pydantic
+typing-inspection==0.4.4
+    # via
+    #   mcp
+    #   pydantic
 uritemplate==4.1.1
     # via google-api-python-client
 urllib3==2.3.0
