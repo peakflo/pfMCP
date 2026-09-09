@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional, List
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from browserbase import Browserbase
@@ -19,6 +18,7 @@ project_root = os.path.abspath(
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+from src.utils.mcp_compat import NotificationOptions, Server
 
 SERVICE_NAME = Path(__file__).parent.name
 

@@ -26,7 +26,6 @@ from src.servers.xero import main as xero_main
 async def _invoke(tool_name: str, arguments: dict, api_responses: list):
     """Run the call_tool handler with mocked Xero + Nango."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     api_mock = AsyncMock(side_effect=api_responses)
     creds_mock = AsyncMock(return_value=("fake-token", "fake-tenant"))
@@ -38,16 +37,15 @@ async def _invoke(tool_name: str, arguments: dict, api_responses: list):
             method="tools/call",
             params=CallToolRequestParams(name=tool_name, arguments=arguments),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
     return result, api_mock
 
 
 async def _get_tool_schema(tool_name: str):
     """Get the tool schema from list_tools handler."""
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    return next(t for t in result.root.tools if t.name == tool_name)
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    return next(t for t in result.tools if t.name == tool_name)
 
 
 # ==================== create_bank_transfer Tests ====================
@@ -55,12 +53,12 @@ async def _get_tool_schema(tool_name: str):
 
 async def test_create_bank_transfer_schema():
     tool = await _get_tool_schema("create_bank_transfer")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "fromAccountId" in props
     assert "toAccountId" in props
     assert "amount" in props
     assert props["amount"]["type"] == "number"
-    assert set(tool.inputSchema["required"]) == {
+    assert set(tool.input_schema["required"]) == {
         "fromAccountId",
         "toAccountId",
         "amount",
@@ -112,7 +110,7 @@ async def test_create_bank_transfer_rejects_missing_fields():
         {"fromAccountId": "acc-from"},
         api_responses=[],
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "required" in text.lower() or "Error" in text
     assert api_mock.call_count == 0
     print("PASS  create_bank_transfer rejects missing required fields")
@@ -128,7 +126,7 @@ async def test_create_bank_transfer_rejects_negative_amount():
         },
         api_responses=[],
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     # MCP framework validates exclusiveMinimum: 0 from the schema
     assert (
         "validation error" in text.lower()
@@ -165,7 +163,7 @@ async def test_create_bank_transfer_defaults_date():
 
 async def test_create_batch_payment_schema():
     tool = await _get_tool_schema("create_batch_payment")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "accountId" in props
     assert "date" in props
     assert "payments" in props
@@ -173,7 +171,7 @@ async def test_create_batch_payment_schema():
     payment_item_props = props["payments"]["items"]["properties"]
     assert "invoiceId" in payment_item_props
     assert "amount" in payment_item_props
-    assert set(tool.inputSchema["required"]) == {"accountId", "date", "payments"}
+    assert set(tool.input_schema["required"]) == {"accountId", "date", "payments"}
     print("PASS  create_batch_payment schema is correct")
 
 
@@ -230,7 +228,7 @@ async def test_create_batch_payment_rejects_missing_fields():
         {"accountId": "bank-acc-1"},
         api_responses=[],
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "required" in text.lower() or "Error" in text
     assert api_mock.call_count == 0
     print("PASS  create_batch_payment rejects missing required fields")
@@ -248,7 +246,7 @@ async def test_create_batch_payment_rejects_incomplete_payment_items():
         },
         api_responses=[],
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     # MCP framework validates required fields in nested array items
     assert (
         "required" in text.lower() or "amount" in text.lower()
@@ -262,13 +260,13 @@ async def test_create_batch_payment_rejects_incomplete_payment_items():
 
 async def test_create_overpayment_schema():
     tool = await _get_tool_schema("create_overpayment")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "type" in props
     assert props["type"]["enum"] == ["RECEIVE-OVERPAYMENT", "SPEND-OVERPAYMENT"]
     assert "contactId" in props
     assert "bankAccountId" in props
     assert "lineItems" in props
-    assert set(tool.inputSchema["required"]) == {
+    assert set(tool.input_schema["required"]) == {
         "type",
         "contactId",
         "bankAccountId",
@@ -364,13 +362,13 @@ async def test_create_overpayment_spend_payload():
 
 async def test_create_prepayment_schema():
     tool = await _get_tool_schema("create_prepayment")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "type" in props
     assert props["type"]["enum"] == ["RECEIVE-PREPAYMENT", "SPEND-PREPAYMENT"]
     assert "contactId" in props
     assert "bankAccountId" in props
     assert "lineItems" in props
-    assert set(tool.inputSchema["required"]) == {
+    assert set(tool.input_schema["required"]) == {
         "type",
         "contactId",
         "bankAccountId",
@@ -464,7 +462,7 @@ async def test_create_prepayment_spend_payload():
 
 async def test_list_accounts_schema_has_filters():
     tool = await _get_tool_schema("list_accounts")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "type" in props
     assert "classType" in props
     assert props["classType"]["enum"] == [
@@ -538,7 +536,7 @@ async def test_list_accounts_no_filter():
 
 async def test_list_bank_transactions_schema_has_status():
     tool = await _get_tool_schema("list_bank_transactions")
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "status" in props
     assert props["status"]["enum"] == ["AUTHORISED", "DELETED"]
     print("PASS  list_bank_transactions schema has status filter")

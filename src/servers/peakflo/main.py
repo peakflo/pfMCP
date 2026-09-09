@@ -26,7 +26,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
@@ -295,8 +295,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
     if not integration:
         return []
     inner_server = integration["module"].create_server("tool-discovery")
-    list_handler = inner_server.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
+    result = await inner_server.dispatch(ListToolsRequest(method="tools/list"))
     prefix = integration["prefix"]
     label = integration["label"]
     return [
@@ -305,7 +304,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
             name=f"{prefix}{tool.name}",
             description=f"[{label}] {tool.description or tool.name}",
         )
-        for tool in result.root.tools
+        for tool in result.tools
     ]
 
 
@@ -348,8 +347,7 @@ async def _call_source_system_tool_via_peakflo_connection(
         api_key=server.api_key,
         credential_resolver=credential_resolver,
     )
-    call_handler = inner_server.request_handlers[CallToolRequest]
-    result = await call_handler(
+    result = await inner_server.dispatch(
         CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
@@ -358,7 +356,7 @@ async def _call_source_system_tool_via_peakflo_connection(
             ),
         )
     )
-    return result.root.content
+    return result.content
 
 
 # Peakflo's attachment size limit; base64 inflates the encoded payload by
