@@ -1,0 +1,20 @@
+name: "Peakflo Autonomous Agent"
+description: "Role-scoped tools for a signed Peakflo autonomous-agent session"
+documentation_path: "README.md"
+resources: []
+tools:
+  - name: "update_document"
+    description: "Live role-scoped document update"
+    required_scopes: []
+  - name: "approve"
+    description: "Approve the scoped document"
+    required_scopes: []
+  - name: "decline"
+    description: "Decline the scoped document"
+    required_scopes: []
+  - name: "manage_attachments"
+    description: "Add or remove scoped document attachments"
+    required_scopes: []
+  - name: "read_attachments"
+    description: "Read a scoped document attachment"
+    required_scopes: []
