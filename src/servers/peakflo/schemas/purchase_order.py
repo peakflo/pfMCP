@@ -354,6 +354,46 @@ ap_attachment_file_types = [
 ]
 
 
+# Pixel multi-file CF targeting — same shape as api ApAttachmentCustomFieldDetailsInput
+# and upload-functions / UI POST /v1/files customFieldDetails.
+custom_field_details_schema = {
+    "type": "object",
+    "description": (
+        "When set, the attachment is stored as customFieldFile on the named "
+        "Pixel multi-file custom field (customFieldId / number / name / type)."
+    ),
+    "properties": {
+        "customFieldId": {
+            "type": "string",
+            "description": "Pixel custom field id",
+        },
+        "customFieldNumber": {
+            "type": "string",
+            "description": "Custom field number",
+        },
+        "customFieldName": {
+            "type": "string",
+            "description": "Custom field display name",
+        },
+        "customFieldType": {
+            "type": "string",
+            "description": "Custom field type (typically multiFile)",
+        },
+        "customFieldSourceId": {
+            "type": "string",
+            "description": "Optional source id; defaults to customFieldId when omitted",
+        },
+    },
+    "required": [
+        "customFieldId",
+        "customFieldNumber",
+        "customFieldName",
+        "customFieldType",
+    ],
+    "additionalProperties": False,
+}
+
+
 def to_data_uri(raw_base64: str, content_type: str) -> str:
     """Wrap raw base64 as a data URI unless it already is one."""
     if "," in raw_base64:

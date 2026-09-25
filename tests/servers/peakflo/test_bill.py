@@ -16,7 +16,11 @@ _SERVERS_PATH = os.path.join(
 )
 sys.path.insert(0, _SERVERS_PATH)
 
-from peakflo.schemas.bill import add_bill_attachment_schema
+from peakflo.schemas.bill import (
+    add_bill_attachment_schema,
+    add_expense_report_attachment_schema,
+    add_bill_payment_attachment_schema,
+)
 from peakflo.schemas.purchase_order import ap_attachment_file_types, to_data_uri
 
 
@@ -160,3 +164,51 @@ def test_attachment_rejects_file_url_and_base64_without_file_size():
     payload["base64"] = "aGVsbG8="
     with pytest.raises(ValidationError):
         Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_attachment_accepts_custom_field_details():
+    payload = _valid_attachment()
+    payload["fileType"] = "customFieldFile"
+    payload["customFieldDetails"] = {
+        "customFieldId": "cf-1",
+        "customFieldNumber": "10",
+        "customFieldName": "Journal Entry",
+        "customFieldType": "multiFile",
+    }
+    Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_attachment_rejects_incomplete_custom_field_details():
+    payload = _valid_attachment()
+    payload["customFieldDetails"] = {
+        "customFieldId": "cf-1",
+        # missing required number / name / type
+    }
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_expense_report_and_payment_schemas_share_cf_contract():
+    for schema, id_field in (
+        (add_expense_report_attachment_schema, "externalId"),
+        (add_bill_payment_attachment_schema, "externalId"),
+    ):
+        assert id_field in schema["required"]
+        assert "customFieldDetails" in schema["properties"]
+        assert schema["additionalProperties"] is False
+        payload = {
+            id_field: "doc-1",
+            "tenantId": "tenant-1",
+            "id": "att-1",
+            "name": "file.xlsx",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "fileType": "customFieldFile",
+            "file_url": "https://example.com/signed.xlsx",
+            "customFieldDetails": {
+                "customFieldId": "cf-1",
+                "customFieldNumber": "10",
+                "customFieldName": "DV",
+                "customFieldType": "multiFile",
+            },
+        }
+        Draft7Validator(schema).validate(payload)

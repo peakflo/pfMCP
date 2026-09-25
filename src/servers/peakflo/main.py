@@ -394,6 +394,45 @@ def _redact_for_log(arguments: dict) -> dict:
     }
 
 
+async def _prepare_ap_attachment_body(
+    arguments: dict, *, tool_name: str
+) -> dict:
+    """
+    Shared file_url / base64 prep for bill, ER, and payment attach tools.
+    Also coerces fileType to customFieldFile when customFieldDetails is present
+    (matches api createAttachment behaviour).
+    """
+    file_url = arguments.pop("file_url", None)
+    if file_url:
+        try:
+            raw_base64, byte_size = await _download_and_encode(file_url)
+            arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
+            arguments["fileSize"] = byte_size
+            logger.info(
+                f"[{tool_name}] Downloaded file from URL "
+                f"({byte_size} bytes) and base64-encoded"
+            )
+        except Exception as dl_err:
+            raise ValueError(
+                f"Failed to download file from file_url: {dl_err}"
+            ) from dl_err
+    elif "base64" not in arguments:
+        raise ValueError(
+            f"Either file_url or base64 is required for {tool_name}"
+        )
+    else:
+        _ensure_within_attachment_size_limit(arguments["fileSize"])
+        arguments["base64"] = to_data_uri(
+            arguments["base64"],
+            arguments.get("contentType", "application/octet-stream"),
+        )
+
+    if arguments.get("customFieldDetails"):
+        arguments["fileType"] = "customFieldFile"
+
+    return arguments
+
+
 async def make_peakflo_request(name, arguments, token):
     arguments = dict(arguments or {})
     headers = {
@@ -491,38 +530,28 @@ async def make_peakflo_request(name, arguments, token):
         message = "Attachment added to purchase order successfully"
     elif name == "add_bill_attachment":
         bill_external_id = arguments.pop("billExternalId")
-        file_url = arguments.pop("file_url", None)
-        if file_url:
-            try:
-                raw_base64, byte_size = await _download_and_encode(file_url)
-                # The bill attachment endpoint decodes base64.split(",")[1], so
-                # forward a data-URI string and derive fileSize from the
-                # downloaded bytes.
-                arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
-                arguments["fileSize"] = byte_size
-                logger.info(
-                    f"[add_bill_attachment] Downloaded file from URL "
-                    f"({byte_size} bytes) and base64-encoded"
-                )
-            except Exception as dl_err:
-                raise ValueError(
-                    f"Failed to download file from file_url: {dl_err}"
-                ) from dl_err
-        elif "base64" not in arguments:
-            raise ValueError(
-                "Either file_url or base64 is required for " "add_bill_attachment"
-            )
-        else:
-            # Normalize a raw base64 payload (no data-URI prefix) so the
-            # endpoint's base64.split(",")[1] decode yields the file content.
-            _ensure_within_attachment_size_limit(arguments["fileSize"])
-            arguments["base64"] = to_data_uri(
-                arguments["base64"],
-                arguments.get("contentType", "application/octet-stream"),
-            )
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_attachment"
+        )
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
+    elif name == "add_expense_report_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_expense_report_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/expense-report/{external_id}/attachments"
+        message = "Attachment added to expense report successfully"
+    elif name == "add_bill_payment_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_payment_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/bill-payment/{external_id}/attachments"
+        message = "Attachment added to bill payment successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
