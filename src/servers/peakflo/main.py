@@ -394,9 +394,7 @@ def _redact_for_log(arguments: dict) -> dict:
     }
 
 
-async def _prepare_ap_attachment_body(
-    arguments: dict, *, tool_name: str
-) -> dict:
+async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dict:
     """
     Shared file_url / base64 prep for bill, ER, and payment attach tools.
     Also coerces fileType to customFieldFile when customFieldDetails is present
@@ -417,9 +415,7 @@ async def _prepare_ap_attachment_body(
                 f"Failed to download file from file_url: {dl_err}"
             ) from dl_err
     elif "base64" not in arguments:
-        raise ValueError(
-            f"Either file_url or base64 is required for {tool_name}"
-        )
+        raise ValueError(f"Either file_url or base64 is required for {tool_name}")
     else:
         _ensure_within_attachment_size_limit(arguments["fileSize"])
         arguments["base64"] = to_data_uri(
