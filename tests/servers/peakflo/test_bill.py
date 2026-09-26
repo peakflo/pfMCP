@@ -20,6 +20,7 @@ from peakflo.schemas.bill import (
     add_bill_attachment_schema,
     add_expense_report_attachment_schema,
     add_bill_payment_attachment_schema,
+    normalize_multifile_custom_field_type,
 )
 from peakflo.schemas.purchase_order import ap_attachment_file_types, to_data_uri
 
@@ -212,3 +213,21 @@ def test_expense_report_and_payment_schemas_share_cf_contract():
             },
         }
         Draft7Validator(schema).validate(payload)
+
+
+def test_normalize_multifile_custom_field_type_returns_canonical_value():
+    # Canonical CustomFieldType.MultiFile value per the real peakflo-schema
+    # package; the api repo's mocked "MUltifile" value and other casing
+    # variants are normalized so the API persists a value that strict
+    # downstream consumers recognize.
+    assert normalize_multifile_custom_field_type("multiFile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MUltifile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MultiFile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MULTIFILE") == "multiFile"
+    assert normalize_multifile_custom_field_type(" multifile ") == "multiFile"
+
+
+def test_normalize_multifile_custom_field_type_passes_others_through():
+    assert normalize_multifile_custom_field_type("") == ""
+    assert normalize_multifile_custom_field_type("Text") == "Text"
+    assert normalize_multifile_custom_field_type("not-a-multifile") == "not-a-multifile"

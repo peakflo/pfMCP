@@ -3,6 +3,30 @@ from peakflo.schemas.purchase_order import (
     custom_field_details_schema,
 )
 
+# Canonical value of CustomFieldType.MultiFile in the real
+# @peakflo/peakflo-schema package (both v4.x used by the api repo and the
+# v5.x used by upload-functions). The api repo's __mocks__/peakflo-schema.ts
+# mock ("MUltifile") is a test artifact only and does NOT reflect the real
+# contract.
+MULTIFILE_CUSTOM_FIELD_TYPE = "multiFile"
+
+
+def normalize_multifile_custom_field_type(custom_field_type: str) -> str:
+    """
+    Normalize a multi-file custom-field type to the canonical "multiFile" value.
+
+    The API-side customFieldDetails schemas accept any non-empty string and
+    persist it verbatim into bill/payment customFields, so a caller sending a
+    casing variant (e.g. the legacy "MUltifile" seen in old data, or
+    "MultiFile") would store a type that strict downstream consumers (UI
+    rendering, accounting sync, schema customFieldTypeValidation) do not
+    recognize. Case-insensitive multifile variants are collapsed to the
+    canonical value; anything else is passed through unchanged.
+    """
+    if (custom_field_type or "").strip().lower() == "multifile":
+        return MULTIFILE_CUSTOM_FIELD_TYPE
+    return custom_field_type
+
 
 def build_ap_attachment_schema(
     *,

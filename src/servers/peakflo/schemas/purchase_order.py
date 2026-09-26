@@ -377,7 +377,13 @@ custom_field_details_schema = {
         },
         "customFieldType": {
             "type": "string",
-            "description": "Custom field type (typically multiFile)",
+            "description": (
+                "Custom field type. The Peakflo API persists this value "
+                "verbatim; the canonical multi-file value is 'multiFile' "
+                "(CustomFieldType.MultiFile). Casing variants (e.g. legacy "
+                "'MUltifile', 'MultiFile') are normalized to 'multiFile' by the "
+                "server before forwarding."
+            ),
         },
         "customFieldSourceId": {
             "type": "string",

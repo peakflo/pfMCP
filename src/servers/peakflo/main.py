@@ -11,6 +11,7 @@ from pathlib import Path
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
 from servers.peakflo.schemas.purchase_order import to_data_uri
+from servers.peakflo.schemas.bill import normalize_multifile_custom_field_type
 
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
@@ -425,6 +426,15 @@ async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dic
 
     if arguments.get("customFieldDetails"):
         arguments["fileType"] = "customFieldFile"
+        cf_type = arguments["customFieldDetails"].get("customFieldType")
+        if cf_type:
+            # Persist the canonical CustomFieldType.MultiFile value
+            # ("multiFile") — the API stores customFieldType verbatim, so a
+            # casing variant would be written as-is and missed by strict
+            # downstream consumers.
+            arguments["customFieldDetails"]["customFieldType"] = (
+                normalize_multifile_custom_field_type(cf_type)
+            )
 
     return arguments
 
