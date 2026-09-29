@@ -98,7 +98,7 @@ purchase_order_tools = [
     ),
     Tool(
         name="add_purchase_order_attachment",
-        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned). customFieldFile is not supported for purchase orders.",
         inputSchema=add_purchase_order_attachment_schema,
     ),
 ]

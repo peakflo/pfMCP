@@ -353,6 +353,14 @@ ap_attachment_file_types = [
     "dscSigned",
 ]
 
+# Purchase-order attach does not support multi-file custom field files: the
+# API rejects fileType=customFieldFile on this route.
+purchase_order_attachment_file_types = [
+    file_type
+    for file_type in ap_attachment_file_types
+    if file_type != "customFieldFile"
+]
+
 
 # Pixel multi-file CF targeting — same shape as api ApAttachmentCustomFieldDetailsInput
 # and upload-functions / UI POST /v1/files customFieldDetails.
@@ -456,8 +464,8 @@ add_purchase_order_attachment_schema = {
         },
         "fileType": {
             "type": "string",
-            "enum": ap_attachment_file_types,
-            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned",
+            "enum": purchase_order_attachment_file_types,
+            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned. customFieldFile is not supported for purchase orders.",
         },
     },
     "required": ["poExternalId", "id", "name", "contentType", "fileType"],
