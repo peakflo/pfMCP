@@ -142,12 +142,44 @@ async def test_direct_base64_size_uses_decoded_length():
         )
 
 
-async def test_direct_base64_invalid_content_is_rejected():
-    with pytest.raises(ValueError, match="Invalid base64"):
-        await _call(
-            "add_bill_attachment",
-            _args("billExternalId", file_url=None, base64="abc", fileSize=3),
-        )
+@pytest.mark.parametrize(
+    "value",
+    [
+        "aGVsbG8",  # unpadded "hello"
+        "-_-_",  # URL-safe alphabet
+        "data:application/pdf;base64,aGVsbG8",
+    ],
+)
+async def test_direct_base64_lenient_input_is_forwarded(value):
+    # The API decodes with Node Buffer.from, which accepts unpadded and
+    # URL-safe base64; pfMCP must not reject such input.
+    _, _, body = await _call(
+        "add_bill_attachment",
+        _args("billExternalId", file_url=None, base64=value, fileSize=5),
+    )
+    assert body["base64"].endswith(value.split(",")[-1])
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("aGVsbG8=", 5),
+        ("aGVsbG8", 5),
+        ("aGVs\nbG8=", 5),
+        ("data:application/pdf;base64,aGVsbG8=", 5),
+        ("-_-_", 3),
+        ("", 0),
+    ],
+)
+def test_decoded_base64_size_estimate(value, expected):
+    assert peakflo_main._decoded_base64_size(value) == expected
+
+
+def test_decoded_base64_size_matches_real_length():
+    raw = b"x" * 1001
+    encoded = peakflo_main.base64.b64encode(raw).decode()
+    assert peakflo_main._decoded_base64_size(encoded) == len(raw)
+    assert peakflo_main._decoded_base64_size(encoded.rstrip("=")) == len(raw)
 
 
 @pytest.mark.parametrize(

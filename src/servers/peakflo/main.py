@@ -1,7 +1,6 @@
 import os
 import sys
 import base64
-import binascii
 import httpx
 import logging
 import json
@@ -389,12 +388,17 @@ async def _download_and_encode(file_url: str) -> tuple[str, int]:
 
 
 def _decoded_base64_size(value: str) -> int:
-    """Return the decoded byte length of a raw base64 string or data URI."""
+    """
+    Estimate the decoded byte length of a raw base64 string or data URI.
+
+    No strict decode: the Peakflo API decodes with Node Buffer.from, which
+    accepts unpadded and URL-safe base64, so such input must not be rejected
+    here. The data-URI prefix and whitespace are stripped, then the size is
+    estimated from the character count.
+    """
     payload = value.split(",", 1)[1] if "," in value else value
-    try:
-        return len(base64.b64decode(payload))
-    except (binascii.Error, ValueError) as err:
-        raise ValueError(f"Invalid base64 attachment content: {err}") from err
+    payload = "".join(payload.split())
+    return len(payload.rstrip("=")) * 3 // 4
 
 
 _SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
