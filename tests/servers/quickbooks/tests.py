@@ -11,7 +11,7 @@ async def test_list_resources(client):
 
     print("Resources found:")
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
 
     print("✅ Successfully listed resources")
 
@@ -42,7 +42,9 @@ async def test_read_customer(client):
     # Read customer details
     response = await client.read_resource(customer_resource.uri)
     assert response.contents, "Response should contain customer data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Customer data read:")
     print(f"\t{response.contents[0].text}")
@@ -75,7 +77,9 @@ async def test_read_invoice(client):
     # Read invoice details
     response = await client.read_resource(invoice_resource.uri)
     assert response.contents, "Response should contain invoice data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Invoice data read:")
     print(f"\t{response.contents[0].text}")
@@ -108,7 +112,9 @@ async def test_read_account(client):
     # Read account details
     response = await client.read_resource(account_resource.uri)
     assert response.contents, "Response should contain account data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Account data read:")
     print(f"\t{response.contents[0].text}")

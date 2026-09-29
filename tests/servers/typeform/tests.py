@@ -15,7 +15,7 @@ async def test_list_resources(client):
     forms = []
 
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
         # Convert AnyUrl to string before checking
         uri_str = str(resource.uri)
         if "workspace" in uri_str:

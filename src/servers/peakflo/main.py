@@ -10,7 +10,11 @@ from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
-from servers.peakflo.schemas.purchase_order import to_data_uri
+from servers.peakflo.schemas.purchase_order import (
+    CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS,
+    to_data_uri,
+)
+from servers.peakflo.schemas.bill import normalize_multifile_custom_field_type
 
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
@@ -26,7 +30,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
@@ -295,8 +299,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
     if not integration:
         return []
     inner_server = integration["module"].create_server("tool-discovery")
-    list_handler = inner_server.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
+    result = await inner_server.dispatch(ListToolsRequest(method="tools/list"))
     prefix = integration["prefix"]
     label = integration["label"]
     return [
@@ -305,7 +308,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
             name=f"{prefix}{tool.name}",
             description=f"[{label}] {tool.description or tool.name}",
         )
-        for tool in result.root.tools
+        for tool in result.tools
     ]
 
 
@@ -348,8 +351,7 @@ async def _call_source_system_tool_via_peakflo_connection(
         api_key=server.api_key,
         credential_resolver=credential_resolver,
     )
-    call_handler = inner_server.request_handlers[CallToolRequest]
-    result = await call_handler(
+    result = await inner_server.dispatch(
         CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
@@ -358,7 +360,7 @@ async def _call_source_system_tool_via_peakflo_connection(
             ),
         )
     )
-    return result.root.content
+    return result.content
 
 
 # Peakflo's attachment size limit; base64 inflates the encoded payload by
@@ -385,6 +387,20 @@ async def _download_and_encode(file_url: str) -> tuple[str, int]:
     return base64.b64encode(content).decode("utf-8"), len(content)
 
 
+def _decoded_base64_size(value: str) -> int:
+    """
+    Estimate the decoded byte length of a raw base64 string or data URI.
+
+    No strict decode: the Peakflo API decodes with Node Buffer.from, which
+    accepts unpadded and URL-safe base64, so such input must not be rejected
+    here. The data-URI prefix and whitespace are stripped, then the size is
+    estimated from the character count.
+    """
+    payload = value.split(",", 1)[1] if "," in value else value
+    payload = "".join(payload.split())
+    return len(payload.rstrip("=")) * 3 // 4
+
+
 _SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
 
 
@@ -394,6 +410,93 @@ def _redact_for_log(arguments: dict) -> dict:
         key: ("<redacted>" if key in _SENSITIVE_ARG_KEYS else value)
         for key, value in arguments.items()
     }
+
+
+def _is_blank(value) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _normalize_custom_field_details(details, *, tool_name: str) -> dict:
+    """
+    Validate and clean customFieldDetails for the AP attach tools.
+
+    customFieldNumber is required (non-empty string). The API resolves the
+    custom field by number and checks any optional value that is given, so
+    optional keys (customFieldId, customFieldName, customFieldType,
+    customFieldSourceId) are forwarded only when they have a value: None or
+    empty strings are dropped, never sent. customFieldType, when given, is
+    normalized to the canonical "multiFile"; when absent it is not invented.
+    Returns a new dict so the caller's nested dict is never mutated.
+    """
+    if not isinstance(details, dict):
+        raise ValueError(f"customFieldDetails must be an object for {tool_name}")
+    number = details.get("customFieldNumber")
+    if not isinstance(number, str) or _is_blank(number):
+        raise ValueError(
+            f"customFieldDetails.customFieldNumber is required (non-empty "
+            f"string) to link the file to the custom field for {tool_name}"
+        )
+    cleaned = {"customFieldNumber": number}
+    for key in CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS:
+        value = details.get(key)
+        if _is_blank(value):
+            continue
+        if key == "customFieldType":
+            # Persist the canonical CustomFieldType.MultiFile value
+            # ("multiFile"); the API stores customFieldType verbatim.
+            value = normalize_multifile_custom_field_type(value)
+        cleaned[key] = value
+    return cleaned
+
+
+async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dict:
+    """
+    Shared file_url / base64 prep for bill, ER, and payment attach tools.
+    Also coerces fileType to customFieldFile when customFieldDetails is present
+    (matches api createAttachment behaviour).
+    """
+    file_url = arguments.pop("file_url", None)
+    if file_url:
+        try:
+            raw_base64, byte_size = await _download_and_encode(file_url)
+            arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
+            arguments["fileSize"] = byte_size
+            logger.info(
+                f"[{tool_name}] Downloaded file from URL "
+                f"({byte_size} bytes) and base64-encoded"
+            )
+        except Exception as dl_err:
+            raise ValueError(
+                f"Failed to download file from file_url: {dl_err}"
+            ) from dl_err
+    elif "base64" not in arguments:
+        raise ValueError(f"Either file_url or base64 is required for {tool_name}")
+    else:
+        _ensure_within_attachment_size_limit(arguments["fileSize"])
+        # Do not trust the caller-declared fileSize alone: enforce the limit
+        # on the real decoded byte length too.
+        _ensure_within_attachment_size_limit(_decoded_base64_size(arguments["base64"]))
+        arguments["base64"] = to_data_uri(
+            arguments["base64"],
+            arguments.get("contentType", "application/octet-stream"),
+        )
+
+    if arguments.get("customFieldDetails") is not None:
+        arguments["customFieldDetails"] = _normalize_custom_field_details(
+            arguments["customFieldDetails"], tool_name=tool_name
+        )
+        arguments["fileType"] = "customFieldFile"
+    elif arguments.get("fileType") == "customFieldFile":
+        # The API requires customFieldDetails for customFieldFile uploads;
+        # fail fast with a clear message instead of a downstream 400.
+        raise ValueError(
+            f"customFieldDetails is required when fileType is customFieldFile "
+            f"for {tool_name}"
+        )
+    else:
+        arguments.pop("customFieldDetails", None)
+
+    return arguments
 
 
 async def make_peakflo_request(name, arguments, token):
@@ -493,38 +596,28 @@ async def make_peakflo_request(name, arguments, token):
         message = "Attachment added to purchase order successfully"
     elif name == "add_bill_attachment":
         bill_external_id = arguments.pop("billExternalId")
-        file_url = arguments.pop("file_url", None)
-        if file_url:
-            try:
-                raw_base64, byte_size = await _download_and_encode(file_url)
-                # The bill attachment endpoint decodes base64.split(",")[1], so
-                # forward a data-URI string and derive fileSize from the
-                # downloaded bytes.
-                arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
-                arguments["fileSize"] = byte_size
-                logger.info(
-                    f"[add_bill_attachment] Downloaded file from URL "
-                    f"({byte_size} bytes) and base64-encoded"
-                )
-            except Exception as dl_err:
-                raise ValueError(
-                    f"Failed to download file from file_url: {dl_err}"
-                ) from dl_err
-        elif "base64" not in arguments:
-            raise ValueError(
-                "Either file_url or base64 is required for " "add_bill_attachment"
-            )
-        else:
-            # Normalize a raw base64 payload (no data-URI prefix) so the
-            # endpoint's base64.split(",")[1] decode yields the file content.
-            _ensure_within_attachment_size_limit(arguments["fileSize"])
-            arguments["base64"] = to_data_uri(
-                arguments["base64"],
-                arguments.get("contentType", "application/octet-stream"),
-            )
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_attachment"
+        )
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
+    elif name == "add_expense_report_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_expense_report_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/expense-report/{external_id}/attachments"
+        message = "Attachment added to expense report successfully"
+    elif name == "add_bill_payment_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_payment_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/bill-payment/{external_id}/attachments"
+        message = "Attachment added to bill payment successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"

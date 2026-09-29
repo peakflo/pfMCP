@@ -30,7 +30,6 @@ async def _invoke(
 ):
     """Run the call_tool handler with mocked Xero + Nango + storage."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     creds_mock = AsyncMock(return_value=("fake-token", "fake-tenant"))
 
@@ -63,7 +62,7 @@ async def _invoke(
             method="tools/call",
             params=CallToolRequestParams(name=tool_name, arguments=arguments),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
     finally:
         for p in patches:
             p.stop()
@@ -77,13 +76,12 @@ async def _invoke(
 async def test_schema_get_invoice_pdf():
     """get_invoice_pdf tool appears in schema with correct required params."""
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    tool = next(t for t in result.root.tools if t.name == "get_invoice_pdf")
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    tool = next(t for t in result.tools if t.name == "get_invoice_pdf")
 
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "invoiceId" in props
-    assert tool.inputSchema["required"] == ["invoiceId"]
+    assert tool.input_schema["required"] == ["invoiceId"]
     print("PASS  get_invoice_pdf schema is correct")
 
 
@@ -112,7 +110,7 @@ async def test_downloads_pdf_and_returns_url():
         mime_type="application/pdf",
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "inv-123" in text
     assert fake_url in text
     assert "Download URL (expires in 1 hour)" in text
@@ -133,7 +131,7 @@ async def test_accepts_invoice_number():
 
     download_mock.assert_called_once_with("INV-0041", "fake-token", "fake-tenant")
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "INV-0041" in text
     assert fake_url in text
     print("PASS  get_invoice_pdf works with InvoiceNumber")
@@ -151,7 +149,7 @@ async def test_reports_correct_size():
         storage_url=fake_url,
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "5.0 KB" in text
     print("PASS  get_invoice_pdf reports correct file size")
 
@@ -168,7 +166,7 @@ async def test_download_failure():
         storage_url="https://storage.example.com/unused",
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "Failed to download" in text or "inv-bad" in text
     print("PASS  get_invoice_pdf handles download failure")
 
@@ -176,7 +174,6 @@ async def test_download_failure():
 async def test_download_xero_error():
     """get_invoice_pdf surfaces Xero API errors."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     creds_mock = AsyncMock(return_value=("fake-token", "fake-tenant"))
     download_mock = AsyncMock(
@@ -192,9 +189,9 @@ async def test_download_xero_error():
                 name="get_invoice_pdf", arguments={"invoiceId": "nonexistent"}
             ),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "Error" in text
     assert "not found" in text.lower()
     print("PASS  get_invoice_pdf surfaces Xero API errors")
@@ -209,7 +206,7 @@ async def test_missing_invoice_id():
         storage_url="https://storage.example.com/unused",
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "invoiceId" in text or "required" in text.lower() or "Error" in text
     print("PASS  get_invoice_pdf requires invoiceId")
 

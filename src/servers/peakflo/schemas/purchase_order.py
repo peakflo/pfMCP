@@ -353,6 +353,86 @@ ap_attachment_file_types = [
     "dscSigned",
 ]
 
+# Purchase-order attach does not support multi-file custom field files: the
+# API rejects fileType=customFieldFile on this route.
+purchase_order_attachment_file_types = [
+    file_type
+    for file_type in ap_attachment_file_types
+    if file_type != "customFieldFile"
+]
+
+
+# Pixel multi-file CF targeting — same shape as api ApAttachmentCustomFieldDetailsInput
+# and upload-functions / UI POST /v1/files customFieldDetails.
+#
+# Contract: customFieldNumber is the only required key. The API resolves the
+# custom field from the tenant configuration by number and checks any
+# optional value that is given (customFieldId / customFieldSourceId must
+# match, customFieldType must be multiFile). Optional keys must be non-empty
+# when present; pfMCP forwards only keys that have a value.
+CUSTOM_FIELD_DETAILS_REQUIRED_KEYS = ("customFieldNumber",)
+CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS = (
+    "customFieldId",
+    "customFieldName",
+    "customFieldType",
+    "customFieldSourceId",
+)
+
+custom_field_details_schema = {
+    "type": "object",
+    "description": (
+        "When set, the attachment is stored as customFieldFile on the Pixel "
+        "multi-file custom field identified by customFieldNumber (REQUIRED). "
+        "customFieldId, customFieldName, customFieldType and "
+        "customFieldSourceId are OPTIONAL: the API resolves the field by "
+        "number and only checks the optional values you give. Omit optional "
+        "keys you do not know; do not send empty strings."
+    ),
+    "properties": {
+        "customFieldNumber": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "REQUIRED. Custom field number of the target multi-file "
+                "custom field. The API uses it to find the field."
+            ),
+        },
+        "customFieldId": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional Pixel custom field id. If given, it must match the "
+                "field found by customFieldNumber."
+            ),
+        },
+        "customFieldName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional custom field display name.",
+        },
+        "customFieldType": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional custom field type. If given, it must be the "
+                "multi-file type; casing variants (e.g. legacy 'MUltifile', "
+                "'MultiFile') are normalized to the canonical 'multiFile' "
+                "before forwarding. If omitted, it is not sent."
+            ),
+        },
+        "customFieldSourceId": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional source id. If given, it must match the field found "
+                "by customFieldNumber."
+            ),
+        },
+    },
+    "required": list(CUSTOM_FIELD_DETAILS_REQUIRED_KEYS),
+    "additionalProperties": False,
+}
+
 
 def to_data_uri(raw_base64: str, content_type: str) -> str:
     """Wrap raw base64 as a data URI unless it already is one."""
@@ -406,8 +486,8 @@ add_purchase_order_attachment_schema = {
         },
         "fileType": {
             "type": "string",
-            "enum": ap_attachment_file_types,
-            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned",
+            "enum": purchase_order_attachment_file_types,
+            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned. customFieldFile is not supported for purchase orders.",
         },
     },
     "required": ["poExternalId", "id", "name", "contentType", "fileType"],
