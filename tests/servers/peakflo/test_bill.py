@@ -231,3 +231,36 @@ def test_normalize_multifile_custom_field_type_passes_others_through():
     assert normalize_multifile_custom_field_type("") == ""
     assert normalize_multifile_custom_field_type("Text") == "Text"
     assert normalize_multifile_custom_field_type("not-a-multifile") == "not-a-multifile"
+
+
+def test_attachment_requires_custom_field_details_for_custom_field_file():
+    # Mirrors the api Joi rule: customFieldDetails is required when
+    # fileType is customFieldFile.
+    for schema, id_field in (
+        (add_bill_attachment_schema, "billExternalId"),
+        (add_expense_report_attachment_schema, "externalId"),
+        (add_bill_payment_attachment_schema, "externalId"),
+    ):
+        payload = _valid_attachment()
+        payload[id_field] = payload.pop("billExternalId")
+        payload["fileType"] = "customFieldFile"
+        with pytest.raises(ValidationError):
+            Draft7Validator(schema).validate(payload)
+
+
+def test_attachment_rejects_empty_custom_field_details_values():
+    payload = _valid_attachment()
+    payload["customFieldDetails"] = {
+        "customFieldId": "",
+        "customFieldNumber": "10",
+        "customFieldName": "Journal Entry",
+        "customFieldType": "multiFile",
+    }
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_single_file_attachment_without_custom_field_details_still_valid():
+    # Backward compatibility: pre-existing single-file bill callers that do
+    # not use customFieldDetails keep validating.
+    Draft7Validator(add_bill_attachment_schema).validate(_valid_attachment())
