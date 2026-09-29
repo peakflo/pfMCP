@@ -1,6 +1,7 @@
 import os
 import sys
 import base64
+import binascii
 import httpx
 import logging
 import json
@@ -384,6 +385,15 @@ async def _download_and_encode(file_url: str) -> tuple[str, int]:
     return base64.b64encode(content).decode("utf-8"), len(content)
 
 
+def _decoded_base64_size(value: str) -> int:
+    """Return the decoded byte length of a raw base64 string or data URI."""
+    payload = value.split(",", 1)[1] if "," in value else value
+    try:
+        return len(base64.b64decode(payload))
+    except (binascii.Error, ValueError) as err:
+        raise ValueError(f"Invalid base64 attachment content: {err}") from err
+
+
 _SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
 
 
@@ -419,22 +429,35 @@ async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dic
         raise ValueError(f"Either file_url or base64 is required for {tool_name}")
     else:
         _ensure_within_attachment_size_limit(arguments["fileSize"])
+        # Do not trust the caller-declared fileSize alone: enforce the limit
+        # on the real decoded byte length too.
+        _ensure_within_attachment_size_limit(_decoded_base64_size(arguments["base64"]))
         arguments["base64"] = to_data_uri(
             arguments["base64"],
             arguments.get("contentType", "application/octet-stream"),
         )
 
     if arguments.get("customFieldDetails"):
+        # Copy so normalization never mutates the caller's nested dict.
+        cf_details = dict(arguments["customFieldDetails"])
         arguments["fileType"] = "customFieldFile"
-        cf_type = arguments["customFieldDetails"].get("customFieldType")
+        cf_type = cf_details.get("customFieldType")
         if cf_type:
             # Persist the canonical CustomFieldType.MultiFile value
             # ("multiFile") — the API stores customFieldType verbatim, so a
             # casing variant would be written as-is and missed by strict
             # downstream consumers.
-            arguments["customFieldDetails"]["customFieldType"] = (
-                normalize_multifile_custom_field_type(cf_type)
+            cf_details["customFieldType"] = normalize_multifile_custom_field_type(
+                cf_type
             )
+        arguments["customFieldDetails"] = cf_details
+    elif arguments.get("fileType") == "customFieldFile":
+        # The API requires customFieldDetails for customFieldFile uploads;
+        # fail fast with a clear message instead of a downstream 400.
+        raise ValueError(
+            f"customFieldDetails is required when fileType is customFieldFile "
+            f"for {tool_name}"
+        )
 
     return arguments
 

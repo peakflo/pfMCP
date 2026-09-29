@@ -108,6 +108,13 @@ def build_ap_attachment_schema(
             "customFieldDetails": custom_field_details_schema,
         },
         "required": [id_field, "id", "name", "contentType", "fileType"],
+        # Mirrors the api Joi rule: customFieldDetails is required when
+        # fileType is customFieldFile.
+        "if": {
+            "properties": {"fileType": {"const": "customFieldFile"}},
+            "required": ["fileType"],
+        },
+        "then": {"required": ["customFieldDetails"]},
         "oneOf": [
             {"required": ["file_url"], "not": {"required": ["base64"]}},
             {"required": ["base64", "fileSize"], "not": {"required": ["file_url"]}},

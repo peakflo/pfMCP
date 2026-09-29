@@ -365,18 +365,22 @@ custom_field_details_schema = {
     "properties": {
         "customFieldId": {
             "type": "string",
+            "minLength": 1,
             "description": "Pixel custom field id",
         },
         "customFieldNumber": {
             "type": "string",
+            "minLength": 1,
             "description": "Custom field number",
         },
         "customFieldName": {
             "type": "string",
+            "minLength": 1,
             "description": "Custom field display name",
         },
         "customFieldType": {
             "type": "string",
+            "minLength": 1,
             "description": (
                 "Custom field type. The Peakflo API persists this value "
                 "verbatim; the canonical multi-file value is 'multiFile' "
