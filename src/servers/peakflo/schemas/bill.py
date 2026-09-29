@@ -47,7 +47,11 @@ def build_ap_attachment_schema(
             "base64-encodes the content and computes fileSize), or directly via "
             "'base64' (in which case 'fileSize' must also be provided). "
             "Providing both is rejected. Files over 10MB are rejected. "
-            f"Optional customFieldDetails targets a Pixel multi-file CF ({route_hint})."
+            "Optional customFieldDetails targets a Pixel multi-file CF "
+            f"({route_hint}): customFieldNumber is REQUIRED inside it; "
+            "customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional (the API resolves the field by "
+            "number and checks any optional value given)."
         ),
         "properties": {
             id_field: {

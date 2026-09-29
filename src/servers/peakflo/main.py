@@ -11,7 +11,10 @@ from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
-from servers.peakflo.schemas.purchase_order import to_data_uri
+from servers.peakflo.schemas.purchase_order import (
+    CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS,
+    to_data_uri,
+)
 from servers.peakflo.schemas.bill import normalize_multifile_custom_field_type
 
 # Add project root and src directory to Python path
@@ -405,6 +408,43 @@ def _redact_for_log(arguments: dict) -> dict:
     }
 
 
+def _is_blank(value) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _normalize_custom_field_details(details, *, tool_name: str) -> dict:
+    """
+    Validate and clean customFieldDetails for the AP attach tools.
+
+    customFieldNumber is required (non-empty string). The API resolves the
+    custom field by number and checks any optional value that is given, so
+    optional keys (customFieldId, customFieldName, customFieldType,
+    customFieldSourceId) are forwarded only when they have a value: None or
+    empty strings are dropped, never sent. customFieldType, when given, is
+    normalized to the canonical "multiFile"; when absent it is not invented.
+    Returns a new dict so the caller's nested dict is never mutated.
+    """
+    if not isinstance(details, dict):
+        raise ValueError(f"customFieldDetails must be an object for {tool_name}")
+    number = details.get("customFieldNumber")
+    if not isinstance(number, str) or _is_blank(number):
+        raise ValueError(
+            f"customFieldDetails.customFieldNumber is required (non-empty "
+            f"string) to link the file to the custom field for {tool_name}"
+        )
+    cleaned = {"customFieldNumber": number}
+    for key in CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS:
+        value = details.get(key)
+        if _is_blank(value):
+            continue
+        if key == "customFieldType":
+            # Persist the canonical CustomFieldType.MultiFile value
+            # ("multiFile"); the API stores customFieldType verbatim.
+            value = normalize_multifile_custom_field_type(value)
+        cleaned[key] = value
+    return cleaned
+
+
 async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dict:
     """
     Shared file_url / base64 prep for bill, ER, and payment attach tools.
@@ -437,20 +477,11 @@ async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dic
             arguments.get("contentType", "application/octet-stream"),
         )
 
-    if arguments.get("customFieldDetails"):
-        # Copy so normalization never mutates the caller's nested dict.
-        cf_details = dict(arguments["customFieldDetails"])
+    if arguments.get("customFieldDetails") is not None:
+        arguments["customFieldDetails"] = _normalize_custom_field_details(
+            arguments["customFieldDetails"], tool_name=tool_name
+        )
         arguments["fileType"] = "customFieldFile"
-        cf_type = cf_details.get("customFieldType")
-        if cf_type:
-            # Persist the canonical CustomFieldType.MultiFile value
-            # ("multiFile") — the API stores customFieldType verbatim, so a
-            # casing variant would be written as-is and missed by strict
-            # downstream consumers.
-            cf_details["customFieldType"] = normalize_multifile_custom_field_type(
-                cf_type
-            )
-        arguments["customFieldDetails"] = cf_details
     elif arguments.get("fileType") == "customFieldFile":
         # The API requires customFieldDetails for customFieldFile uploads;
         # fail fast with a clear message instead of a downstream 400.
@@ -458,6 +489,8 @@ async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dic
             f"customFieldDetails is required when fileType is customFieldFile "
             f"for {tool_name}"
         )
+    else:
+        arguments.pop("customFieldDetails", None)
 
     return arguments
 

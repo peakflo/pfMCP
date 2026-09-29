@@ -114,8 +114,13 @@ bill_tools = [
             "base64-encodes and computes fileSize automatically, or a base64-encoded "
             "file supplied directly (in which case fileSize must also be provided) — "
             "not both. Files over 10MB are rejected. Supports AP attachment file "
-            "types. Optional customFieldDetails targets a Pixel multi-file custom "
-            "field (fileType coerced to customFieldFile)."
+            "types. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
         ),
         inputSchema=add_bill_attachment_schema,
     ),
@@ -124,8 +129,13 @@ bill_tools = [
         description=(
             "Add an attachment to an existing expense report by its external ID "
             "(PUT /v1/expense-report/:externalId/attachments). Same file_url / "
-            "base64 contract as add_bill_attachment. Optional customFieldDetails "
-            "targets a Pixel multi-file custom field on the ER."
+            "base64 contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
         ),
         inputSchema=add_expense_report_attachment_schema,
     ),
@@ -134,8 +144,13 @@ bill_tools = [
         description=(
             "Add an attachment to an existing AP / TnE payment by its external ID "
             "(PUT /v1/bill-payment/:externalId/attachments). Same file_url / base64 "
-            "contract as add_bill_attachment. Optional customFieldDetails targets a "
-            "Pixel multi-file custom field on the payment."
+            "contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
         ),
         inputSchema=add_bill_payment_attachment_schema,
     ),

@@ -364,50 +364,72 @@ purchase_order_attachment_file_types = [
 
 # Pixel multi-file CF targeting — same shape as api ApAttachmentCustomFieldDetailsInput
 # and upload-functions / UI POST /v1/files customFieldDetails.
+#
+# Contract: customFieldNumber is the only required key. The API resolves the
+# custom field from the tenant configuration by number and checks any
+# optional value that is given (customFieldId / customFieldSourceId must
+# match, customFieldType must be multiFile). Optional keys must be non-empty
+# when present; pfMCP forwards only keys that have a value.
+CUSTOM_FIELD_DETAILS_REQUIRED_KEYS = ("customFieldNumber",)
+CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS = (
+    "customFieldId",
+    "customFieldName",
+    "customFieldType",
+    "customFieldSourceId",
+)
+
 custom_field_details_schema = {
     "type": "object",
     "description": (
-        "When set, the attachment is stored as customFieldFile on the named "
-        "Pixel multi-file custom field (customFieldId / number / name / type)."
+        "When set, the attachment is stored as customFieldFile on the Pixel "
+        "multi-file custom field identified by customFieldNumber (REQUIRED). "
+        "customFieldId, customFieldName, customFieldType and "
+        "customFieldSourceId are OPTIONAL: the API resolves the field by "
+        "number and only checks the optional values you give. Omit optional "
+        "keys you do not know; do not send empty strings."
     ),
     "properties": {
-        "customFieldId": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Pixel custom field id",
-        },
         "customFieldNumber": {
             "type": "string",
             "minLength": 1,
-            "description": "Custom field number",
+            "description": (
+                "REQUIRED. Custom field number of the target multi-file "
+                "custom field. The API uses it to find the field."
+            ),
+        },
+        "customFieldId": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional Pixel custom field id. If given, it must match the "
+                "field found by customFieldNumber."
+            ),
         },
         "customFieldName": {
             "type": "string",
             "minLength": 1,
-            "description": "Custom field display name",
+            "description": "Optional custom field display name.",
         },
         "customFieldType": {
             "type": "string",
             "minLength": 1,
             "description": (
-                "Custom field type. The Peakflo API persists this value "
-                "verbatim; the canonical multi-file value is 'multiFile' "
-                "(CustomFieldType.MultiFile). Casing variants (e.g. legacy "
-                "'MUltifile', 'MultiFile') are normalized to 'multiFile' by the "
-                "server before forwarding."
+                "Optional custom field type. If given, it must be the "
+                "multi-file type; casing variants (e.g. legacy 'MUltifile', "
+                "'MultiFile') are normalized to the canonical 'multiFile' "
+                "before forwarding. If omitted, it is not sent."
             ),
         },
         "customFieldSourceId": {
             "type": "string",
-            "description": "Optional source id; defaults to customFieldId when omitted",
+            "minLength": 1,
+            "description": (
+                "Optional source id. If given, it must match the field found "
+                "by customFieldNumber."
+            ),
         },
     },
-    "required": [
-        "customFieldId",
-        "customFieldNumber",
-        "customFieldName",
-        "customFieldType",
-    ],
+    "required": list(CUSTOM_FIELD_DETAILS_REQUIRED_KEYS),
     "additionalProperties": False,
 }
 

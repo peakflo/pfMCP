@@ -148,3 +148,73 @@ async def test_direct_base64_invalid_content_is_rejected():
             "add_bill_attachment",
             _args("billExternalId", file_url=None, base64="abc", fileSize=3),
         )
+
+
+@pytest.mark.parametrize(
+    "tool, id_field",
+    [
+        ("add_bill_attachment", "billExternalId"),
+        ("add_expense_report_attachment", "externalId"),
+        ("add_bill_payment_attachment", "externalId"),
+    ],
+)
+async def test_number_only_details_forwarded_unchanged(tool, id_field):
+    _, _, body = await _call(
+        tool, _args(id_field, customFieldDetails={"customFieldNumber": "10"})
+    )
+    # No other keys are invented (customFieldType is omitted, not defaulted).
+    assert body["customFieldDetails"] == {"customFieldNumber": "10"}
+    assert body["fileType"] == "customFieldFile"
+
+
+@pytest.mark.parametrize(
+    "details",
+    [
+        {},
+        {"customFieldId": "cf-1", "customFieldType": "multiFile"},
+        {"customFieldNumber": ""},
+        {"customFieldNumber": "   "},
+        {"customFieldNumber": None},
+        {"customFieldNumber": 10},
+    ],
+)
+async def test_missing_custom_field_number_is_rejected(details):
+    with pytest.raises(ValueError, match="customFieldNumber is required"):
+        await _call(
+            "add_bill_attachment",
+            _args("billExternalId", customFieldDetails=details),
+        )
+
+
+async def test_empty_optional_values_are_dropped():
+    caller_details = {
+        "customFieldNumber": "10",
+        "customFieldId": "",
+        "customFieldName": None,
+        "customFieldType": "  ",
+        "customFieldSourceId": "",
+    }
+    _, _, body = await _call(
+        "add_expense_report_attachment",
+        _args("externalId", customFieldDetails=caller_details),
+    )
+    assert body["customFieldDetails"] == {"customFieldNumber": "10"}
+    assert body["fileType"] == "customFieldFile"
+    # Caller input is not mutated.
+    assert caller_details["customFieldId"] == ""
+
+
+async def test_full_details_payload_still_forwarded():
+    full = dict(CF_DETAILS, customFieldSourceId="src-1")
+    _, _, body = await _call(
+        "add_bill_payment_attachment",
+        _args("externalId", customFieldDetails=full),
+    )
+    assert body["customFieldDetails"] == {
+        "customFieldNumber": "10",
+        "customFieldId": "cf-1",
+        "customFieldName": "Journal Entry",
+        "customFieldType": "multiFile",
+        "customFieldSourceId": "src-1",
+    }
+    assert body["fileType"] == "customFieldFile"
