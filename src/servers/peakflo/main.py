@@ -533,6 +533,15 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors/{external_id}"
         message = "Vendor updated successfully"
+    elif name == "create_customer":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/customers"
+        message = "Customer created successfully"
+    elif name == "update_customer":
+        external_id = arguments.pop("externalId")
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/customers/{external_id}"
+        message = "Customer updated successfully"
     elif name == "add_invoice_attachment":
         invoice_external_id = arguments.pop("invoiceExternalId")
         file_url = arguments.pop("file_url", None)

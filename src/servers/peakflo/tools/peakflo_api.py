@@ -1,5 +1,9 @@
 from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
+from servers.peakflo.schemas.customer import (
+    create_customer_schema,
+    update_customer_schema,
+)
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     send_message_input_schema,
@@ -62,6 +66,27 @@ vendor_tools = [
         name="update_vendor",
         description="Update an existing vendor in Peakflo. Supports updating company information, addresses, contacts, bank details, custom fields, VAT settings, payment terms, and more. Only provided fields will be updated.",
         inputSchema=update_vendor_schema,
+    ),
+]
+
+customer_tools = [
+    Tool(
+        name="create_customer",
+        description=(
+            "Create a customer in Peakflo. Do not send status. When the tenant "
+            "flag approveCustomerChanges is on, the API stores a pending customer "
+            "change instead of creating an active customer."
+        ),
+        inputSchema=create_customer_schema,
+    ),
+    Tool(
+        name="update_customer",
+        description=(
+            "Update an existing customer in Peakflo by external ID. Do not send "
+            "status. When approveCustomerChanges is on, the API stores a pending "
+            "customer change."
+        ),
+        inputSchema=update_customer_schema,
     ),
 ]
 
