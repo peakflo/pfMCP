@@ -26,6 +26,8 @@ contact_schema = {
             "description": "Whether this is the main contact",
         },
     },
+    # same as the API contactInputSchema, so a payload that passes here is not rejected by the API
+    "required": ["externalId", "firstName", "email"],
 }
 
 
@@ -62,6 +64,8 @@ address_schema = {
             "description": "Postal/ZIP code",
         },
     },
+    # same as the API addressInputSchema; type defaults to billing on the API side
+    "required": ["line1", "city", "country", "postalCode"],
 }
 
 

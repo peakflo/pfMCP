@@ -104,3 +104,38 @@ def test_tools_are_registered():
     assert by_name["update_customer"].input_schema == update_customer_schema
     all_names = {tool.name for tool in PeakfloApiToolFactory.get_all_tools()}
     assert names <= all_names
+
+
+# ── contacts / addresses: the shared schemas must require what the API requires ──
+
+_CONTACT = {
+    "externalId": "contact-1",
+    "firstName": "Alice",
+    "email": "alice@example.com",
+}
+_ADDRESS = {
+    "line1": "1 Main St",
+    "city": "Singapore",
+    "country": "SG",
+    "postalCode": "018956",
+}
+
+
+def test_complete_contact_and_address_are_valid():
+    _validate(create_customer_schema, contacts=[_CONTACT], addresses=[_ADDRESS])
+
+
+@pytest.mark.parametrize("missing", sorted(_CONTACT))
+def test_contact_requires_what_the_api_requires(missing):
+    # API contactInputSchema: externalId, firstName and email are required
+    contact = {k: v for k, v in _CONTACT.items() if k != missing}
+    with pytest.raises(ValidationError):
+        _validate(create_customer_schema, contacts=[contact])
+
+
+@pytest.mark.parametrize("missing", sorted(_ADDRESS))
+def test_address_requires_what_the_api_requires(missing):
+    # API addressInputSchema: line1, city, country and postalCode are required
+    address = {k: v for k, v in _ADDRESS.items() if k != missing}
+    with pytest.raises(ValidationError):
+        _validate(create_customer_schema, addresses=[address])
