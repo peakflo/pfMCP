@@ -19,6 +19,12 @@ tools:
   - name: "update_vendor"
     description: "Update an existing vendor in Peakflo"
     required_scopes: []
+  - name: "create_customer"
+    description: "Create a new customer in Peakflo"
+    required_scopes: []
+  - name: "update_customer"
+    description: "Update an existing customer in Peakflo by external ID"
+    required_scopes: []
   - name: "update_purchase_order"
     description: "Update an existing purchase order in Peakflo by external ID"
     required_scopes: []

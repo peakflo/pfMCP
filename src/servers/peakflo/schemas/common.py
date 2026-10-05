@@ -119,7 +119,7 @@ custom_field_schema = {
                 "description": "Custom field identifier (references a custom field definition configured in Peakflo)",
             },
             "value": {
-                "description": "Value of the custom field (can be string, number, date string in DD-MM-YYYY format, or array of strings for multi-select)",
+                "description": "Value of the custom field (can be string, number, date string in DD/MM/YYYY format, e.g. 11/03/2024, or array of strings for multi-select)",
             },
         },
         "required": ["customFieldNumber", "value"],
