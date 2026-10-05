@@ -11,7 +11,7 @@ async def test_list_resources(client):
 
     print("Resources found:")
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
 
     print("✅ Successfully listed resources")
 

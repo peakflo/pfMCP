@@ -19,6 +19,12 @@ tools:
   - name: "update_vendor"
     description: "Update an existing vendor in Peakflo"
     required_scopes: []
+  - name: "create_customer"
+    description: "Create a new customer in Peakflo"
+    required_scopes: []
+  - name: "update_customer"
+    description: "Update an existing customer in Peakflo by external ID"
+    required_scopes: []
   - name: "update_purchase_order"
     description: "Update an existing purchase order in Peakflo by external ID"
     required_scopes: []
@@ -27,6 +33,12 @@ tools:
     required_scopes: []
   - name: "add_bill_attachment"
     description: "Add an attachment to an existing bill"
+    required_scopes: []
+  - name: "add_expense_report_attachment"
+    description: "Add an attachment to an existing expense report (optional multi-file custom field target)"
+    required_scopes: []
+  - name: "add_bill_payment_attachment"
+    description: "Add an attachment to an existing AP / TnE payment (optional multi-file custom field target)"
     required_scopes: []
   - name: "read_vendor"
     description: "Fetch vendor details by external ID from Peakflo API"

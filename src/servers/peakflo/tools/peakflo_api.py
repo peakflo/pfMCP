@@ -1,5 +1,9 @@
 from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
+from servers.peakflo.schemas.customer import (
+    create_customer_schema,
+    update_customer_schema,
+)
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     send_message_input_schema,
@@ -28,7 +32,11 @@ from servers.peakflo.schemas.purchase_order import (
     update_purchase_order_schema,
     add_purchase_order_attachment_schema,
 )
-from servers.peakflo.schemas.bill import add_bill_attachment_schema
+from servers.peakflo.schemas.bill import (
+    add_bill_attachment_schema,
+    add_expense_report_attachment_schema,
+    add_bill_payment_attachment_schema,
+)
 
 vendor_tools = [
     Tool(
@@ -62,6 +70,28 @@ vendor_tools = [
 ]
 
 
+customer_tools = [
+    Tool(
+        name="create_customer",
+        description=(
+            "Create a new customer in Peakflo with company information, status, "
+            "currency, contacts, addresses, payment terms, and custom fields. "
+            "Fails if a customer with the same externalId already exists."
+        ),
+        inputSchema=create_customer_schema,
+    ),
+    Tool(
+        name="update_customer",
+        description=(
+            "Update an existing customer in Peakflo by external ID. The API requires "
+            "externalId, companyName, currency and status on every update; other fields "
+            "that are omitted stay unchanged. A non-empty customField list replaces all "
+            "stored custom fields, so send the full set to keep."
+        ),
+        inputSchema=update_customer_schema,
+    ),
+]
+
 invoice_tools = [
     Tool(
         name="create_invoice",
@@ -94,7 +124,7 @@ purchase_order_tools = [
     ),
     Tool(
         name="add_purchase_order_attachment",
-        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned). customFieldFile is not supported for purchase orders.",
         inputSchema=add_purchase_order_attachment_schema,
     ),
 ]
@@ -103,8 +133,52 @@ purchase_order_tools = [
 bill_tools = [
     Tool(
         name="add_bill_attachment",
-        description="Add an attachment to an existing bill by its external ID (PUT /v1/bill/:billExternalId/attachments). Accepts exactly one file source: a signed file URL (file_url) which the server downloads, base64-encodes and computes fileSize automatically, or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        description=(
+            "Add an attachment to an existing bill by its external ID "
+            "(PUT /v1/bill/:billExternalId/attachments). Accepts exactly one file "
+            "source: a signed file URL (file_url) which the server downloads, "
+            "base64-encodes and computes fileSize automatically, or a base64-encoded "
+            "file supplied directly (in which case fileSize must also be provided) — "
+            "not both. Files over 10MB are rejected. Supports AP attachment file "
+            "types. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
         inputSchema=add_bill_attachment_schema,
+    ),
+    Tool(
+        name="add_expense_report_attachment",
+        description=(
+            "Add an attachment to an existing expense report by its external ID "
+            "(PUT /v1/expense-report/:externalId/attachments). Same file_url / "
+            "base64 contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
+        inputSchema=add_expense_report_attachment_schema,
+    ),
+    Tool(
+        name="add_bill_payment_attachment",
+        description=(
+            "Add an attachment to an existing AP / TnE payment by its external ID "
+            "(PUT /v1/bill-payment/:externalId/attachments). Same file_url / base64 "
+            "contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
+        inputSchema=add_bill_payment_attachment_schema,
     ),
 ]
 

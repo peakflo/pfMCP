@@ -36,7 +36,9 @@ async def test_read_view(client):
     # Read view details
     response = await client.read_resource(view_resource.uri)
     assert response.contents, "Response should contain view data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("View data read:")
     print(f"\t{response.contents[0].text}")

@@ -1,7 +1,16 @@
 import logging
+import os
+import sys
+
+# Add both project root and src directory to Python path
+project_root = os.path.abspath(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+)
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.join(project_root, "src"))
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 # Configure logging

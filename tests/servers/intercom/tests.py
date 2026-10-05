@@ -13,7 +13,7 @@ async def test_list_resources(client):
 
     print("Resources found:")
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
 
     print("✅ Successfully listed resources")
 
@@ -37,7 +37,9 @@ async def test_read_contact(client):
 
     response = await client.read_resource(contact_resource.uri)
     assert response.contents, "Response should contain contact data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     # Verify we have the expected contact data structure
     content_text = response.contents[0].text
@@ -70,7 +72,9 @@ async def test_read_conversation(client):
 
     response = await client.read_resource(conversation_resource.uri)
     assert response.contents, "Response should contain conversation data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Conversation data read:")
     print(f"\t{response.contents[0].text}")
@@ -105,7 +109,9 @@ async def test_read_tag(client):
 
     response = await client.read_resource(tag_resource.uri)
     assert response.contents, "Response should contain tag data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Tag data read:")
     print(f"\t{response.contents[0].text}")
