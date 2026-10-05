@@ -1,5 +1,9 @@
 from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
+from servers.peakflo.schemas.customer import (
+    create_customer_schema,
+    update_customer_schema,
+)
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     send_message_input_schema,
@@ -65,6 +69,28 @@ vendor_tools = [
     ),
 ]
 
+
+customer_tools = [
+    Tool(
+        name="create_customer",
+        description=(
+            "Create a new customer in Peakflo with company information, status, "
+            "currency, contacts, addresses, payment terms, and custom fields. "
+            "Fails if a customer with the same externalId already exists."
+        ),
+        inputSchema=create_customer_schema,
+    ),
+    Tool(
+        name="update_customer",
+        description=(
+            "Update an existing customer in Peakflo by external ID. The API requires "
+            "externalId, companyName, currency and status on every update; other fields "
+            "that are omitted stay unchanged. A non-empty customField list replaces all "
+            "stored custom fields, so send the full set to keep."
+        ),
+        inputSchema=update_customer_schema,
+    ),
+]
 
 invoice_tools = [
     Tool(

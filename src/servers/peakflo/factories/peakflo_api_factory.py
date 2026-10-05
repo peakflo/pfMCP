@@ -3,6 +3,7 @@ from mcp.types import Tool
 
 from peakflo.tools.peakflo_api import (
     vendor_tools,
+    customer_tools,
     invoice_tools,
     purchase_order_tools,
     bill_tools,
@@ -16,6 +17,7 @@ class PeakfloApiToolFactory:
     def get_all_tools() -> List[Tool]:
         return [
             *vendor_tools,
+            *customer_tools,
             *invoice_tools,
             *purchase_order_tools,
             *bill_tools,

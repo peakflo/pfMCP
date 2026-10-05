@@ -21,6 +21,8 @@ python src/servers/peakflo/main.py auth
 |------|-------------|
 | **read_vendor** | Fetch vendor details by external ID. |
 | **create_vendor** | Create a new vendor with company info, addresses, contacts, bank details, and custom fields. |
+| **create_customer** | Create a new customer (`POST /v1/customers`) with company info, status, currency, contacts, addresses, payment terms, and custom fields. |
+| **update_customer** | Update an existing customer by its external ID (`PUT /v1/customers/:externalId`). `externalId`, `companyName`, `currency` and `status` are required by the API on every update; omitted optional fields stay unchanged; a non-empty `customField` list replaces the stored custom fields. |
 | **create_invoice** | Create an invoice with line items, customer info, and financial breakdown. |
 | **update_invoice** | Update an existing invoice. |
 | **update_purchase_order** | Update an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId`). Full-object update — supply the complete field set; `customField` replaces the existing custom-field array (no merge); `status` is carried for validation but does not transition the PO. |
