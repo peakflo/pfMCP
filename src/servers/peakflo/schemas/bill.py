@@ -146,7 +146,7 @@ _validation_issue_schema = {
         "message": {"type": "string", "minLength": 1},
         "dedupeKey": {"type": "string", "minLength": 1},
         "fieldPath": {"type": "string", "minLength": 1},
-        "details": {},
+        "details": {"type": "object"},
     },
     "required": ["ruleId", "code", "message"],
     "additionalProperties": False,
@@ -206,9 +206,16 @@ update_bill_attachment_validation_schema = {
         "Save validation details and proposed field overwrites on one bill "
         "attachment. The proposals do not change the bill. For a line target, "
         "use the persistent 1-based lineIndex and give currentValue. A user "
-        "must review and approve proposed changes separately."
+        "must review and approve proposed changes separately. Each call replaces "
+        "only the named rule's issues and pending proposals. Set ruleId when "
+        "a rule passes with empty errors, warnings, and proposals."
     ),
     "properties": {
+        "ruleId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Rule result to replace, required for an empty passed result",
+        },
         "billExternalId": {"type": "string", "minLength": 1},
         "attachmentId": {"type": "string", "minLength": 1},
         "tenantId": {"type": "string", "description": "Tenant context hint"},
