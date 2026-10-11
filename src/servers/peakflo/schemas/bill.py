@@ -134,6 +134,106 @@ add_bill_attachment_schema = build_ap_attachment_schema(
     route_hint="PUT /v1/bill/:billExternalId/attachments",
 )
 
+
+# Mirrors ApAttachment.validationDetails and suggestedFieldOverwrites in the
+# shared backend response contract. This tool saves proposals for user review;
+# it never applies a proposed value to the bill.
+_validation_issue_schema = {
+    "type": "object",
+    "properties": {
+        "ruleId": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "fieldPath": {"type": "string", "minLength": 1},
+        "details": {"type": "object"},
+    },
+    "required": ["ruleId", "code", "message"],
+    "additionalProperties": False,
+}
+
+_field_overwrite_schema = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "ruleId": {"type": "string", "minLength": 1},
+        "target": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "scope": {"const": "bill"},
+                        "fieldPath": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["scope", "fieldPath"],
+                    "additionalProperties": False,
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "scope": {"const": "lineItem"},
+                        "lineIndex": {"type": "integer", "minimum": 1},
+                        "fieldPath": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["scope", "lineIndex", "fieldPath"],
+                    "additionalProperties": False,
+                },
+            ]
+        },
+        "currentValue": {},
+        "suggestedValue": {},
+        "optional": {"type": "boolean"},
+        "overridable": {"type": "boolean"},
+        "capturedField": {"type": "string"},
+        "reason": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    },
+    "required": [
+        "id",
+        "ruleId",
+        "target",
+        "currentValue",
+        "suggestedValue",
+        "optional",
+        "overridable",
+    ],
+    "additionalProperties": False,
+}
+
+update_bill_attachment_validation_schema = {
+    "type": "object",
+    "description": (
+        "Save validation details and proposed field overwrites on one bill "
+        "attachment. The proposals do not change the bill. For a line target, "
+        "use the persistent 1-based lineIndex and give currentValue. A user "
+        "must review and approve proposed changes separately."
+    ),
+    "properties": {
+        "billExternalId": {"type": "string", "minLength": 1},
+        "attachmentId": {"type": "string", "minLength": 1},
+        "tenantId": {"type": "string", "description": "Tenant context hint"},
+        "validationDetails": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["inProgress", "passed", "warning", "error"],
+                },
+                "errors": {"type": "array", "items": _validation_issue_schema},
+                "warnings": {"type": "array", "items": _validation_issue_schema},
+                "validatedAt": {"type": "string", "format": "date-time"},
+            },
+            "required": ["status", "errors", "warnings"],
+            "additionalProperties": False,
+        },
+        "suggestedFieldOverwrites": {
+            "type": "array",
+            "items": _field_overwrite_schema,
+        },
+    },
+    "required": ["billExternalId", "attachmentId", "validationDetails"],
+    "additionalProperties": False,
+}
+
 add_expense_report_attachment_schema = build_ap_attachment_schema(
     id_field="externalId",
     id_description=(

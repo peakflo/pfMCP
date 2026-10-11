@@ -36,6 +36,7 @@ from servers.peakflo.schemas.bill import (
     add_bill_attachment_schema,
     add_expense_report_attachment_schema,
     add_bill_payment_attachment_schema,
+    update_bill_attachment_validation_schema,
 )
 
 vendor_tools = [
@@ -131,6 +132,17 @@ purchase_order_tools = [
 
 
 bill_tools = [
+    Tool(
+        name="update_bill_attachment_validation",
+        description=(
+            "Save generic validation errors, warnings, and optional proposed "
+            "bill field changes on an existing bill attachment. Line targets "
+            "must use persistent 1-based lineIndex and include currentValue. "
+            "This tool never changes bill fields; a user must approve proposals "
+            "in a separate review action."
+        ),
+        inputSchema=update_bill_attachment_validation_schema,
+    ),
     Tool(
         name="add_bill_attachment",
         description=(

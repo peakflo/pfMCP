@@ -5,7 +5,7 @@ import httpx
 import logging
 import json
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
@@ -401,7 +401,13 @@ def _decoded_base64_size(value: str) -> int:
     return len(payload.rstrip("=")) * 3 // 4
 
 
-_SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
+_SENSITIVE_ARG_KEYS = {
+    "base64",
+    "data",
+    "file_url",
+    "validationDetails",
+    "suggestedFieldOverwrites",
+}
 
 
 def _redact_for_log(arguments: dict) -> dict:
@@ -611,6 +617,15 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
+    elif name == "update_bill_attachment_validation":
+        bill_external_id = quote(arguments.pop("billExternalId"), safe="")
+        attachment_id = quote(arguments.pop("attachmentId"), safe="")
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/"
+            f"attachments/{attachment_id}/validation"
+        )
+        message = "Bill attachment validation details updated successfully"
     elif name == "add_expense_report_attachment":
         external_id = arguments.pop("externalId")
         arguments = await _prepare_ap_attachment_body(
