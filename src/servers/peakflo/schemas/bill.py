@@ -144,6 +144,7 @@ _validation_issue_schema = {
         "ruleId": {"type": "string", "minLength": 1},
         "code": {"type": "string", "minLength": 1},
         "message": {"type": "string", "minLength": 1},
+        "dedupeKey": {"type": "string", "minLength": 1},
         "fieldPath": {"type": "string", "minLength": 1},
         "details": {"type": "object"},
     },
@@ -161,7 +162,7 @@ _field_overwrite_schema = {
                 {
                     "type": "object",
                     "properties": {
-                        "scope": {"const": "bill"},
+                        "scope": {"const": "apObject"},
                         "fieldPath": {"type": "string", "minLength": 1},
                     },
                     "required": ["scope", "fieldPath"],
@@ -232,6 +233,35 @@ update_bill_attachment_validation_schema = {
     },
     "required": ["billExternalId", "attachmentId", "validationDetails"],
     "additionalProperties": False,
+}
+
+
+update_ap_attachment_validation_schema = {
+    **update_bill_attachment_validation_schema,
+    "description": (
+        "Save validation issues on an AP attachment by its Mongo object ID. "
+        "Supported object types are bill, po, pq, pr, rn, billPayment, and "
+        "apCreditNote. Only bill, including expense and travel reports, "
+        "accepts field suggestions. A separate verified user action must "
+        "approve or reject bill suggestions."
+    ),
+    "properties": {
+        **{
+            key: value
+            for key, value in update_bill_attachment_validation_schema[
+                "properties"
+            ].items()
+            if key != "billExternalId"
+        },
+        "objectType": {
+            "type": "string",
+            "enum": ["bill", "po", "pq", "pr", "rn", "billPayment", "apCreditNote"],
+        },
+        "objectId": {"type": "string", "pattern": "^[0-9a-fA-F]{24}$"},
+    },
+    "required": ["objectType", "objectId", "attachmentId", "validationDetails"],
+    "if": {"properties": {"objectType": {"not": {"const": "bill"}}}},
+    "then": {"not": {"required": ["suggestedFieldOverwrites"]}},
 }
 
 add_expense_report_attachment_schema = build_ap_attachment_schema(

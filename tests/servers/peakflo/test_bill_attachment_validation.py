@@ -11,7 +11,10 @@ for path in (os.path.join(ROOT, "src", "servers"), os.path.join(ROOT, "src"), RO
         sys.path.insert(0, path)
 
 from src.servers.peakflo import main as peakflo_main  # noqa: E402
-from peakflo.schemas.bill import update_bill_attachment_validation_schema  # noqa: E402
+from peakflo.schemas.bill import (  # noqa: E402
+    update_ap_attachment_validation_schema,
+    update_bill_attachment_validation_schema,
+)
 from peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory  # noqa: E402
 
 PAYLOAD = {
@@ -74,6 +77,112 @@ def test_tool_requires_current_value():
         Draft7Validator(update_bill_attachment_validation_schema).validate(
             {**PAYLOAD, "suggestedFieldOverwrites": [suggestion]}
         )
+
+
+def test_generic_tool_exposes_all_ap_types_and_only_bill_suggestions():
+    tool = next(
+        item
+        for item in PeakfloApiToolFactory.get_all_tools()
+        if item.name == "update_ap_attachment_validation"
+    )
+    schema = getattr(tool, "inputSchema", None) or tool.input_schema
+    assert schema == update_ap_attachment_validation_schema
+    for object_type in (
+        "bill",
+        "po",
+        "pq",
+        "pr",
+        "rn",
+        "billPayment",
+        "apCreditNote",
+    ):
+        payload = {
+            "objectType": object_type,
+            "objectId": "507f1f77bcf86cd799439011",
+            "attachmentId": "attachment-1",
+            "validationDetails": PAYLOAD["validationDetails"],
+        }
+        Draft7Validator(schema).validate(payload)
+        if object_type == "bill":
+            Draft7Validator(schema).validate(
+                {
+                    **payload,
+                    "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
+                }
+            )
+            Draft7Validator(schema).validate(
+                {
+                    **payload,
+                    "suggestedFieldOverwrites": [
+                        {
+                            **PAYLOAD["suggestedFieldOverwrites"][0],
+                            "target": {"scope": "apObject", "fieldPath": "totalAmount"},
+                        }
+                    ],
+                }
+            )
+        else:
+            with pytest.raises(ValidationError):
+                Draft7Validator(schema).validate(
+                    {
+                        **payload,
+                        "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
+                    }
+                )
+
+    with pytest.raises(ValidationError):
+        Draft7Validator(schema).validate(
+            {
+                "objectType": "bill",
+                "objectId": "507f1f77bcf86cd799439011",
+                "attachmentId": "attachment-1",
+                "validationDetails": PAYLOAD["validationDetails"],
+                "suggestedFieldOverwrites": [
+                    {
+                        **PAYLOAD["suggestedFieldOverwrites"][0],
+                        "target": {"scope": "bill", "fieldPath": "totalAmount"},
+                    }
+                ],
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_generic_tool_routes_issue_update_without_tenant_hint():
+    response = MagicMock()
+    response.status_code = 200
+    response.content = b"{}"
+    response.text = "{}"
+    response.json.return_value = {"attachmentId": "attachment-1"}
+    client = MagicMock()
+    client.request = AsyncMock(return_value=response)
+    client_cm = MagicMock()
+    client_cm.__aenter__ = AsyncMock(return_value=client)
+    client_cm.__aexit__ = AsyncMock(return_value=False)
+    arguments = {
+        "objectType": "rn",
+        "objectId": "507f1f77bcf86cd799439011",
+        "attachmentId": "attachment?1",
+        "tenantId": "tenant-1",
+        "validationDetails": PAYLOAD["validationDetails"],
+    }
+    with patch.object(
+        peakflo_main, "PEAKFLO_V1_BASE_URL", "https://api.example.test/v1"
+    ), patch.object(peakflo_main.httpx, "AsyncClient", return_value=client_cm):
+        result = await peakflo_main.make_peakflo_request(
+            "update_ap_attachment_validation", arguments, "token"
+        )
+
+    assert result["_status_code"] == 200
+    method, url = client.request.call_args.args[:2]
+    assert method == "PUT"
+    assert url == (
+        "https://api.example.test/v1/ap/rn/507f1f77bcf86cd799439011/"
+        "attachments/attachment%3F1/validation"
+    )
+    assert client.request.call_args.kwargs["json"] == {
+        "validationDetails": PAYLOAD["validationDetails"]
+    }
 
 
 @pytest.mark.asyncio

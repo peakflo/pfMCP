@@ -617,6 +617,16 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
+    elif name == "update_ap_attachment_validation":
+        object_type = quote(arguments.pop("objectType"), safe="")
+        object_id = quote(arguments.pop("objectId"), safe="")
+        attachment_id = quote(arguments.pop("attachmentId"), safe="")
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
+            f"attachments/{attachment_id}/validation"
+        )
+        message = "AP attachment validation details updated successfully"
     elif name == "update_bill_attachment_validation":
         bill_external_id = quote(arguments.pop("billExternalId"), safe="")
         attachment_id = quote(arguments.pop("attachmentId"), safe="")
