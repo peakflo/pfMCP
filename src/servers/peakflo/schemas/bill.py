@@ -146,7 +146,7 @@ _validation_issue_schema = {
         "message": {"type": "string", "minLength": 1},
         "dedupeKey": {"type": "string", "minLength": 1},
         "fieldPath": {"type": "string", "minLength": 1},
-        "details": {"type": "object"},
+        "details": {},
     },
     "required": ["ruleId", "code", "message"],
     "additionalProperties": False,

@@ -51,6 +51,25 @@ def test_tool_exposes_backend_contract():
     Draft7Validator(input_schema).validate(PAYLOAD)
 
 
+def test_tool_accepts_scalar_issue_details_from_backend_contract():
+    payload = {
+        **PAYLOAD,
+        "validationDetails": {
+            "status": "warning",
+            "errors": [],
+            "warnings": [
+                {
+                    "ruleId": "tax",
+                    "code": "MISMATCH",
+                    "message": "Check tax",
+                    "details": "captured value",
+                }
+            ],
+        },
+    }
+    Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
+
+
 @pytest.mark.parametrize(
     "invalid_target",
     [
