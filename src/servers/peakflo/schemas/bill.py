@@ -207,15 +207,10 @@ update_bill_attachment_validation_schema = {
         "attachment. The proposals do not change the bill. For a line target, "
         "use the persistent 1-based lineIndex and give currentValue. A user "
         "must review and approve proposed changes separately. Each call replaces "
-        "only the named rule's issues and pending proposals. Set ruleId when "
-        "a rule passes with empty errors, warnings, and proposals."
+        "only the rules named in validationDetails.ruleStatuses. Include a "
+        "passed status to clear an old rule result."
     ),
     "properties": {
-        "ruleId": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Rule result to replace, required for an empty passed result",
-        },
         "billExternalId": {"type": "string", "minLength": 1},
         "attachmentId": {"type": "string", "minLength": 1},
         "tenantId": {"type": "string", "description": "Tenant context hint"},
@@ -226,11 +221,20 @@ update_bill_attachment_validation_schema = {
                     "type": "string",
                     "enum": ["inProgress", "passed", "warning", "error"],
                 },
+                "ruleStatuses": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {"minLength": 1},
+                    "additionalProperties": {
+                        "type": "string",
+                        "enum": ["inProgress", "passed", "warning", "error"],
+                    },
+                },
                 "errors": {"type": "array", "items": _validation_issue_schema},
                 "warnings": {"type": "array", "items": _validation_issue_schema},
                 "validatedAt": {"type": "string", "format": "date-time"},
             },
-            "required": ["status", "errors", "warnings"],
+            "required": ["status", "ruleStatuses", "errors", "warnings"],
             "additionalProperties": False,
         },
         "suggestedFieldOverwrites": {

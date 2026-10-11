@@ -23,6 +23,7 @@ PAYLOAD = {
     "tenantId": "tenant-1",
     "validationDetails": {
         "status": "warning",
+        "ruleStatuses": {"tax": "warning", "line-amount": "passed"},
         "errors": [],
         "warnings": [{"ruleId": "tax", "code": "MISMATCH", "message": "Check tax"}],
     },
@@ -56,6 +57,7 @@ def test_tool_requires_object_issue_details_from_backend_contract():
         **PAYLOAD,
         "validationDetails": {
             "status": "warning",
+            "ruleStatuses": {"tax": "warning", "line-amount": "passed"},
             "errors": [],
             "warnings": [
                 {
@@ -73,15 +75,22 @@ def test_tool_requires_object_issue_details_from_backend_contract():
         Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
 
 
-def test_tool_can_name_a_rule_to_clear_its_prior_result():
+def test_tool_can_mark_a_rule_passed_to_clear_its_prior_result():
     payload = {
         "billExternalId": "bill-1",
         "attachmentId": "attachment-1",
-        "ruleId": "tax",
-        "validationDetails": {"status": "passed", "errors": [], "warnings": []},
+        "validationDetails": {
+            "status": "passed",
+            "ruleStatuses": {"tax": "passed"},
+            "errors": [],
+            "warnings": [],
+        },
         "suggestedFieldOverwrites": [],
     }
     Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
+    del payload["validationDetails"]["ruleStatuses"]
+    with pytest.raises(ValidationError):
+        Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
 
 
 @pytest.mark.parametrize(
@@ -196,7 +205,6 @@ async def test_generic_tool_routes_issue_update_without_tenant_hint():
         "objectType": "rn",
         "objectId": "507f1f77bcf86cd799439011",
         "attachmentId": "attachment?1",
-        "ruleId": "tax",
         "tenantId": "tenant-1",
         "validationDetails": PAYLOAD["validationDetails"],
     }
@@ -215,7 +223,6 @@ async def test_generic_tool_routes_issue_update_without_tenant_hint():
         "attachments/attachment%3F1/validation"
     )
     assert client.request.call_args.kwargs["json"] == {
-        "ruleId": "tax",
         "validationDetails": PAYLOAD["validationDetails"],
     }
 
