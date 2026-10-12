@@ -137,8 +137,8 @@ bill_tools = [
         name="update_ap_attachment_validation",
         description=(
             "Save validation warnings and errors on an AP attachment by object "
-            "type and Mongo ID. Bill attachments may also receive suggested "
-            "field changes; other object types reject suggestions. This tool "
+            "type and Mongo ID. Attachments on supported AP objects may also "
+            "receive suggested field changes. This tool "
             "never applies a field change."
         ),
         inputSchema=update_ap_attachment_validation_schema,

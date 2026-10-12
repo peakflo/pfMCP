@@ -121,7 +121,7 @@ def test_tool_requires_current_value():
         )
 
 
-def test_generic_tool_exposes_all_ap_types_and_only_bill_suggestions():
+def test_generic_tool_exposes_all_ap_types_and_suggestions():
     tool = next(
         item
         for item in PeakfloApiToolFactory.get_all_tools()
@@ -132,6 +132,7 @@ def test_generic_tool_exposes_all_ap_types_and_only_bill_suggestions():
     for object_type in (
         "bill",
         "po",
+        "tr",
         "pq",
         "pr",
         "rn",
@@ -145,32 +146,9 @@ def test_generic_tool_exposes_all_ap_types_and_only_bill_suggestions():
             "validationDetails": PAYLOAD["validationDetails"],
         }
         Draft7Validator(schema).validate(payload)
-        if object_type == "bill":
-            Draft7Validator(schema).validate(
-                {
-                    **payload,
-                    "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
-                }
-            )
-            Draft7Validator(schema).validate(
-                {
-                    **payload,
-                    "suggestedFieldOverwrites": [
-                        {
-                            **PAYLOAD["suggestedFieldOverwrites"][0],
-                            "target": {"scope": "apObject", "fieldPath": "totalAmount"},
-                        }
-                    ],
-                }
-            )
-        else:
-            with pytest.raises(ValidationError):
-                Draft7Validator(schema).validate(
-                    {
-                        **payload,
-                        "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
-                    }
-                )
+        Draft7Validator(schema).validate(
+            {**payload, "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"]}
+        )
 
     with pytest.raises(ValidationError):
         Draft7Validator(schema).validate(
