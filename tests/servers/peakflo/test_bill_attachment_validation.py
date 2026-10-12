@@ -121,7 +121,7 @@ def test_tool_requires_current_value():
         )
 
 
-def test_generic_tool_exposes_all_ap_types_and_suggestions():
+def test_generic_tool_exposes_ap_types_and_tr_line_suggestions():
     tool = next(
         item
         for item in PeakfloApiToolFactory.get_all_tools()
@@ -166,6 +166,22 @@ def test_generic_tool_exposes_all_ap_types_and_suggestions():
             }
         )
 
+    tr_payload = {
+        "objectType": "tr",
+        "objectId": "507f1f77bcf86cd799439011",
+        "lineIndex": 7,
+        "attachmentId": "voucher-1",
+        "validationDetails": PAYLOAD["validationDetails"],
+        "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
+    }
+    Draft7Validator(schema).validate(tr_payload)
+    for invalid in (
+        {**tr_payload, "lineIndex": 0},
+        {**tr_payload, "objectType": "po"},
+    ):
+        with pytest.raises(ValidationError):
+            Draft7Validator(schema).validate(invalid)
+
 
 @pytest.mark.asyncio
 async def test_generic_tool_routes_issue_update_without_tenant_hint():
@@ -203,6 +219,41 @@ async def test_generic_tool_routes_issue_update_without_tenant_hint():
     assert client.request.call_args.kwargs["json"] == {
         "validationDetails": PAYLOAD["validationDetails"],
     }
+
+
+@pytest.mark.asyncio
+async def test_generic_tool_routes_tr_line_voucher_by_stable_index():
+    response = MagicMock()
+    response.status_code = 200
+    response.content = b"{}"
+    response.text = "{}"
+    response.json.return_value = {"attachmentId": "voucher-1"}
+    client = MagicMock()
+    client.request = AsyncMock(return_value=response)
+    client_cm = MagicMock()
+    client_cm.__aenter__ = AsyncMock(return_value=client)
+    client_cm.__aexit__ = AsyncMock(return_value=False)
+    arguments = {
+        "objectType": "tr",
+        "objectId": "507f1f77bcf86cd799439011",
+        "lineIndex": 7,
+        "attachmentId": "voucher-1",
+        "validationDetails": PAYLOAD["validationDetails"],
+        "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
+    }
+    with patch.object(
+        peakflo_main, "PEAKFLO_V1_BASE_URL", "https://api.example.test/v1"
+    ), patch.object(peakflo_main.httpx, "AsyncClient", return_value=client_cm):
+        await peakflo_main.make_peakflo_request(
+            "update_ap_attachment_validation", arguments, "token"
+        )
+    method, url = client.request.call_args.args[:2]
+    assert method == "PUT"
+    assert url == (
+        "https://api.example.test/v1/ap/tr/507f1f77bcf86cd799439011/"
+        "lines/7/attachments/voucher-1/validation"
+    )
+    assert "lineIndex" not in client.request.call_args.kwargs["json"]
 
 
 @pytest.mark.asyncio
