@@ -265,7 +265,16 @@ update_ap_attachment_validation_schema = {
         },
         "objectType": {
             "type": "string",
-            "enum": ["bill", "po", "pq", "pr", "rn", "tr", "billPayment", "apCreditNote"],
+            "enum": [
+                "bill",
+                "po",
+                "pq",
+                "pr",
+                "rn",
+                "tr",
+                "billPayment",
+                "apCreditNote",
+            ],
         },
         "objectId": {"type": "string", "pattern": "^[0-9a-fA-F]{24}$"},
         "lineIndex": {"type": "integer", "minimum": 1},
