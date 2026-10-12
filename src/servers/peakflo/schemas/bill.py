@@ -251,8 +251,8 @@ update_ap_attachment_validation_schema = {
     **update_bill_attachment_validation_schema,
     "description": (
         "Save validation issues on an AP attachment by its Mongo object ID. "
-        "Supported object types are bill, po, pq, pr, rn, tr, billPayment, and "
-        "apCreditNote. Expense reports use bill; travel reports use tr. "
+        "Supported object types are expense, bill, po, pq, pr, rn, tr, billPayment, and "
+        "apCreditNote. Standalone My Expenses use expense. Expense reports use bill; travel reports use tr. "
         "Field suggestions require a separate verified user action before "
         "any AP object value changes."
     ),
@@ -267,6 +267,7 @@ update_ap_attachment_validation_schema = {
         "objectType": {
             "type": "string",
             "enum": [
+                "expense",
                 "bill",
                 "po",
                 "pq",
