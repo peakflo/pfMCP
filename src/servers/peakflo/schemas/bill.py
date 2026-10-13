@@ -152,6 +152,18 @@ _validation_issue_schema = {
     "additionalProperties": False,
 }
 
+_validation_check_schema = {
+    **_validation_issue_schema,
+    "properties": {
+        **_validation_issue_schema["properties"],
+        "outcome": {
+            "type": "string",
+            "enum": ["success", "warning", "error", "skipped"],
+        },
+    },
+    "required": [*_validation_issue_schema["required"], "outcome"],
+}
+
 _field_overwrite_schema = {
     "type": "object",
     "properties": {
@@ -232,9 +244,10 @@ update_bill_attachment_validation_schema = {
                 },
                 "errors": {"type": "array", "items": _validation_issue_schema},
                 "warnings": {"type": "array", "items": _validation_issue_schema},
+                "checks": {"type": "array", "items": _validation_check_schema},
                 "validatedAt": {"type": "string", "format": "date-time"},
             },
-            "required": ["status", "ruleStatuses", "errors", "warnings"],
+            "required": ["status", "ruleStatuses"],
             "additionalProperties": False,
         },
         "suggestedFieldOverwrites": {

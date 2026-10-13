@@ -93,6 +93,37 @@ def test_tool_can_mark_a_rule_passed_to_clear_its_prior_result():
         Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
 
 
+def test_tool_accepts_generic_success_and_skipped_checks_with_evidence():
+    payload = {
+        "billExternalId": "bill-1",
+        "attachmentId": "attachment-1",
+        "validationDetails": {
+            "status": "passed",
+            "ruleStatuses": {"bir": "passed"},
+            "checks": [
+                {
+                    "ruleId": "bir",
+                    "code": "TIN",
+                    "message": "TIN matches",
+                    "outcome": "success",
+                    "details": {"extractedTin": "123"},
+                },
+                {
+                    "ruleId": "bir",
+                    "code": "LOW_VALUE",
+                    "message": "Below threshold",
+                    "outcome": "skipped",
+                    "details": {"threshold": 500},
+                },
+            ],
+        },
+    }
+    Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
+    payload["validationDetails"]["checks"][0]["details"] = "scalar"
+    with pytest.raises(ValidationError):
+        Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
+
+
 @pytest.mark.parametrize(
     "invalid_target",
     [
