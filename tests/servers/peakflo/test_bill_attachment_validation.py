@@ -184,7 +184,8 @@ def test_generic_tool_exposes_ap_types_and_tr_line_suggestions():
 
 
 @pytest.mark.asyncio
-async def test_generic_tool_routes_issue_update_without_tenant_hint():
+@pytest.mark.parametrize("object_type", ["rn", "expense"])
+async def test_generic_tool_routes_issue_update_without_tenant_hint(object_type):
     response = MagicMock()
     response.status_code = 200
     response.content = b"{}"
@@ -196,7 +197,7 @@ async def test_generic_tool_routes_issue_update_without_tenant_hint():
     client_cm.__aenter__ = AsyncMock(return_value=client)
     client_cm.__aexit__ = AsyncMock(return_value=False)
     arguments = {
-        "objectType": "rn",
+        "objectType": object_type,
         "objectId": "507f1f77bcf86cd799439011",
         "attachmentId": "attachment?1",
         "tenantId": "tenant-1",
@@ -213,7 +214,7 @@ async def test_generic_tool_routes_issue_update_without_tenant_hint():
     method, url = client.request.call_args.args[:2]
     assert method == "PUT"
     assert url == (
-        "https://api.example.test/v1/ap/rn/507f1f77bcf86cd799439011/"
+        f"https://api.example.test/v1/ap/{object_type}/507f1f77bcf86cd799439011/"
         "attachments/attachment%3F1/validation"
     )
     assert client.request.call_args.kwargs["json"] == {
@@ -292,3 +293,14 @@ async def test_tool_routes_contract_without_tenant_hint_or_path_injection():
         "suggestedFieldOverwrites": PAYLOAD["suggestedFieldOverwrites"],
     }
     assert arguments["tenantId"] == "tenant-1"
+
+
+def test_standalone_expense_is_a_distinct_validation_owner():
+    Draft7Validator(update_ap_attachment_validation_schema).validate(
+        {
+            "objectType": "expense",
+            "objectId": "507f1f77bcf86cd799439011",
+            "attachmentId": "receipt",
+            "validationDetails": PAYLOAD["validationDetails"],
+        }
+    )

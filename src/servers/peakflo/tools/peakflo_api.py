@@ -137,9 +137,9 @@ bill_tools = [
         name="update_ap_attachment_validation",
         description=(
             "Save validation warnings and errors on an AP attachment by object "
-            "type and Mongo ID. Use tr plus stable lineIndex for a voucher "
-            "on a travel report line. Supported AP attachments can receive "
-            "suggested field changes. This tool "
+            "type and Mongo ID, including standalone My Expenses (expense). "
+            "Use tr plus stable lineIndex for a travel report line voucher. "
+            "Attachments on supported AP objects may receive suggested field changes. This tool "
             "never applies a field change."
         ),
         inputSchema=update_ap_attachment_validation_schema,
