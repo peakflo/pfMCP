@@ -633,8 +633,9 @@ async def make_peakflo_request(name, arguments, token):
                 raise ValueError(
                     "Travel report voucher requires persistent 1-based lineIndex"
                 )
+            arguments["lineIndex"] = line_index
             url = (
-                f"{PEAKFLO_V1_BASE_URL}/ap/tr/{object_id}/lines/{line_index}/"
+                f"{PEAKFLO_V1_BASE_URL}/ap/tr/{object_id}/"
                 f"attachments/{attachment_id}/validation"
             )
         else:

@@ -252,9 +252,9 @@ async def test_generic_tool_routes_tr_line_voucher_by_stable_index():
     assert method == "PUT"
     assert url == (
         "https://api.example.test/v1/ap/tr/507f1f77bcf86cd799439011/"
-        "lines/7/attachments/voucher-1/validation"
+        "attachments/voucher-1/validation"
     )
-    assert "lineIndex" not in client.request.call_args.kwargs["json"]
+    assert client.request.call_args.kwargs["json"]["lineIndex"] == 7
 
 
 @pytest.mark.asyncio
