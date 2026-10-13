@@ -624,7 +624,9 @@ async def make_peakflo_request(name, arguments, token):
         attachment_id = quote(arguments.pop("attachmentId"), safe="")
         line_index = arguments.pop("lineIndex", None)
         method = "PUT"
-        if object_type_raw == "tr" and line_index is not None:
+        if line_index is not None:
+            if object_type_raw != "tr":
+                raise ValueError("lineIndex is only valid for a travel report voucher")
             if (
                 not isinstance(line_index, int)
                 or isinstance(line_index, bool)
@@ -634,17 +636,10 @@ async def make_peakflo_request(name, arguments, token):
                     "Travel report voucher requires persistent 1-based lineIndex"
                 )
             arguments["lineIndex"] = line_index
-            url = (
-                f"{PEAKFLO_V1_BASE_URL}/ap/tr/{object_id}/"
-                f"attachments/{attachment_id}/validation"
-            )
-        else:
-            if line_index is not None:
-                raise ValueError("lineIndex is only valid for a travel report voucher")
-            url = (
-                f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
-                f"attachments/{attachment_id}/validation"
-            )
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
+            f"attachments/{attachment_id}/validation"
+        )
         message = "AP attachment validation details updated successfully"
     elif name == "update_bill_attachment_validation":
         bill_external_id = quote(arguments.pop("billExternalId"), safe="")
