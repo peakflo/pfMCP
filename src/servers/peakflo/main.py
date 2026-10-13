@@ -618,14 +618,32 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
     elif name == "update_ap_attachment_validation":
-        object_type = quote(arguments.pop("objectType"), safe="")
+        object_type_raw = arguments.pop("objectType")
+        object_type = quote(object_type_raw, safe="")
         object_id = quote(arguments.pop("objectId"), safe="")
         attachment_id = quote(arguments.pop("attachmentId"), safe="")
+        line_index = arguments.pop("lineIndex", None)
         method = "PUT"
-        url = (
-            f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
-            f"attachments/{attachment_id}/validation"
-        )
+        if object_type_raw == "tr" and line_index is not None:
+            if (
+                not isinstance(line_index, int)
+                or isinstance(line_index, bool)
+                or line_index < 1
+            ):
+                raise ValueError(
+                    "Travel report voucher requires persistent 1-based lineIndex"
+                )
+            url = (
+                f"{PEAKFLO_V1_BASE_URL}/ap/tr/{object_id}/lines/{line_index}/"
+                f"attachments/{attachment_id}/validation"
+            )
+        else:
+            if line_index is not None:
+                raise ValueError("lineIndex is only valid for a travel report voucher")
+            url = (
+                f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
+                f"attachments/{attachment_id}/validation"
+            )
         message = "AP attachment validation details updated successfully"
     elif name == "update_bill_attachment_validation":
         bill_external_id = quote(arguments.pop("billExternalId"), safe="")

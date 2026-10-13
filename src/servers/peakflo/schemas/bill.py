@@ -152,18 +152,6 @@ _validation_issue_schema = {
     "additionalProperties": False,
 }
 
-_validation_check_schema = {
-    **_validation_issue_schema,
-    "properties": {
-        **_validation_issue_schema["properties"],
-        "outcome": {
-            "type": "string",
-            "enum": ["success", "warning", "error", "skipped"],
-        },
-    },
-    "required": [*_validation_issue_schema["required"], "outcome"],
-}
-
 _field_overwrite_schema = {
     "type": "object",
     "properties": {
@@ -244,10 +232,9 @@ update_bill_attachment_validation_schema = {
                 },
                 "errors": {"type": "array", "items": _validation_issue_schema},
                 "warnings": {"type": "array", "items": _validation_issue_schema},
-                "checks": {"type": "array", "items": _validation_check_schema},
                 "validatedAt": {"type": "string", "format": "date-time"},
             },
-            "required": ["status", "ruleStatuses"],
+            "required": ["status", "ruleStatuses", "errors", "warnings"],
             "additionalProperties": False,
         },
         "suggestedFieldOverwrites": {
@@ -265,9 +252,8 @@ update_ap_attachment_validation_schema = {
     "description": (
         "Save validation issues on an AP attachment by its Mongo object ID. "
         "Supported object types are bill, po, pq, pr, rn, tr, billPayment, and "
-        "apCreditNote. Expense reports use bill; travel reports use tr. "
-        "Field suggestions require a separate verified user action before "
-        "any AP object value changes."
+        "apCreditNote. For a travel report line voucher, use tr and its "
+        "persistent 1-based lineIndex. A verified user must review proposals."
     ),
     "properties": {
         **{
@@ -291,8 +277,18 @@ update_ap_attachment_validation_schema = {
             ],
         },
         "objectId": {"type": "string", "pattern": "^[0-9a-fA-F]{24}$"},
+        "lineIndex": {"type": "integer", "minimum": 1},
     },
     "required": ["objectType", "objectId", "attachmentId", "validationDetails"],
+    "allOf": [
+        {
+            "if": {
+                "properties": {"objectType": {"const": "tr"}},
+                "required": ["objectType"],
+            },
+            "else": {"not": {"required": ["lineIndex"]}},
+        },
+    ],
 }
 
 add_expense_report_attachment_schema = build_ap_attachment_schema(
