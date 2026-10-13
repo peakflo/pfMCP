@@ -156,7 +156,10 @@ _validation_check_schema = {
     **_validation_issue_schema,
     "properties": {
         **_validation_issue_schema["properties"],
-        "outcome": {"type": "string", "enum": ["success", "warning", "error", "skipped"]},
+        "outcome": {
+            "type": "string",
+            "enum": ["success", "warning", "error", "skipped"],
+        },
     },
     "required": [*_validation_issue_schema["required"], "outcome"],
 }

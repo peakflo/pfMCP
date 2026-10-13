@@ -101,8 +101,20 @@ def test_tool_accepts_generic_success_and_skipped_checks_with_evidence():
             "status": "passed",
             "ruleStatuses": {"bir": "passed"},
             "checks": [
-                {"ruleId": "bir", "code": "TIN", "message": "TIN matches", "outcome": "success", "details": {"extractedTin": "123"}},
-                {"ruleId": "bir", "code": "LOW_VALUE", "message": "Below threshold", "outcome": "skipped", "details": {"threshold": 500}},
+                {
+                    "ruleId": "bir",
+                    "code": "TIN",
+                    "message": "TIN matches",
+                    "outcome": "success",
+                    "details": {"extractedTin": "123"},
+                },
+                {
+                    "ruleId": "bir",
+                    "code": "LOW_VALUE",
+                    "message": "Below threshold",
+                    "outcome": "skipped",
+                    "details": {"threshold": 500},
+                },
             ],
         },
     }
