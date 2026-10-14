@@ -21,6 +21,9 @@ from servers.peakflo.schemas.utility import (
     list_whatsapp_templates_input_schema,
     assign_customer_to_workflow_input_schema,
     create_collection_workflow_input_schema,
+    list_unliquidated_cash_advances_input_schema,
+    create_cash_advance_payment_input_schema,
+    add_travel_request_timeline_note_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -362,5 +365,20 @@ utility_tools = [
             "route the send through email/SMS instead."
         ),
         inputSchema=list_whatsapp_templates_input_schema,
+    ),
+    Tool(
+        name="list_unliquidated_cash_advances",
+        description="List the employee's open cash advances. blocked is true when one would stop a new cash advance. Pass excludeTravelRequestId so payments already allocated only to this travel request are ignored.",
+        inputSchema=list_unliquidated_cash_advances_input_schema,
+    ),
+    Tool(
+        name="create_cash_advance_payment",
+        description="Create one draft cash advance payment for a travel request currency group. If reference already exists, returns that payment with created false. Does not sync to Oracle Fusion.",
+        inputSchema=create_cash_advance_payment_input_schema,
+    ),
+    Tool(
+        name="add_travel_request_timeline_note",
+        description="Add a note on the travel request timeline. Use when a cash advance payment could not be created.",
+        inputSchema=add_travel_request_timeline_note_input_schema,
     ),
 ]

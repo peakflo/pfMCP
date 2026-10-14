@@ -781,6 +781,18 @@ async def make_peakflo_request(name, arguments, token):
             f"{customer_external_id}/assign-workflow"
         )
         message = "Customer workflow assigned successfully"
+    elif name == "list_unliquidated_cash_advances":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/listUnliquidatedCashAdvances"
+        message = "Unliquidated cash advances listed"
+    elif name == "create_cash_advance_payment":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/createCashAdvancePayment"
+        message = "Cash advance payment created"
+    elif name == "add_travel_request_timeline_note":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/addTravelRequestTimelineNote"
+        message = "Travel request timeline note added"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
@@ -801,11 +813,16 @@ async def make_peakflo_request(name, arguments, token):
             logger.info(
                 f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
             )
-
             try:
                 response_data = response.json() if response.content else None
             except ValueError:
                 response_data = response.text
+            if name in {
+                "list_unliquidated_cash_advances",
+                "create_cash_advance_payment",
+                "add_travel_request_timeline_note",
+            } and isinstance(response_data, dict):
+                response_data = response_data.get("data", response_data)
             return {
                 "_status_code": status_code,
                 "message": (status_code == 200 or status_code == 201)
