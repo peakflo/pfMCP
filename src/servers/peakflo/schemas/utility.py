@@ -790,7 +790,6 @@ list_collection_workflows_input_schema = {
     },
 }
 
-
 get_collection_workflow_input_schema = {
     "type": "object",
     "properties": {
@@ -851,4 +850,75 @@ delete_collection_workflow_action_input_schema = {
         },
     },
     "required": ["externalId", "actionExternalId"],
+}
+
+list_unliquidated_cash_advances_input_schema = {
+    "type": "object",
+    "properties": {
+        "employeeId": {
+            "type": "string",
+            "description": "Employee vendor id on the travel request",
+        },
+        "excludeTravelRequestId": {
+            "type": "string",
+            "description": "Travel request id whose own cash advances should not count as unliquidated",
+        },
+    },
+    "required": ["employeeId"],
+}
+
+create_cash_advance_payment_input_schema = {
+    "type": "object",
+    "properties": {
+        "vendorId": {"type": "string", "description": "Employee vendor id"},
+        "reference": {
+            "type": "string",
+            "description": "Idempotency key, <TR number>_TR_<currency>",
+        },
+        "baseCurrency": {
+            "type": "string",
+            "description": "Payment currency, the source currency of the group",
+        },
+        "amount": {"type": "number", "description": "Payment amount in baseCurrency"},
+        "convertedAmount": {
+            "type": "number",
+            "description": "Same group in the travel request header currency",
+        },
+        "fxRate": {"type": "number", "description": "amount divided by convertedAmount, or 1"},
+        "travelRequestId": {"type": "string"},
+        "travelRequestNumber": {"type": "string"},
+        "allocationCurrency": {
+            "type": "string",
+            "description": "Travel request header currency",
+        },
+        "appliedAmount": {
+            "type": "number",
+            "description": "Allocation amount in the travel request header currency",
+        },
+        "date": {"type": "string", "description": "Approval time, ISO string"},
+        "userId": {"type": "string"},
+    },
+    "required": [
+        "vendorId",
+        "reference",
+        "baseCurrency",
+        "amount",
+        "convertedAmount",
+        "fxRate",
+        "travelRequestId",
+        "travelRequestNumber",
+        "allocationCurrency",
+        "appliedAmount",
+    ],
+}
+
+add_travel_request_timeline_note_input_schema = {
+    "type": "object",
+    "properties": {
+        "travelRequestId": {"type": "string"},
+        "travelRequestNumber": {"type": "string"},
+        "message": {"type": "string"},
+        "vendorId": {"type": "string"},
+    },
+    "required": ["travelRequestId", "travelRequestNumber", "message"],
 }
