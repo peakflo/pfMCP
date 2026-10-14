@@ -24,6 +24,14 @@ PAYLOAD = {
     "validationDetails": {
         "status": "warning",
         "ruleStatuses": {"tax": "warning", "line-amount": "passed"},
+        "checks": [
+            {
+                "ruleId": "line-amount",
+                "code": "TOTAL_CHECKED",
+                "message": "Line total checked",
+                "outcome": "success",
+            }
+        ],
         "errors": [],
         "warnings": [{"ruleId": "tax", "code": "MISMATCH", "message": "Check tax"}],
     },
@@ -73,6 +81,55 @@ def test_tool_requires_object_issue_details_from_backend_contract():
     payload["validationDetails"]["warnings"][0]["details"] = "scalar"
     with pytest.raises(ValidationError):
         Draft7Validator(update_bill_attachment_validation_schema).validate(payload)
+
+
+@pytest.mark.parametrize(
+    "schema, owner",
+    [
+        (update_bill_attachment_validation_schema, {"billExternalId": "bill-1"}),
+        (
+            update_ap_attachment_validation_schema,
+            {"objectType": "expense", "objectId": "507f1f77bcf86cd799439011"},
+        ),
+    ],
+)
+def test_tools_accept_shared_checks_and_reject_invalid_checks(schema, owner):
+    check = {
+        "ruleId": "bir",
+        "code": "tin",
+        "message": "TIN checked",
+        "outcome": "success",
+        "details": {"sourceStatus": "Passed"},
+        "dedupeKey": "bir-tin",
+        "fieldPath": "tin",
+    }
+    payload = {
+        **owner,
+        "attachmentId": "receipt",
+        "validationDetails": {
+            "status": "passed",
+            "ruleStatuses": {"bir": "passed"},
+            "checks": [check],
+        },
+    }
+    validator = Draft7Validator(schema)
+    for outcome in ("success", "warning", "error", "skipped"):
+        check["outcome"] = outcome
+        validator.validate(payload)
+    for field in ("ruleId", "code", "message", "outcome"):
+        payload["validationDetails"]["checks"] = [
+            {key: value for key, value in check.items() if key != field}
+        ]
+        with pytest.raises(ValidationError):
+            validator.validate(payload)
+    for invalid in (
+        {"outcome": "Passed"},
+        {"details": "scalar"},
+        {"unexpected": True},
+    ):
+        payload["validationDetails"]["checks"] = [{**check, **invalid}]
+        with pytest.raises(ValidationError):
+            validator.validate(payload)
 
 
 def test_tool_can_mark_a_rule_passed_to_clear_its_prior_result():
