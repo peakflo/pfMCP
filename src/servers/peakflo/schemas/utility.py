@@ -884,7 +884,10 @@ create_cash_advance_payment_input_schema = {
             "type": "number",
             "description": "Same group in the travel request header currency",
         },
-        "fxRate": {"type": "number", "description": "amount divided by convertedAmount, or 1"},
+        "fxRate": {
+            "type": "number",
+            "description": "amount divided by convertedAmount, or 1",
+        },
         "travelRequestId": {"type": "string"},
         "travelRequestNumber": {"type": "string"},
         "allocationCurrency": {
