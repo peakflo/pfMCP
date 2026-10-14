@@ -36,6 +36,8 @@ from servers.peakflo.schemas.bill import (
     add_bill_attachment_schema,
     add_expense_report_attachment_schema,
     add_bill_payment_attachment_schema,
+    update_bill_attachment_validation_schema,
+    update_ap_attachment_validation_schema,
 )
 
 vendor_tools = [
@@ -131,6 +133,28 @@ purchase_order_tools = [
 
 
 bill_tools = [
+    Tool(
+        name="update_ap_attachment_validation",
+        description=(
+            "Save validation warnings and errors on an AP attachment by object "
+            "type and Mongo ID, including standalone My Expenses (expense). "
+            "Use tr plus stable lineIndex for a travel report line voucher. "
+            "Attachments on supported AP objects may receive suggested field changes. This tool "
+            "never applies a field change."
+        ),
+        inputSchema=update_ap_attachment_validation_schema,
+    ),
+    Tool(
+        name="update_bill_attachment_validation",
+        description=(
+            "Save generic validation errors, warnings, and optional proposed "
+            "bill field changes on an existing bill attachment. Line targets "
+            "must use persistent 1-based lineIndex and include currentValue. "
+            "This tool never changes bill fields; a user must approve proposals "
+            "in a separate review action."
+        ),
+        inputSchema=update_bill_attachment_validation_schema,
+    ),
     Tool(
         name="add_bill_attachment",
         description=(

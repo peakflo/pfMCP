@@ -134,6 +134,179 @@ add_bill_attachment_schema = build_ap_attachment_schema(
     route_hint="PUT /v1/bill/:billExternalId/attachments",
 )
 
+
+# Mirrors ApAttachment.validationDetails and suggestedFieldOverwrites in the
+# shared backend response contract. This tool saves proposals for user review;
+# it never applies a proposed value to the bill.
+_validation_issue_schema = {
+    "type": "object",
+    "properties": {
+        "ruleId": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "dedupeKey": {"type": "string", "minLength": 1},
+        "fieldPath": {"type": "string", "minLength": 1},
+        "details": {"type": "object"},
+    },
+    "required": ["ruleId", "code", "message"],
+    "additionalProperties": False,
+}
+
+_validation_check_schema = {
+    **_validation_issue_schema,
+    "properties": {
+        **_validation_issue_schema["properties"],
+        "outcome": {
+            "type": "string",
+            "enum": ["success", "warning", "error", "skipped"],
+        },
+    },
+    "required": [*_validation_issue_schema["required"], "outcome"],
+}
+
+_field_overwrite_schema = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "ruleId": {"type": "string", "minLength": 1},
+        "target": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "scope": {"const": "apObject"},
+                        "fieldPath": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["scope", "fieldPath"],
+                    "additionalProperties": False,
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "scope": {"const": "lineItem"},
+                        "lineIndex": {"type": "integer", "minimum": 1},
+                        "fieldPath": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["scope", "lineIndex", "fieldPath"],
+                    "additionalProperties": False,
+                },
+            ]
+        },
+        "currentValue": {},
+        "suggestedValue": {},
+        "optional": {"type": "boolean"},
+        "overridable": {"type": "boolean"},
+        "capturedField": {"type": "string"},
+        "reason": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    },
+    "required": [
+        "id",
+        "ruleId",
+        "target",
+        "currentValue",
+        "suggestedValue",
+        "optional",
+        "overridable",
+    ],
+    "additionalProperties": False,
+}
+
+update_bill_attachment_validation_schema = {
+    "type": "object",
+    "description": (
+        "Save validation details and proposed field overwrites on one bill "
+        "attachment. The proposals do not change the bill. For a line target, "
+        "use the persistent 1-based lineIndex and give currentValue. A user "
+        "must review and approve proposed changes separately. Each call replaces "
+        "only the rules named in validationDetails.ruleStatuses. Include a "
+        "passed status to clear an old rule result."
+    ),
+    "properties": {
+        "billExternalId": {"type": "string", "minLength": 1},
+        "attachmentId": {"type": "string", "minLength": 1},
+        "tenantId": {"type": "string", "description": "Tenant context hint"},
+        "validationDetails": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["inProgress", "passed", "warning", "error"],
+                },
+                "ruleStatuses": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {"minLength": 1},
+                    "additionalProperties": {
+                        "type": "string",
+                        "enum": ["inProgress", "passed", "warning", "error"],
+                    },
+                },
+                "checks": {"type": "array", "items": _validation_check_schema},
+                "errors": {"type": "array", "items": _validation_issue_schema},
+                "warnings": {"type": "array", "items": _validation_issue_schema},
+                "validatedAt": {"type": "string", "format": "date-time"},
+            },
+            "required": ["status", "ruleStatuses"],
+            "additionalProperties": False,
+        },
+        "suggestedFieldOverwrites": {
+            "type": "array",
+            "items": _field_overwrite_schema,
+        },
+    },
+    "required": ["billExternalId", "attachmentId", "validationDetails"],
+    "additionalProperties": False,
+}
+
+
+update_ap_attachment_validation_schema = {
+    **update_bill_attachment_validation_schema,
+    "description": (
+        "Save validation issues on an AP attachment by its Mongo object ID. "
+        "Supported object types are expense, bill, po, pq, pr, rn, tr, billPayment, and "
+        "apCreditNote. Standalone My Expenses use expense; Expense Reports use bill. "
+        "For a travel report line voucher, use tr and its persistent 1-based lineIndex. "
+        "Field suggestions require a separate verified user action before "
+        "any AP object value changes."
+    ),
+    "properties": {
+        **{
+            key: value
+            for key, value in update_bill_attachment_validation_schema[
+                "properties"
+            ].items()
+            if key != "billExternalId"
+        },
+        "objectType": {
+            "type": "string",
+            "enum": [
+                "expense",
+                "bill",
+                "po",
+                "pq",
+                "pr",
+                "rn",
+                "tr",
+                "billPayment",
+                "apCreditNote",
+            ],
+        },
+        "objectId": {"type": "string", "pattern": "^[0-9a-fA-F]{24}$"},
+        "lineIndex": {"type": "integer", "minimum": 1},
+    },
+    "required": ["objectType", "objectId", "attachmentId", "validationDetails"],
+    "allOf": [
+        {
+            "if": {
+                "properties": {"objectType": {"const": "tr"}},
+                "required": ["objectType"],
+            },
+            "else": {"not": {"required": ["lineIndex"]}},
+        },
+    ],
+}
+
 add_expense_report_attachment_schema = build_ap_attachment_schema(
     id_field="externalId",
     id_description=(

@@ -34,6 +34,12 @@ tools:
   - name: "add_bill_attachment"
     description: "Add an attachment to an existing bill"
     required_scopes: []
+  - name: "update_bill_attachment_validation"
+    description: "Save validation issues and proposed bill field changes on an existing attachment"
+    required_scopes: []
+  - name: "update_ap_attachment_validation"
+    description: "Save validation issues on AP attachments, with bill field suggestions only"
+    required_scopes: []
   - name: "add_expense_report_attachment"
     description: "Add an attachment to an existing expense report (optional multi-file custom field target)"
     required_scopes: []
