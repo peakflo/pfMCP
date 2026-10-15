@@ -900,6 +900,14 @@ create_cash_advance_payment_input_schema = {
         },
         "date": {"type": "string", "description": "Approval time, ISO string"},
         "userId": {"type": "string"},
+        "sourceId": {
+            "type": "string",
+            "description": (
+                "External invoice id from a successful invoice create in the source "
+                "ERP or accounting system. Stored on the Peakflo payment so a later "
+                "approval does not queue a second invoice."
+            ),
+        },
     },
     "required": [
         "vendorId",
