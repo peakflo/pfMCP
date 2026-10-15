@@ -16,7 +16,6 @@ from pathlib import Path
 import httpx
 
 from mcp.types import (
-    AnyUrl,
     Resource,
     TextContent,
     Tool,
@@ -24,7 +23,7 @@ from mcp.types import (
     EmbeddedResource,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.clickup.util import authenticate_and_save_credentials, get_credentials
@@ -155,7 +154,7 @@ def create_server(user_id, api_key=None):
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read a resource from ClickUp by URI"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

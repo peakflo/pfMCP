@@ -21,9 +21,17 @@ python src/servers/peakflo/main.py auth
 |------|-------------|
 | **read_vendor** | Fetch vendor details by external ID. |
 | **create_vendor** | Create a new vendor with company info, addresses, contacts, bank details, and custom fields. |
+| **create_customer** | Create a new customer (`POST /v1/customers`) with company info, status, currency, contacts, addresses, payment terms, and custom fields. |
+| **update_customer** | Update an existing customer by its external ID (`PUT /v1/customers/:externalId`). `externalId`, `companyName`, `currency` and `status` are required by the API on every update; omitted optional fields stay unchanged; a non-empty `customField` list replaces the stored custom fields. |
 | **create_invoice** | Create an invoice with line items, customer info, and financial breakdown. |
 | **update_invoice** | Update an existing invoice. |
 | **update_purchase_order** | Update an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId`). Full-object update — supply the complete field set; `customField` replaces the existing custom-field array (no merge); `status` is carried for validation but does not transition the PO. |
+| **add_purchase_order_attachment** | Add an attachment to an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId/attachments`). Supply the file via a signed `file_url` (server downloads, base64-encodes, and computes `fileSize`) or directly via `base64` (with `fileSize`) — not both. Supports AP attachment file types (invoice, statement, cabinet, paymentProof, fakturPajak, whtFile, etc.). Files over 10MB are rejected. |
+| **add_bill_attachment** | Add an attachment to an existing bill by its external ID (`PUT /v1/bill/:billExternalId/attachments`). Supply the file via a signed `file_url` (server downloads, base64-encodes, and computes `fileSize`) or directly via `base64` (with `fileSize`) — not both. Optional `customFieldDetails` targets a Pixel multi-file CF (`fileType` coerced to `customFieldFile`): `customFieldNumber` is required; `customFieldId`, `customFieldName`, `customFieldType`, `customFieldSourceId` are optional and are forwarded only when non-empty (`customFieldType` normalized to `multiFile` when given, omitted otherwise). Files over 10MB are rejected. |
+| **update_bill_attachment_validation** | Save `validationDetails` and optional `suggestedFieldOverwrites` on an existing bill attachment (`PUT /v1/bill/:billExternalId/attachments/:attachmentId/validation`). Each suggestion needs `id`, `ruleId`, `currentValue`, `suggestedValue`, `optional`, `overridable`, and a bill or line target. A line target uses persistent 1-based `lineIndex`. This tool does not apply changes to the bill; the separate user decision route records approval or rejection. |
+| **update_ap_attachment_validation** | Save validation checks and optional proposed field changes by `objectType`, Mongo `objectId`, and `attachmentId`. Supports standalone My Expenses (`expense`), bill (including Expense Reports), PO, PQ, PR, RN, Travel Reports (`tr`), bill payment, and AP credit note. A TR line voucher uses the same `PUT /v1/ap/tr/:objectId/attachments/:attachmentId/validation` route with its persistent 1-based `lineIndex` in the body. A verified user reviews proposals separately. |
+| **add_expense_report_attachment** | Add an attachment to an expense report by external ID (`PUT /v1/expense-report/:externalId/attachments`). Same file source + optional `customFieldDetails` contract as bill attach. |
+| **add_bill_payment_attachment** | Add an attachment to an AP / TnE payment by external ID (`PUT /v1/bill-payment/:externalId/attachments`). Same file source + optional `customFieldDetails` contract as bill attach. |
 | **raise_invoice_dispute** | Raise a dispute for an invoice. |
 | **soa_email** | Send an SOA (statement of account) email to the vendor. Kept for backwards compat — prefer `send_message` for new use cases. |
 | **send_message** | Send an ad-hoc message to a customer via email/WhatsApp/SMS/Zalo/Line, or log a manual call. Channel-first; routes through `/v2/messages/send`. |
@@ -49,3 +57,5 @@ python src/servers/peakflo/main.py auth
 ```bash
 python src/servers/local.py --server peakflo --user-id local
 ```
+
+Standalone expense suggestions support only `apObject.note`. Merchant, dates, money, mileage/per-diem and line-item targets are rejected by the API; apply OCR amounts through the reviewed normal expense editor save. The tool never approves proposals.

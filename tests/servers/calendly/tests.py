@@ -12,7 +12,7 @@ async def test_list_resources(client):
 
     print("Resources found:")
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
 
     print("✅ Successfully listed resources")
 
@@ -39,7 +39,9 @@ async def test_read_event_type(client):
 
     response = await client.read_resource(event_type_resource.uri)
     assert response.contents, "Response should contain event type data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Event type data read:")
     print(f"\t{response.contents[0].text}")
@@ -64,7 +66,9 @@ async def test_read_event(client):
 
     response = await client.read_resource(event_resource.uri)
     assert response.contents, "Response should contain scheduled event data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Scheduled event data read:")
     print(f"\t{response.contents[0].text}")

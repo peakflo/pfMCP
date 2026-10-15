@@ -5,7 +5,7 @@ google-api-python-client
 google-auth
 google-auth-httplib2
 google-auth-oauthlib
-mcp==1.12.3
+mcp==2.2.0
 notion-client
 slack-sdk
 prometheus-client

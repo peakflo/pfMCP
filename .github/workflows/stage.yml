@@ -48,4 +48,9 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --memory=1Gi --min-instances=0 --timeout=60 --no-allow-unauthenticated
+          # A previous service setting delayed the first probe by 240 seconds even
+          # though pfMCP opened port 8080 in about 28 seconds. Set the probe on
+          # every deploy so a cold instance can serve requests when it is ready.
+          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --memory=1Gi --min-instances=0 --timeout=300 --no-allow-unauthenticated \
+            --port=8080 \
+            --startup-probe=tcpSocket.port=8080,initialDelaySeconds=0,timeoutSeconds=5,periodSeconds=5,failureThreshold=48

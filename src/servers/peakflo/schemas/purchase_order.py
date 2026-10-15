@@ -332,3 +332,168 @@ update_purchase_order_schema = {
     ],
     "additionalProperties": False,
 }
+
+
+# AP attachment file type enum, mirroring ApAttachmentType in
+# peakflo-schema/src/schemas/ap/constants.ts
+ap_attachment_file_types = [
+    "transaction",
+    "statement",
+    "cabinet",
+    "invoice",
+    "other",
+    "paymentProof",
+    "incomingFile",
+    "customFieldFile",
+    "fakturPajak",
+    "payerReceipt",
+    "whtFile",
+    "eStampFile",
+    "shippingList",
+    "dscSigned",
+]
+
+# Purchase-order attach does not support multi-file custom field files: the
+# API rejects fileType=customFieldFile on this route.
+purchase_order_attachment_file_types = [
+    file_type
+    for file_type in ap_attachment_file_types
+    if file_type != "customFieldFile"
+]
+
+
+# Pixel multi-file CF targeting — same shape as api ApAttachmentCustomFieldDetailsInput
+# and upload-functions / UI POST /v1/files customFieldDetails.
+#
+# Contract: customFieldNumber is the only required key. The API resolves the
+# custom field from the tenant configuration by number and checks any
+# optional value that is given (customFieldId / customFieldSourceId must
+# match, customFieldType must be multiFile). Optional keys must be non-empty
+# when present; pfMCP forwards only keys that have a value.
+CUSTOM_FIELD_DETAILS_REQUIRED_KEYS = ("customFieldNumber",)
+CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS = (
+    "customFieldId",
+    "customFieldName",
+    "customFieldType",
+    "customFieldSourceId",
+)
+
+custom_field_details_schema = {
+    "type": "object",
+    "description": (
+        "When set, the attachment is stored as customFieldFile on the Pixel "
+        "multi-file custom field identified by customFieldNumber (REQUIRED). "
+        "customFieldId, customFieldName, customFieldType and "
+        "customFieldSourceId are OPTIONAL: the API resolves the field by "
+        "number and only checks the optional values you give. Omit optional "
+        "keys you do not know; do not send empty strings."
+    ),
+    "properties": {
+        "customFieldNumber": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "REQUIRED. Custom field number of the target multi-file "
+                "custom field. The API uses it to find the field."
+            ),
+        },
+        "customFieldId": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional Pixel custom field id. If given, it must match the "
+                "field found by customFieldNumber."
+            ),
+        },
+        "customFieldName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional custom field display name.",
+        },
+        "customFieldType": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional custom field type. If given, it must be the "
+                "multi-file type; casing variants (e.g. legacy 'MUltifile', "
+                "'MultiFile') are normalized to the canonical 'multiFile' "
+                "before forwarding. If omitted, it is not sent."
+            ),
+        },
+        "customFieldSourceId": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional source id. If given, it must match the field found "
+                "by customFieldNumber."
+            ),
+        },
+    },
+    "required": list(CUSTOM_FIELD_DETAILS_REQUIRED_KEYS),
+    "additionalProperties": False,
+}
+
+
+def to_data_uri(raw_base64: str, content_type: str) -> str:
+    """Wrap raw base64 as a data URI unless it already is one."""
+    if "," in raw_base64:
+        return raw_base64
+    return f"data:{content_type};base64,{raw_base64}"
+
+
+add_purchase_order_attachment_schema = {
+    "type": "object",
+    "description": (
+        "Add an attachment to an existing purchase order. Supply the file "
+        "via exactly one of: a signed 'file_url' (the server downloads it, "
+        "base64-encodes the content and computes fileSize), or directly via "
+        "'base64' (in which case 'fileSize' must also be provided). "
+        "Providing both is rejected. Files over 10MB are rejected."
+    ),
+    "properties": {
+        "poExternalId": {
+            "type": "string",
+            "description": "External ID of the purchase order to attach the file to (used in URL path)",
+        },
+        "tenantId": {
+            "type": "string",
+            "description": "Tenant ID",
+        },
+        "id": {
+            "type": "string",
+            "description": "Attachment id",
+        },
+        "name": {
+            "type": "string",
+            "description": "Attachment file name, e.g. ENOVA-ACCLIVIS-170326-1.pdf",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type of the attachment (e.g., application/pdf)",
+        },
+        "fileSize": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Byte size of the attachment. Computed automatically when file_url is provided; required when supplying base64 directly.",
+        },
+        "file_url": {
+            "type": "string",
+            "description": "Signed URL to download the file. The server fetches the file, base64-encodes its content, and computes fileSize before forwarding to the Peakflo API.",
+        },
+        "base64": {
+            "type": "string",
+            "description": "Base64-encoded file content (a data URI or raw base64). Provide this, or file_url, to supply the file. When provided directly, fileSize is required.",
+        },
+        "fileType": {
+            "type": "string",
+            "enum": purchase_order_attachment_file_types,
+            "description": "Type of file being attached: transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, or dscSigned. customFieldFile is not supported for purchase orders.",
+        },
+    },
+    "required": ["poExternalId", "id", "name", "contentType", "fileType"],
+    "oneOf": [
+        {"required": ["file_url"], "not": {"required": ["base64"]}},
+        {"required": ["base64", "fileSize"], "not": {"required": ["file_url"]}},
+    ],
+    "additionalProperties": False,
+}
