@@ -375,9 +375,9 @@ utility_tools = [
         name="create_cash_advance_payment",
         description=(
             "Create one draft cash advance payment for a travel request currency group "
-            "after Fusion accepts the invoice. Pass sourceId as the Fusion InvoiceId. "
-            "If reference already exists, returns that payment with created false. "
-            "This call does not post to Oracle Fusion."
+            "after the source system accepts the invoice. Pass sourceId as that "
+            "external invoice id. If reference already exists, returns that payment "
+            "with created false. This call does not post to the source system."
         ),
         inputSchema=create_cash_advance_payment_input_schema,
     ),

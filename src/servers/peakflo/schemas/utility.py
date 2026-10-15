@@ -903,8 +903,9 @@ create_cash_advance_payment_input_schema = {
         "sourceId": {
             "type": "string",
             "description": (
-                "Fusion InvoiceId from a successful invoice create. Stored on the "
-                "Peakflo payment so a later approval does not queue a second invoice."
+                "External invoice id from a successful invoice create in the source "
+                "ERP or accounting system. Stored on the Peakflo payment so a later "
+                "approval does not queue a second invoice."
             ),
         },
     },
