@@ -1,42 +1,16 @@
-# Zendesk Server
+# Zendesk Tickets
 
-pfMCP server implementation for interacting with Zendesk.
+This pfMCP server exposes four tools for Zendesk Support tickets:
 
-### Prerequisites
+| Tool | Purpose |
+| --- | --- |
+| `list_tickets` | List recent tickets, with `page_size` and `after_cursor` pagination. |
+| `get_ticket` | Read a ticket by its numeric `ticket_id`. |
+| `search_tickets` | Search tickets with Zendesk query syntax. The server adds `type:ticket`. |
+| `update_ticket` | Change ticket fields or add a public reply or internal note. |
 
-- Python 3.11+
-- A Zendesk account with API access
-- A Zendesk OAuth application with the following scopes:
-  - read
-  - write
+## Setup
 
-### Local Authentication
+Configure a Nango OAuth2 integration with the provider config key `zendesk` and Zendesk read and write scopes. The workflow-builder connector uses that same key. Provide `NANGO_SECRET_KEY` and optionally `NANGO_HOST` to pfMCP. Each workflow-builder connection ID is passed to pfMCP as the user ID. API requests go through Nango's Zendesk proxy, which resolves the account URL and refreshes the OAuth token.
 
-Local authentication uses an OAuth Configuration JSON file:
-
-```
-local_auth/oauth_configs/zendesk/oauth.json
-```
-
-Create the following file with the relevant attributes for your app:
-
-```json
-{
-  "client_id": "xxxxxxxxxxxxxxxxxxxxx",
-  "client_secret": "xxxxxxxxxxxxxxxxxxxxx",
-  "redirect_uri": "https://xxxxxxxxxxxxx",
-  "custom_subdomain": "your-subdomain"
-}
-```
-
-Notes:
-- The `custom_subdomain` is your Zendesk subdomain (e.g., if your Zendesk URL is `example.zendesk.com`, use `example`)
-
-
-To set up and verify authentication, run:
-
-```bash
-python src/servers/zendesk/main.py auth
-```
-
-This will launch a browser-based authentication flow to obtain and save credentials.
+Search is limited to Zendesk's first 1,000 results (pages 1–10 with up to 100 results per page). Use narrower queries for larger result sets. Ticket updates use Zendesk's `PUT /api/v2/tickets/{id}.json` endpoint. A `comment` defaults to a public reply; set `public: false` for an internal note.
