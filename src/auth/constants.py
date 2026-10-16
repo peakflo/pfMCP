@@ -22,6 +22,10 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "google-firestore",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    "bigquery": {
+        "nango_service_name": "google-bigquery",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     "notion": {"nango_service_name": "notion", "auth_type": AUTH_TYPE_OAUTH2},
     "tldv": {"nango_service_name": "tldv", "auth_type": AUTH_TYPE_API_KEY},
     "peakflo": {
