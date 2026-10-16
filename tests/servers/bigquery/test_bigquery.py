@@ -73,7 +73,7 @@ async def test_server_exposes_all_bigquery_tools():
 
 @pytest.mark.asyncio
 async def test_server_uses_bigquery_nango_connection():
-    assert SERVICE_NAME_MAP["bigquery"]["nango_service_name"] == "google-bigquery"
+    assert SERVICE_NAME_MAP["bigquery"]["nango_service_name"] == "google"
     auth = Mock()
     auth.get_user_credentials.return_value = {"access_token": "oauth-token"}
     response = Mock()

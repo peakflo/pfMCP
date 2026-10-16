@@ -23,7 +23,7 @@ SERVICE_NAME_MAP = {
         "auth_type": AUTH_TYPE_OAUTH2,
     },
     "bigquery": {
-        "nango_service_name": "google-bigquery",
+        "nango_service_name": "google",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
     "notion": {"nango_service_name": "notion", "auth_type": AUTH_TYPE_OAUTH2},

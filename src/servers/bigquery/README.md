@@ -1,8 +1,10 @@
 # Google BigQuery
 
-The BigQuery server uses a Nango OAuth connection with integration ID
-`google-bigquery`. Configure that Nango integration with the Google OAuth
-template and the `https://www.googleapis.com/auth/bigquery` scope. The user
+The BigQuery server uses a Nango OAuth connection with provider config key
+`google`. The workflow-builder connector ID remains `google-bigquery` and
+routes to this server at `/bigquery`. Configure the Nango `google` integration
+with Google OAuth. The workflow-builder connect session requests
+`https://www.googleapis.com/auth/bigquery` via a scope override. The user
 also needs BigQuery IAM permissions on the project and datasets: dataset/table
 metadata permissions for discovery, and `bigquery.jobs.create` plus table data
 access for queries. The Google Cloud project ID is supplied to each tool.
@@ -23,5 +25,5 @@ limited to 1000 rows. For a job that is still running, use the returned
 Pass `pageToken` back as `page_token` to fetch later pages. Nested and repeated
 values retain BigQuery's REST JSON representation.
 
-The Nango integration ID and OAuth scope must be provisioned separately in
-each environment before users can connect BigQuery in workflow-builder.
+The Nango `google` integration and OAuth client must be provisioned in each
+environment before users can connect BigQuery in workflow-builder.
