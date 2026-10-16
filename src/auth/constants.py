@@ -55,5 +55,12 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "slack-user",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Stripe App OAuth (NOT the plain "stripe" Nango provider, which is an
+    # API-key-only integration). Must match the Nango integration ID
+    # configured for the Stripe App OAuth connection.
+    "stripe": {
+        "nango_service_name": "stripe-app",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }
