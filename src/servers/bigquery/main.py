@@ -230,19 +230,16 @@ def create_server(user_id: str, api_key: str = None) -> Server:
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
-        try:
-            credentials = create_auth_client(api_key=api_key).get_user_credentials(
-                SERVICE_NAME, user_id
-            )
-            token = (credentials or {}).get("access_token") or (credentials or {}).get(
-                "token"
-            )
-            if not token:
-                raise ValueError("BigQuery OAuth connection has no access token")
-            result = await asyncio.to_thread(_execute, token, name, arguments or {})
-            return [TextContent(type="text", text=json.dumps(result))]
-        except (KeyError, ValueError, requests.RequestException) as exc:
-            return [TextContent(type="text", text=json.dumps({"error": str(exc)}))]
+        credentials = create_auth_client(api_key=api_key).get_user_credentials(
+            SERVICE_NAME, user_id
+        )
+        token = (credentials or {}).get("access_token") or (credentials or {}).get(
+            "token"
+        )
+        if not token:
+            raise ValueError("BigQuery OAuth connection has no access token")
+        result = await asyncio.to_thread(_execute, token, name, arguments or {})
+        return [TextContent(type="text", text=json.dumps(result))]
 
     return server
 
