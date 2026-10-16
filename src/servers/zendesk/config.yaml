@@ -1,6 +1,6 @@
 name: "Zendesk Tickets"
 icon: "assets/icon.png"
-description: "List, read, search, and update Zendesk support tickets"
+description: "Interact with Zendesk tickets and views"
 documentation_path: "README.md"
 tools:
   - name: "list_tickets"
@@ -9,5 +9,9 @@ tools:
     description: "Read a ticket by ID"
   - name: "search_tickets"
     description: "Search tickets with Zendesk query syntax"
+  - name: "create_ticket"
+    description: "Create a new ticket in Zendesk"
   - name: "update_ticket"
     description: "Update ticket fields or add a reply or internal note"
+  - name: "add_comment"
+    description: "Add a comment to an existing ticket"

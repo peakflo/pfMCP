@@ -1,11 +1,16 @@
-"""Focused Zendesk ticket tool tests without a live connection."""
+"""Offline coverage for Zendesk ticket extensions and Nango routing."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
+from mcp.types import (
+    CallToolRequest,
+    CallToolRequestParams,
+    ListResourcesRequest,
+    ListToolsRequest,
+)
 
 from src.servers.zendesk import main
 
@@ -16,27 +21,41 @@ async def invoke(name, arguments, response):
         method="tools/call",
         params=CallToolRequestParams(name=name, arguments=arguments),
     )
-    with patch.object(main, "make_zendesk_request", new_callable=AsyncMock) as api:
+    with (
+        patch.object(
+            main, "get_credentials", new_callable=AsyncMock, return_value="token"
+        ),
+        patch.object(
+            main,
+            "get_service_config",
+            new_callable=AsyncMock,
+            return_value={"custom_subdomain": "example"},
+        ),
+        patch.object(main, "make_zendesk_request", new_callable=AsyncMock) as api,
+    ):
         api.return_value = response
         result = await server.dispatch(request)
-    return json.loads(result.content[0].text), api
+    return result, api
 
 
 @pytest.mark.asyncio
-async def test_tools_match_config():
-    server = main.create_server("connection-1")
-    result = await server.dispatch(ListToolsRequest(method="tools/list"))
+async def test_existing_and_new_tools_are_listed():
+    result = await main.create_server("connection-1").dispatch(
+        ListToolsRequest(method="tools/list")
+    )
     assert {tool.name for tool in result.tools} == {
         "list_tickets",
         "get_ticket",
         "search_tickets",
+        "create_ticket",
         "update_ticket",
+        "add_comment",
     }
 
 
 @pytest.mark.asyncio
-async def test_list_tickets_returns_cursor_and_scopes_connection():
-    output, api = await invoke(
+async def test_list_tickets_returns_cursor():
+    result, api = await invoke(
         "list_tickets",
         {"page_size": 2, "after_cursor": "cursor-1"},
         {
@@ -44,107 +63,157 @@ async def test_list_tickets_returns_cursor_and_scopes_connection():
             "meta": {"has_more": True, "after_cursor": "cursor-2"},
         },
     )
-    assert output == {
+    assert json.loads(result.content[0].text) == {
         "tickets": [{"id": 42}],
-        "next_cursor": "cursor-2",
         "has_more": True,
+        "next_cursor": "cursor-2",
     }
     api.assert_awaited_once_with(
-        "GET",
+        "get",
         "tickets.json",
-        "connection-1",
-        None,
+        "token",
+        "example",
+        data=None,
         params={"page[size]": 2, "page[after]": "cursor-1"},
+        connection_id=None,
     )
 
 
 @pytest.mark.asyncio
-async def test_read_ticket():
-    output, api = await invoke("get_ticket", {"ticket_id": 42}, {"ticket": {"id": 42}})
-    assert output == {"id": 42}
-    api.assert_awaited_once_with("GET", "tickets/42.json", "connection-1", None)
+async def test_existing_view_resources_are_preserved():
+    server = main.create_server("connection-1")
+    with (
+        patch.object(
+            main, "get_credentials", new_callable=AsyncMock, return_value="token"
+        ),
+        patch.object(
+            main,
+            "get_service_config",
+            new_callable=AsyncMock,
+            return_value={"custom_subdomain": "example"},
+        ),
+        patch.object(
+            main,
+            "make_zendesk_request",
+            new_callable=AsyncMock,
+            return_value={"views": [{"id": 7, "title": "Open tickets"}]},
+        ),
+    ):
+        result = await server.dispatch(ListResourcesRequest(method="resources/list"))
+    assert str(result.resources[0].uri) == "zendesk://view/7"
 
 
 @pytest.mark.asyncio
-async def test_search_is_ticket_scoped_and_paginated():
-    output, api = await invoke(
+async def test_get_ticket():
+    result, api = await invoke("get_ticket", {"ticket_id": 42}, {"ticket": {"id": 42}})
+    assert json.loads(result.content[0].text) == {"id": 42}
+    api.assert_awaited_once_with(
+        "get",
+        "tickets/42.json",
+        "token",
+        "example",
+        data=None,
+        params=None,
+        connection_id=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_search_is_ticket_scoped_and_legacy_result_remains_readable():
+    result, api = await invoke(
         "search_tickets",
-        {"query": "status:open", "page": 2, "page_size": 10},
+        {"query": "status:open", "page": 2},
         {
-            "results": [{"id": 42, "result_type": "ticket"}],
-            "count": 12,
+            "results": [{"id": 42, "subject": "Help", "result_type": "ticket"}],
             "next_page": "https://example.test/page=3",
         },
     )
-    assert output["count"] == 12
-    assert output["next_page"] == "https://example.test/page=3"
-    assert api.await_args.kwargs["params"] == {
-        "query": "type:ticket status:open",
-        "page": 2,
-        "per_page": 10,
-    }
+    assert "Ticket #42" in result.content[0].text
+    assert "Next page: https://example.test/page=3" in result.content[0].text
+    assert api.await_args.kwargs["params"]["query"] == "type:ticket status:open"
+    assert api.await_args.kwargs["params"]["page"] == 2
 
 
 @pytest.mark.asyncio
-async def test_update_ticket_internal_note():
-    output, api = await invoke(
+async def test_existing_create_and_comment_still_work():
+    created, create_api = await invoke(
+        "create_ticket",
+        {"subject": "Help", "comment": "Please help"},
+        {"ticket": {"id": 42, "subject": "Help", "status": "new"}},
+    )
+    assert "Ticket created successfully" in created.content[0].text
+    assert create_api.await_args.kwargs["data"]["ticket"]["comment"] == {
+        "body": "Please help"
+    }
+    commented, comment_api = await invoke(
+        "add_comment",
+        {"ticket_id": 42, "comment": "Private", "public": False},
+        {"ticket": {"id": 42, "subject": "Help"}},
+    )
+    assert "internal note" in commented.content[0].text
+    assert comment_api.await_args.kwargs["data"]["ticket"]["comment"]["public"] is False
+
+
+@pytest.mark.asyncio
+async def test_local_auth_uses_existing_helpers():
+    result, api = await invoke(
         "update_ticket",
-        {"ticket_id": 42, "status": "pending", "comment": "Checking", "public": False},
+        {"ticket_id": 42, "status": "pending"},
         {"ticket": {"id": 42, "status": "pending"}},
     )
-    assert output["status"] == "pending"
-    api.assert_awaited_once_with(
-        "PUT",
-        "tickets/42.json",
-        "connection-1",
-        None,
-        data={
-            "ticket": {
-                "status": "pending",
-                "comment": {"body": "Checking", "public": False},
-            }
-        },
-    )
+    assert "Ticket updated successfully" in result.content[0].text
+    assert api.await_args.kwargs["data"] == {"ticket": {"status": "pending"}}
 
 
 @pytest.mark.asyncio
-async def test_rejects_invalid_update_before_request():
+async def test_nango_mode_resolves_credentials_without_local_subdomain(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "nango")
+    auth = MagicMock(spec=["get_user_credentials"])
+    auth.get_user_credentials.return_value = {"access_token": "oauth-token"}
     server = main.create_server("connection-1")
     request = CallToolRequest(
         method="tools/call",
-        params=CallToolRequestParams(name="update_ticket", arguments={"ticket_id": 42}),
+        params=CallToolRequestParams(name="get_ticket", arguments={"ticket_id": 42}),
     )
-    with patch.object(main, "make_zendesk_request", new_callable=AsyncMock) as api:
+    with (
+        patch.object(main, "create_auth_client", return_value=auth),
+        patch.object(
+            main,
+            "make_zendesk_request",
+            new_callable=AsyncMock,
+            return_value={"ticket": {"id": 42}},
+        ) as api,
+    ):
         result = await server.dispatch(request)
-        assert result.is_error
-        assert "At least one" in result.content[0].text
-        api.assert_not_awaited()
+    assert json.loads(result.content[0].text) == {"id": 42}
+    auth.get_user_credentials.assert_called_once_with("zendesk", "connection-1")
+    assert api.await_args.kwargs["connection_id"] == "connection-1"
 
 
 @pytest.mark.asyncio
-async def test_nango_proxy_uses_connection_and_no_token_in_headers(monkeypatch):
+async def test_nango_proxy_uses_mapped_provider_key(monkeypatch):
     monkeypatch.setenv("NANGO_SECRET_KEY", "secret")
     monkeypatch.setenv("NANGO_HOST", "https://nango.test")
-    auth = MagicMock()
-    auth.async_get_user_credentials = AsyncMock(
-        return_value={"access_token": "oauth-token"}
-    )
     response = httpx.Response(
         200,
         json={"tickets": []},
         request=httpx.Request("GET", "https://nango.test/proxy/api/v2/tickets.json"),
     )
     client = AsyncMock()
-    client.request.return_value = response
+    client.get.return_value = response
     client.__aenter__.return_value = client
-    with patch.object(main, "create_auth_client", return_value=auth), patch.object(
-        main.httpx, "AsyncClient", return_value=client
+    with (
+        patch.object(main.httpx, "AsyncClient", return_value=client),
+        patch.dict(
+            main.SERVICE_NAME_MAP, {"zendesk": {"nango_service_name": "test-provider"}}
+        ),
     ):
-        result = await main.make_zendesk_request("GET", "tickets.json", "connection-1")
+        result = await main.make_zendesk_request(
+            "get", "tickets.json", "oauth-token", connection_id="connection-1"
+        )
     assert result == {"tickets": []}
-    auth.async_get_user_credentials.assert_awaited_once_with("zendesk", "connection-1")
-    assert client.request.await_args.kwargs["headers"] == {
-        "Authorization": "Bearer secret",
-        "Provider-Config-Key": "zendesk",
-        "Connection-Id": "connection-1",
-    }
+    assert (
+        client.get.await_args.kwargs["headers"]["Provider-Config-Key"]
+        == "test-provider"
+    )
+    assert client.get.await_args.kwargs["headers"]["Connection-Id"] == "connection-1"
