@@ -9,6 +9,17 @@ also needs BigQuery IAM permissions on the project and datasets: dataset/table
 metadata permissions for discovery, and `bigquery.jobs.create` plus table data
 access for queries. The Google Cloud project ID is supplied to each tool.
 
+Each connection must have `allowedProjects`, a nonempty array of exact Google
+Cloud project IDs, in its Nango connection metadata. workflow-builder collects
+the IDs when the connection is created or edited and writes them to Nango.
+Without this metadata, every BigQuery tool fails with an MCP error. All tool
+`project_id` arguments are checked against the array. `run_query` first submits
+a dry-run job and checks the returned referenced tables, routines, and any
+destination against the same array before executing the query. A failed or
+incomplete dry run is rejected. `INFORMATION_SCHEMA`, wildcard table queries,
+and scripts are rejected because their dry-run references may be incomplete.
+`get_query_results` verifies the returned job belongs to an allowed project.
+
 | Tool | Purpose |
 | --- | --- |
 | `list_datasets` | List accessible datasets in a project |
@@ -27,3 +38,5 @@ values retain BigQuery's REST JSON representation.
 
 The Nango `google` integration and OAuth client must be provisioned in each
 environment before users can connect BigQuery in workflow-builder.
+The OAuth scope and ability to execute non-SELECT statements are unchanged;
+the connected identity's IAM remains an additional permission boundary.
