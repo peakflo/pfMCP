@@ -31,6 +31,8 @@ from src.utils.zendesk.util import (
     get_credentials,
     get_service_config,
 )
+from src.auth.constants import SERVICE_NAME_MAP
+from src.auth.factory import create_auth_client
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = [
@@ -45,23 +47,44 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
+def ticket_url(ticket, subdomain):
+    if subdomain:
+        return f"https://{subdomain}.zendesk.com/agent/tickets/{ticket.get('id')}"
+    return ticket.get("url", "")
+
+
 async def make_zendesk_request(
-    method, path, access_token=None, subdomain=None, data=None, params=None
+    method,
+    path,
+    access_token=None,
+    subdomain=None,
+    data=None,
+    params=None,
+    connection_id=None,
 ):
     """Make a request to the Zendesk API"""
     if not access_token:
         raise ValueError("Zendesk access token is required")
-    if not subdomain:
-        raise ValueError("Zendesk subdomain is required")
+    if subdomain:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        url = f"https://{subdomain}.zendesk.com/api/v2/{path}"
+    elif connection_id:
+        secret = os.environ.get("NANGO_SECRET_KEY")
+        if not secret:
+            raise ValueError("NANGO_SECRET_KEY is required for Zendesk proxy requests")
+        headers = {
+            "Authorization": f"Bearer {secret}",
+            "Provider-Config-Key": SERVICE_NAME_MAP[SERVICE_NAME]["nango_service_name"],
+            "Connection-Id": connection_id,
+        }
+        url = f"{os.environ.get('NANGO_HOST', 'https://api.nango.dev').rstrip('/')}/proxy/api/v2/{path}"
+    else:
+        raise ValueError("Zendesk subdomain or Nango connection is required")
 
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
-
-    url = f"https://{subdomain}.zendesk.com/api/v2/{path}"
-
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         if method.lower() == "get":
             response = await client.get(url, headers=headers, params=params)
         elif method.lower() == "post":
@@ -89,6 +112,21 @@ def create_server(user_id, api_key=None):
 
     async def get_zendesk_client():
         """Get Zendesk access token and subdomain for the current user"""
+        if os.environ.get("ENVIRONMENT", "local").lower() == "nango":
+            auth_client = create_auth_client(api_key=api_key)
+            if hasattr(auth_client, "async_get_user_credentials"):
+                credentials = await auth_client.async_get_user_credentials(
+                    SERVICE_NAME, user_id
+                )
+            else:
+                credentials = auth_client.get_user_credentials(SERVICE_NAME, user_id)
+            if not credentials or not credentials.get("access_token"):
+                raise ValueError(
+                    "Zendesk OAuth connection is missing or has no access token"
+                )
+            # Nango's proxy resolves the account-specific Zendesk subdomain.
+            return credentials["access_token"], None
+
         # Get access token
         access_token = await get_credentials(user_id, SERVICE_NAME, api_key=api_key)
 
@@ -97,6 +135,19 @@ def create_server(user_id, api_key=None):
         subdomain = config.get("custom_subdomain", "")
 
         return access_token, subdomain
+
+    async def request_zendesk(
+        method, path, access_token, subdomain, data=None, params=None
+    ):
+        return await make_zendesk_request(
+            method,
+            path,
+            access_token,
+            subdomain,
+            data=data,
+            params=params,
+            connection_id=user_id if subdomain is None else None,
+        )
 
     @server.list_resources()
     async def handle_list_resources(
@@ -116,7 +167,7 @@ def create_server(user_id, api_key=None):
         if cursor:
             views_params["page"] = cursor
 
-        views_data = await make_zendesk_request(
+        views_data = await request_zendesk(
             "get", "views.json", access_token, subdomain, params=views_params
         )
 
@@ -145,12 +196,12 @@ def create_server(user_id, api_key=None):
             # Handle view resource
             view_id = uri_str.replace("zendesk://view/", "")
 
-            view_data = await make_zendesk_request(
+            view_data = await request_zendesk(
                 "get", f"views/{view_id}.json", access_token, subdomain
             )
 
             # Get tickets from this view
-            view_tickets = await make_zendesk_request(
+            view_tickets = await request_zendesk(
                 "get", f"views/{view_id}/tickets.json", access_token, subdomain
             )
 
@@ -175,6 +226,28 @@ def create_server(user_id, api_key=None):
         logger.info(f"Listing tools for user: {server.user_id}")
         return [
             Tool(
+                name="list_tickets",
+                description="List recent Zendesk tickets with cursor pagination",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "after_cursor": {"type": "string"},
+                    },
+                },
+            ),
+            Tool(
+                name="get_ticket",
+                description="Read a Zendesk ticket by ID",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "ticket_id": {"type": "integer", "minimum": 1},
+                    },
+                    "required": ["ticket_id"],
+                },
+            ),
+            Tool(
                 name="search_tickets",
                 description="Search for tickets in Zendesk",
                 inputSchema={
@@ -195,6 +268,12 @@ def create_server(user_id, api_key=None):
                         "per_page": {
                             "type": "integer",
                             "description": "Number of results per page (max 100)",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number (1-10)",
+                            "minimum": 1,
+                            "maximum": 10,
                         },
                     },
                     "required": ["query"],
@@ -305,27 +384,88 @@ def create_server(user_id, api_key=None):
 
         access_token, subdomain = await get_zendesk_client()
 
-        if name == "search_tickets":
+        if name == "list_tickets":
+            page_size = (arguments or {}).get("page_size", 25)
+            if (
+                isinstance(page_size, bool)
+                or not isinstance(page_size, int)
+                or not 1 <= page_size <= 100
+            ):
+                raise ValueError("page_size must be an integer between 1 and 100")
+            params = {"page[size]": page_size}
+            if arguments and arguments.get("after_cursor"):
+                params["page[after]"] = arguments["after_cursor"]
+            result = await request_zendesk(
+                "get", "tickets.json", access_token, subdomain, params=params
+            )
+            meta = result.get("meta", {})
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "tickets": result.get("tickets", []),
+                            "has_more": meta.get("has_more", False),
+                            "next_cursor": (
+                                meta.get("after_cursor")
+                                if meta.get("has_more")
+                                else None
+                            ),
+                        }
+                    ),
+                )
+            ]
+
+        elif name == "get_ticket":
+            ticket_id = (arguments or {}).get("ticket_id")
+            if (
+                isinstance(ticket_id, bool)
+                or not isinstance(ticket_id, int)
+                or ticket_id <= 0
+            ):
+                raise ValueError("ticket_id must be a positive integer")
+            result = await request_zendesk(
+                "get", f"tickets/{ticket_id}.json", access_token, subdomain
+            )
+            return [
+                TextContent(type="text", text=json.dumps(result.get("ticket", result)))
+            ]
+
+        elif name == "search_tickets":
             if not arguments or "query" not in arguments:
                 raise ValueError("Missing query parameter")
 
             search_query = arguments["query"]
+            if not isinstance(search_query, str) or not search_query.strip():
+                raise ValueError("query must be a non-empty string")
+            page = arguments.get("page", 1)
+            if (
+                isinstance(page, bool)
+                or not isinstance(page, int)
+                or not 1 <= page <= 10
+            ):
+                raise ValueError("page must be an integer between 1 and 10")
 
             params = {
-                "query": search_query,
+                "query": f"type:ticket {search_query.strip()}",
                 "sort_by": arguments.get("sort_by", "created_at"),
                 "sort_order": arguments.get("sort_order", "desc"),
                 "per_page": arguments.get("per_page", 10),
+                "page": page,
             }
 
             try:
-                result = await make_zendesk_request(
+                result = await request_zendesk(
                     "get", "search.json", access_token, subdomain, params=params
                 )
                 results = result.get("results", [])
 
                 # Filter to just tickets
-                tickets = [r for r in results if r.get("type") == "ticket"]
+                tickets = [
+                    r
+                    for r in results
+                    if r.get("result_type", r.get("type")) == "ticket"
+                ]
 
                 if not tickets:
                     return [
@@ -351,7 +491,7 @@ def create_server(user_id, api_key=None):
                 return [
                     TextContent(
                         type="text",
-                        text=f"Found {len(tickets)} tickets:\n\n{formatted_result}",
+                        text=f"Found {len(tickets)} tickets:\n\n{formatted_result}\n\nNext page: {result.get('next_page')}",
                     )
                 ]
 
@@ -383,7 +523,7 @@ def create_server(user_id, api_key=None):
                 ticket_data["ticket"]["tags"] = arguments["tags"]
 
             try:
-                result = await make_zendesk_request(
+                result = await request_zendesk(
                     "post", "tickets.json", access_token, subdomain, data=ticket_data
                 )
                 ticket = result.get("ticket", {})
@@ -396,7 +536,7 @@ def create_server(user_id, api_key=None):
                             f"Ticket ID: {ticket.get('id')}\n"
                             f"Subject: {ticket.get('subject')}\n"
                             f"Status: {ticket.get('status')}\n"
-                            f"URL: https://{subdomain}.zendesk.com/agent/tickets/{ticket.get('id')}",
+                            f"URL: {ticket_url(ticket, subdomain)}",
                         )
                     ]
                 else:
@@ -440,7 +580,7 @@ def create_server(user_id, api_key=None):
                 raise ValueError("At least one field to update must be provided")
 
             try:
-                result = await make_zendesk_request(
+                result = await request_zendesk(
                     "put",
                     f"tickets/{ticket_id}.json",
                     access_token,
@@ -458,7 +598,7 @@ def create_server(user_id, api_key=None):
                             f"Ticket ID: {ticket.get('id')}\n"
                             f"Subject: {ticket.get('subject')}\n"
                             f"Status: {ticket.get('status')}\n"
-                            f"URL: https://{subdomain}.zendesk.com/agent/tickets/{ticket.get('id')}",
+                            f"URL: {ticket_url(ticket, subdomain)}",
                         )
                     ]
                 else:
@@ -490,7 +630,7 @@ def create_server(user_id, api_key=None):
             }
 
             try:
-                result = await make_zendesk_request(
+                result = await request_zendesk(
                     "put",
                     f"tickets/{ticket_id}.json",
                     access_token,
@@ -508,7 +648,7 @@ def create_server(user_id, api_key=None):
                             text=f"Added {comment_type} to ticket successfully!\n\n"
                             f"Ticket ID: {ticket.get('id')}\n"
                             f"Subject: {ticket.get('subject')}\n"
-                            f"URL: https://{subdomain}.zendesk.com/agent/tickets/{ticket.get('id')}",
+                            f"URL: {ticket_url(ticket, subdomain)}",
                         )
                     ]
                 else:
