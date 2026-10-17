@@ -8,7 +8,6 @@ import logging
 from typing import List, Optional, Iterable
 from atproto import Client, AtUri, SessionEvent, Session
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 # Add both project root and src directory to Python path
@@ -18,9 +17,10 @@ project_root = os.path.abspath(
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+from src.utils.mcp_compat import NotificationOptions, Server
+
 from mcp.types import (
     TextContent,
-    AnyUrl,
     Tool,
     ImageContent,
     EmbeddedResource,
@@ -130,7 +130,7 @@ def create_server(user_id, api_key=None):
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read a Bluesky resource by URI"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

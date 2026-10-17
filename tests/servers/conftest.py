@@ -1,3 +1,4 @@
+import inspect
 import os
 import pytest
 import asyncio
@@ -6,8 +7,6 @@ from typing import List
 
 from tests.clients.LocalMCPTestClient import LocalMCPTestClient
 from tests.clients.RemoteMCPTestClient import RemoteMCPTestClient
-
-pytest_plugins = ["pytest_asyncio"]
 
 
 # Set asyncio default fixture loop scope to function
@@ -33,9 +32,8 @@ def pytest_addoption(parser):
 def pytest_collection_modifyitems(items: List[pytest.Item]):
     """Mark tests to skip based on markers and command-line options"""
     for item in items:
-        if (
-            item.get_closest_marker("asyncio") is None
-            and "async def" in item.function.__code__.co_code
+        if item.get_closest_marker("asyncio") is None and inspect.iscoroutinefunction(
+            getattr(item, "function", None)
         ):
             item.add_marker(pytest.mark.asyncio)
 

@@ -237,7 +237,6 @@ def test_attachment_file_type_enum_mirrors_ap_attachment_type():
         "other",
         "paymentProof",
         "incomingFile",
-        "customFieldFile",
         "fakturPajak",
         "payerReceipt",
         "whtFile",
@@ -245,7 +244,17 @@ def test_attachment_file_type_enum_mirrors_ap_attachment_type():
         "shippingList",
         "dscSigned",
     ]
-    assert enum_values == ap_attachment_file_types
+    # customFieldFile is the only AP type the PO attach route rejects.
+    assert enum_values == [
+        t for t in ap_attachment_file_types if t != "customFieldFile"
+    ]
+
+
+def test_attachment_rejects_custom_field_file_type():
+    payload = _valid_attachment()
+    payload["fileType"] = "customFieldFile"
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_purchase_order_attachment_schema).validate(payload)
 
 
 def test_attachment_rejects_unknown_keys():

@@ -26,6 +26,8 @@ contact_schema = {
             "description": "Whether this is the main contact",
         },
     },
+    # same as the API contactInputSchema, so a payload that passes here is not rejected by the API
+    "required": ["externalId", "firstName", "email"],
 }
 
 
@@ -62,6 +64,8 @@ address_schema = {
             "description": "Postal/ZIP code",
         },
     },
+    # same as the API addressInputSchema; type defaults to billing on the API side
+    "required": ["line1", "city", "country", "postalCode"],
 }
 
 
@@ -119,7 +123,7 @@ custom_field_schema = {
                 "description": "Custom field identifier (references a custom field definition configured in Peakflo)",
             },
             "value": {
-                "description": "Value of the custom field (can be string, number, date string in DD-MM-YYYY format, or array of strings for multi-select)",
+                "description": "Value of the custom field (can be string, number, date string in DD/MM/YYYY format, e.g. 11/03/2024, or array of strings for multi-select)",
             },
         },
         "required": ["customFieldNumber", "value"],
