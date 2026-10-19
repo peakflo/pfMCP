@@ -32,7 +32,6 @@ jobs:
           echo "NANGO_HOST: ${{ vars.PROD_NANGO_HOST || 'https://api.nango.dev' }}" >> .envprod.yaml
           echo 'PEAKFLO_API_BASE_URL: "https://api.peakflo.co/v1"' >> .envprod.yaml
           echo 'PEAKFLO_STORAGE_BUCKET: "peakflo-prod.appspot.com"' >> .envprod.yaml
-          echo "PEAKFLO_BILLING_API_BASE_URL: \"${{ secrets.PROD_BILLING_ADDRESS }}\"" >> .envprod.yaml
           echo "PEAKFLO_BILLING_JWT_PRIVATE_KEY: '${{ secrets.PROD_PEAKFLO_BILLING_JWT_PRIVATE_KEY }}'" >> .envprod.yaml
           echo "GCS_BUCKET_NAME: ${{ vars.PROD_GCS_BUCKET_NAME }}" >> .envprod.yaml
           echo "GMAIL_PUBSUB_TOPIC: ${{ vars.PROD_GMAIL_PUBSUB_TOPIC }}" >> .envprod.yaml
