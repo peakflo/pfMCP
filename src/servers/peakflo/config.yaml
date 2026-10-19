@@ -25,6 +25,9 @@ tools:
   - name: "update_customer"
     description: "Update an existing customer in Peakflo by external ID"
     required_scopes: []
+  - name: "add_customer_attachment"
+    description: "Add a file to an existing customer's Files tab"
+    required_scopes: []
   - name: "update_purchase_order"
     description: "Update an existing purchase order in Peakflo by external ID"
     required_scopes: []

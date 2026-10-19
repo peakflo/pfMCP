@@ -19,6 +19,7 @@ _SERVERS_PATH = os.path.join(
 sys.path.insert(0, _SERVERS_PATH)
 
 from peakflo.schemas.customer import (
+    add_customer_attachment_schema,
     create_customer_schema,
     update_customer_schema,
 )
@@ -97,11 +98,19 @@ def test_tools_are_registered():
     from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 
     names = {tool.name for tool in customer_tools}
-    assert names == {"create_customer", "update_customer"}
+    assert names == {
+        "create_customer",
+        "update_customer",
+        "add_customer_attachment",
+    }
     by_name = {tool.name: tool for tool in customer_tools}
     # same module loaded under a different package root, so compare by value
     assert by_name["create_customer"].input_schema == create_customer_schema
     assert by_name["update_customer"].input_schema == update_customer_schema
+    assert (
+        by_name["add_customer_attachment"].input_schema
+        == add_customer_attachment_schema
+    )
     all_names = {tool.name for tool in PeakfloApiToolFactory.get_all_tools()}
     assert names <= all_names
 
