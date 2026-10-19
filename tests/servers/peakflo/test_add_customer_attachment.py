@@ -10,7 +10,9 @@ import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from jsonschema import Draft7Validator
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -24,6 +26,16 @@ from peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory  # noqa:
 
 BILLING = "https://billing.example.test/v1"
 BUCKET = "peakflo.appspot.com"
+_RSA_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+PRIVATE_KEY = _RSA_KEY.private_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PrivateFormat.PKCS8,
+    encryption_algorithm=serialization.NoEncryption(),
+).decode()
+PUBLIC_KEY = _RSA_KEY.public_key().public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+)
 
 
 def _response(status=201, body=None):
@@ -47,7 +59,7 @@ def _args(**extra):
     return args
 
 
-async def _call(arguments, upload_error=None):
+async def _call(arguments, upload_error=None, private_key=PRIVATE_KEY):
     client = MagicMock()
     client.post = AsyncMock(return_value=_response())
     client_cm = MagicMock()
@@ -61,6 +73,7 @@ async def _call(arguments, upload_error=None):
     env = {
         "PEAKFLO_BILLING_API_BASE_URL": BILLING,
         "PEAKFLO_STORAGE_BUCKET": BUCKET,
+        "PEAKFLO_BILLING_JWT_PRIVATE_KEY": private_key,
     }
     with patch.dict(os.environ, env, clear=False), patch.object(
         peakflo_main,
@@ -114,6 +127,19 @@ async def test_uploads_to_peakflo_bucket_and_posts_files_tab_body():
     }
     assert "base64" not in body
     assert "file_url" not in body
+    authorization = client.post.call_args.kwargs["headers"]["Authorization"]
+    assert authorization != "Bearer token"
+    claims = jwt.decode(
+        authorization.removeprefix("Bearer "),
+        PUBLIC_KEY,
+        algorithms=["RS256"],
+        audience="peakflo",
+        issuer="peakflo",
+    )
+    assert claims["sub"] == "0demoFileSG"
+    assert claims["uid"] == "workflow"
+    assert claims["sourceSystem"] == "billing-api"
+    assert authorization.count(".") == 2
 
 
 async def test_rejects_a_missing_file_before_upload():
@@ -153,4 +179,39 @@ async def test_does_not_upload_when_billing_url_is_missing():
         )
     assert result["_status_code"] == 400
     assert "PEAKFLO_BILLING_API_BASE_URL" in result["message"]
+    upload.assert_not_called()
+
+
+async def test_signs_with_a_private_key_stored_as_escaped_newlines():
+    result, client, _upload = await _call(
+        _args(), private_key=PRIVATE_KEY.replace("\n", "\\n")
+    )
+    assert result["_status_code"] == 201
+    authorization = client.post.call_args.kwargs["headers"]["Authorization"]
+    claims = jwt.decode(
+        authorization.removeprefix("Bearer "),
+        PUBLIC_KEY,
+        algorithms=["RS256"],
+        audience="peakflo",
+    )
+    assert claims["sub"] == "0demoFileSG"
+
+
+async def test_does_not_upload_when_billing_private_key_is_missing():
+    upload = MagicMock()
+    env = {
+        "PEAKFLO_BILLING_API_BASE_URL": BILLING,
+        "PEAKFLO_STORAGE_BUCKET": BUCKET,
+        "PEAKFLO_BILLING_JWT_PRIVATE_KEY": "",
+    }
+    with patch.dict(os.environ, env, clear=False), patch.object(
+        peakflo_main, "_upload_customer_file", upload
+    ), patch.object(
+        peakflo_main, "_download_and_encode", AsyncMock(return_value=("aGVsbG8=", 5))
+    ):
+        result = await peakflo_main.make_peakflo_request(
+            "add_customer_attachment", _args(), "peakflo-api-key"
+        )
+    assert result["_status_code"] == 400
+    assert "PEAKFLO_BILLING_JWT_PRIVATE_KEY" in result["message"]
     upload.assert_not_called()

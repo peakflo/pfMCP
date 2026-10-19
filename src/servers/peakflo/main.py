@@ -4,6 +4,7 @@ import base64
 import httpx
 import logging
 import json
+import time
 from uuid import uuid4
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -33,6 +34,8 @@ from mcp.types import (
 )
 from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
+
+import jwt
 
 from src.auth.factory import create_auth_client
 from src.servers.xero import main as xero_main
@@ -570,8 +573,66 @@ def _upload_customer_file(data: bytes, object_path: str, content_type: str) -> s
     return bucket_name
 
 
+_BILLING_JWT_ISSUER = "peakflo"
+_BILLING_JWT_AUDIENCE = "peakflo"
+# The Files route copies this claim onto the upload, and an empty value is rejected.
+_BILLING_JWT_SOURCE_SYSTEM = "billing-api"
+_BILLING_JWT_TTL_SECONDS = 10 * 60
+
+
+def _billing_private_key() -> str:
+    """
+    RSA private key that signs billing API JWTs.
+
+    This is the same key generateToken uses for the billing service. Store it
+    as a PEM, or as one line with escaped newlines.
+    """
+    raw = os.environ.get("PEAKFLO_BILLING_JWT_PRIVATE_KEY", "").strip()
+    if not raw:
+        raise ValueError(
+            "PEAKFLO_BILLING_JWT_PRIVATE_KEY is not set. POST /files requires "
+            "an RS256 billing JWT. The Peakflo API key is not a JWT."
+        )
+    if "\\n" in raw:
+        raw = raw.replace("\\n", "\n")
+    return raw
+
+
+def _billing_file_authorization(tenant_id: str, user_id: str) -> str:
+    """
+    Bearer token for POST /v1/files.
+
+    API Gateway checks that the Authorization value is header.payload.signature
+    and that it was signed by the billing gateway key. iss and aud are peakflo.
+    sub is the issuer id, which the file route uses as parentCompanyId.
+    """
+    now = int(time.time())
+    try:
+        token = jwt.encode(
+            {
+                "iss": _BILLING_JWT_ISSUER,
+                "aud": _BILLING_JWT_AUDIENCE,
+                "sub": tenant_id,
+                "uid": user_id,
+                "sourceSystem": _BILLING_JWT_SOURCE_SYSTEM,
+                "iat": now,
+                "exp": now + _BILLING_JWT_TTL_SECONDS,
+            },
+            _billing_private_key(),
+            algorithm="RS256",
+        )
+    except Exception as error:
+        raise ValueError(
+            "PEAKFLO_BILLING_JWT_PRIVATE_KEY is not a valid RS256 private key: "
+            f"{error}"
+        ) from error
+    if isinstance(token, bytes):
+        token = token.decode("ascii")
+    return f"Bearer {token}"
+
+
 async def _add_customer_attachment(
-    arguments: dict, headers: dict, tenant_id: str | None
+    arguments: dict, _headers: dict, tenant_id: str | None
 ):
     """
     Attach a file to a customer so it shows on the Peakflo Files tab.
@@ -579,6 +640,8 @@ async def _add_customer_attachment(
     The billing POST /v1/files handler does not receive the bytes. It records
     a path that must already exist in PEAKFLO_STORAGE_BUCKET. elementId is the
     customer's internal id (the companies document id), not externalId.
+
+    The Peakflo API key is not sent. Billing API Gateway requires an RS256 JWT.
     """
     try:
         if not isinstance(tenant_id, str) or not tenant_id.strip():
@@ -613,6 +676,13 @@ async def _add_customer_attachment(
                 "PEAKFLO_STORAGE_BUCKET is not set. Customer files must be written "
                 "to the Peakflo storage bucket (stage: peakflo.appspot.com)."
             )
+        jwt_user_id = user_id.strip() if isinstance(user_id, str) else ""
+        billing_headers = {
+            "Authorization": _billing_file_authorization(
+                tenant_id, jwt_user_id or "workflow"
+            ),
+            "Content-Type": "application/json",
+        }
 
         data, size = await _read_customer_attachment_bytes(arguments)
         safe_name = _safe_attachment_name(name)
@@ -643,7 +713,7 @@ async def _add_customer_attachment(
             response = await client.post(
                 f"{billing_base}/files",
                 json=body,
-                headers=headers,
+                headers=billing_headers,
                 timeout=60.0,
             )
         try:
