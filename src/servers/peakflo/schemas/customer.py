@@ -93,3 +93,61 @@ update_customer_schema = {
     "properties": _customer_properties,
     "required": _customer_required,
 }
+
+# Registers a file on the customer Files tab (billing POST /v1/files,
+# elementType "companies"). customerId is the companies document id.
+add_customer_attachment_schema = {
+    "type": "object",
+    "properties": {
+        "tenantId": {
+            "type": "string",
+            "description": (
+                "Peakflo issuer id (parentCompanyId). The file is stored under "
+                "this tenant in the Peakflo storage bucket."
+            ),
+        },
+        "customerId": {
+            "type": "string",
+            "description": (
+                "Internal customer id (the companies document id). "
+                "externalId does not work here."
+            ),
+        },
+        "name": {
+            "type": "string",
+            "description": "File name shown on the Files tab",
+        },
+        "contentType": {
+            "type": "string",
+            "description": "MIME type of the file (e.g. application/pdf)",
+        },
+        "fileType": {
+            "type": "string",
+            "description": "Peakflo file type. Defaults to other, which is what the customer Files tab uses.",
+        },
+        "file_url": {
+            "type": "string",
+            "description": (
+                "Signed URL of the file. The server downloads it, stores the "
+                "bytes in the Peakflo storage bucket, then registers the path."
+            ),
+        },
+        "base64": {
+            "type": "string",
+            "description": "Base64 file contents. Use this or file_url, not both. fileSize is required with base64.",
+        },
+        "fileSize": {
+            "type": "integer",
+            "description": "Decoded byte size. Required when base64 is sent.",
+        },
+        "userId": {
+            "type": "string",
+            "description": "User id stored on the file record. Defaults to workflow.",
+        },
+        "userName": {
+            "type": "string",
+            "description": "User name stored on the file record. Defaults to Workflow.",
+        },
+    },
+    "required": ["tenantId", "customerId", "name", "contentType"],
+}

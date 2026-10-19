@@ -1,6 +1,7 @@
 from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.customer import (
+    add_customer_attachment_schema,
     create_customer_schema,
     update_customer_schema,
 )
@@ -94,6 +95,20 @@ customer_tools = [
             "stored custom fields, so send the full set to keep."
         ),
         inputSchema=update_customer_schema,
+    ),
+    Tool(
+        name="add_customer_attachment",
+        description=(
+            "Add a file to an existing customer's Files tab. customerId must be "
+            "the internal customer id (companies document id), not externalId. "
+            "Accepts exactly one file source: a signed file URL (file_url), "
+            "which the server downloads, or a base64-encoded file (fileSize is "
+            "required with base64) — not both. Files over 10MB are rejected. "
+            "The bytes are stored in the Peakflo storage bucket and registered "
+            "with billing POST /v1/files (elementType companies). fileType "
+            "defaults to other."
+        ),
+        inputSchema=add_customer_attachment_schema,
     ),
 ]
 
