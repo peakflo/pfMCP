@@ -219,8 +219,6 @@ async def test_rejects_a_date_that_is_not_iso_8601():
 
 
 async def test_sends_an_iso_timestamp():
-    _result, client = await _call(
-        _args(dateCreated=" 2026-01-02T00:00:00.000Z ")
-    )
+    _result, client = await _call(_args(dateCreated=" 2026-01-02T00:00:00.000Z "))
     body = client.request.call_args.kwargs["json"]
     assert body["dateCreated"] == "2026-01-02T00:00:00.000Z"
