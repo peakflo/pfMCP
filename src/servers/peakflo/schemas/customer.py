@@ -118,9 +118,10 @@ add_customer_attachment_schema = {
             "type": "string",
             "description": (
                 "File name shown on the Files tab. The directory is removed. "
-                "What remains must be letters, numbers, spaces, dots, hyphens, "
-                "and underscores, with an extension such as .pdf. Parentheses "
-                "and # are rejected."
+                "What remains may include letters, numbers, spaces, dots, "
+                "hyphens, underscores, parentheses, #, apostrophes, ampersands, "
+                "plus, commas, and brackets, and must contain a letter or digit "
+                "plus an extension such as .pdf."
             ),
         },
         "contentType": {

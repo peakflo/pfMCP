@@ -197,8 +197,15 @@ async def test_strips_ids_before_the_request():
     assert body["externalId"] == "letter-1"
 
 
-async def test_rejects_a_file_name_the_api_schema_rejects():
-    result, client = await _call(_args(name="Invoice (1).pdf"))
+async def test_sends_a_file_name_the_invoice_rule_rejects():
+    for name in ("Invoice (1).pdf", "Invoice #123.pdf"):
+        _result, client = await _call(_args(name=name))
+        body = client.request.call_args.kwargs["json"]
+        assert body["name"] == name
+
+
+async def test_rejects_a_file_name_with_no_letter_or_digit():
+    result, client = await _call(_args(name="###.pdf"))
     assert result["_status_code"] == 400
     assert "invalid file name" in result["message"]
     client.request.assert_not_called()

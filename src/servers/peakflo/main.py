@@ -515,8 +515,11 @@ def _safe_attachment_name(name: str) -> str:
 
 _CUSTOMER_ATTACHMENT_FILE_TYPES = {"invoice", "transaction", "other"}
 
-# attachmentInputSchema fileNameSchema. JavaScript \w is ASCII only.
-_CUSTOMER_FILE_NAME = re.compile(r"^[A-Za-z0-9_\-. ]{1,128}\.[A-Za-z0-9]{1,16}$")
+# customerAttachmentInputSchema. JavaScript \w is ASCII [A-Za-z0-9_].
+# The captured base name must also contain a letter or digit.
+_CUSTOMER_FILE_NAME = re.compile(
+    r"^([A-Za-z0-9_. ()#,'&+\[\]-]{1,128})\.([A-Za-z0-9]{1,16})$"
+)
 
 # Joi.string().isoDate(), from joi 17 common.js.
 _CUSTOMER_ISO_DATE = re.compile(
@@ -540,12 +543,15 @@ def _customer_content_type(name: str) -> str:
 
 
 def _customer_attachment_name(name: str, content_type: str) -> str:
-    """Keep the basename only when it passes fileNameSchema."""
+    """Keep the basename only when it passes the customer file-name rule."""
     safe = _safe_attachment_name(name)
-    if not _CUSTOMER_FILE_NAME.fullmatch(safe):
+    match = _CUSTOMER_FILE_NAME.fullmatch(safe)
+    if not match or not re.search(r"[A-Za-z0-9]", match.group(1)):
         raise ValueError(
             "name is an invalid file name. Use letters, numbers, spaces, dots, "
-            "hyphens, and underscores, with an extension."
+            "hyphens, underscores, parentheses, #, apostrophes, ampersands, "
+            "plus, commas, and brackets, with an extension. The name must "
+            "contain a letter or digit."
         )
     expected = _customer_content_type(safe)
     if not expected:
