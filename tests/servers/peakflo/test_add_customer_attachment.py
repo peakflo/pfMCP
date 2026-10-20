@@ -89,16 +89,18 @@ def test_schema_accepts_the_current_and_previous_customer_arguments():
         _args(fileType="transaction")
     )
     with pytest.raises(ValidationError):
-        Draft7Validator(add_customer_attachment_schema).validate(
-            _args(fileType="statement")
-        )
+        Draft7Validator(add_customer_attachment_schema).validate(_args(fileType=123))
 
 
-async def test_previous_customer_id_call_registers_through_billing():
+@pytest.mark.parametrize("file_type", [None, "fakturPajak"])
+async def test_previous_customer_id_call_registers_through_billing(file_type):
     arguments = _args()
     arguments.pop("customerExternalId")
     arguments.pop("externalId")
     arguments["customerId"] = "internal-customer"
+    if file_type is not None:
+        arguments["fileType"] = file_type
+    Draft7Validator(add_customer_attachment_schema).validate(arguments)
     with patch.object(
         peakflo_main, "_upload_customer_file", return_value="peakflo.appspot.com"
     ), patch.dict(
@@ -119,7 +121,18 @@ async def test_previous_customer_id_call_registers_through_billing():
     assert body["elementId"] == "internal-customer"
     assert body["elementType"] == "companies"
     assert body["file"]["name"] == "274.pdf"
+    assert body["fileType"] == (file_type or "other")
     assert "externalId" not in body
+
+
+@pytest.mark.parametrize("file_type", ["fakturPajak", "statement"])
+async def test_external_id_call_rejects_unsupported_file_types(file_type):
+    arguments = _args(fileType=file_type)
+    Draft7Validator(add_customer_attachment_schema).validate(arguments)
+    result, client = await _call(arguments)
+    assert result["_status_code"] == 400
+    assert result["message"] == "fileType must be invoice, transaction, or other"
+    client.request.assert_not_called()
 
 
 async def test_puts_raw_base64_on_the_customer_attachment_route():

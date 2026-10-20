@@ -148,8 +148,11 @@ add_customer_attachment_schema = {
         },
         "fileType": {
             "type": "string",
-            "enum": ["invoice", "transaction", "other"],
-            "description": "Optional. Stored as other when omitted.",
+            "description": (
+                "Optional. Stored as other when omitted. With customerExternalId, "
+                "must be invoice, transaction, or other. Legacy customerId calls "
+                "retain their existing file types."
+            ),
         },
         "dateCreated": {
             "type": "string",
