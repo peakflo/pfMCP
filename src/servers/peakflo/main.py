@@ -5,6 +5,7 @@ import httpx
 import logging
 import json
 import re
+from uuid import uuid4
 from typing import Any
 from urllib.parse import quote, urlencode
 from pathlib import Path
@@ -601,6 +602,167 @@ def _customer_attachment_date(value) -> str | None:
     return date_created
 
 
+def _uses_legacy_customer_attachment(arguments: dict) -> bool:
+    """True for the previous call shape: internal customerId, no external id."""
+    external_id = arguments.get("customerExternalId")
+    if isinstance(external_id, str) and external_id.strip():
+        return False
+    customer_id = arguments.get("customerId")
+    return isinstance(customer_id, str) and bool(customer_id.strip())
+
+
+async def _read_customer_attachment_bytes(arguments: dict) -> tuple[bytes, int]:
+    """Return the file bytes from exactly one of file_url or base64."""
+    file_url = arguments.get("file_url")
+    raw_base64 = arguments.get("base64")
+    if file_url and raw_base64:
+        raise ValueError("Provide file_url or base64, not both")
+    if file_url:
+        try:
+            encoded, size = await _download_and_encode(file_url)
+        except Exception as error:
+            raise ValueError(
+                f"Failed to download file from file_url: {error}"
+            ) from error
+        return base64.b64decode(encoded), size
+    if not raw_base64:
+        raise ValueError(
+            "Either file_url or base64 is required for add_customer_attachment"
+        )
+    if not isinstance(raw_base64, str):
+        raise ValueError("base64 must be a string")
+    declared = arguments.get("fileSize")
+    if not isinstance(declared, int) or isinstance(declared, bool):
+        raise ValueError("fileSize is required when base64 is provided")
+    _ensure_within_attachment_size_limit(declared)
+    size = _decoded_base64_size(raw_base64)
+    _ensure_within_attachment_size_limit(size)
+    payload = (
+        raw_base64.split(",", 1)[1] if raw_base64.startswith("data:") else raw_base64
+    )
+    payload = "".join(payload.split())
+    payload += "=" * (-len(payload) % 4)
+    return base64.b64decode(payload), size
+
+
+def _upload_customer_file(data: bytes, object_path: str, content_type: str) -> str:
+    """Write the file into the Peakflo storage bucket the Files tab signs from."""
+    bucket_name = os.environ.get("PEAKFLO_STORAGE_BUCKET", "").strip()
+    if not bucket_name:
+        raise ValueError(
+            "PEAKFLO_STORAGE_BUCKET is not set. Customer files must be written "
+            "to the Peakflo storage bucket (stage: peakflo.appspot.com)."
+        )
+    from google.cloud import storage as gcs_storage
+
+    client = gcs_storage.Client()
+    blob = client.bucket(bucket_name).blob(object_path)
+    blob.upload_from_string(
+        data, content_type=content_type or "application/octet-stream"
+    )
+    return bucket_name
+
+
+async def _add_legacy_customer_attachment(
+    arguments: dict, headers: dict, tenant_id: str | None
+):
+    """
+    Register a file for a caller that still sends the internal customerId.
+
+    That id is the companies document id. The public attachment route cannot
+    look it up, so this keeps the previous billing POST /v1/files registration.
+    """
+    try:
+        if not isinstance(tenant_id, str) or not tenant_id.strip():
+            raise ValueError("tenantId is required")
+        customer_id = str(arguments.get("customerId", "")).strip()
+        name = arguments.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name is required")
+        content_type = arguments.get("contentType") or "application/octet-stream"
+        if not isinstance(content_type, str) or not content_type.strip():
+            raise ValueError("contentType must be a string")
+        file_type = arguments.get("fileType") or "other"
+        user_id = arguments.get("userId") or "workflow"
+        user_name = arguments.get("userName") or "Workflow"
+
+        if "/" in tenant_id or "\\" in tenant_id or ".." in tenant_id:
+            raise ValueError("tenantId is invalid")
+        billing_base = (
+            os.environ.get("PEAKFLO_BILLING_API_BASE_URL", "").strip().rstrip("/")
+        )
+        if not billing_base:
+            raise ValueError(
+                "PEAKFLO_BILLING_API_BASE_URL is not set. It must be the billing "
+                "API base used by POST /files (stage: https://stage-billing-api.peakflo.co/v1)."
+            )
+        if not os.environ.get("PEAKFLO_STORAGE_BUCKET", "").strip():
+            raise ValueError(
+                "PEAKFLO_STORAGE_BUCKET is not set. Customer files must be written "
+                "to the Peakflo storage bucket (stage: peakflo.appspot.com)."
+            )
+
+        data, size = await _read_customer_attachment_bytes(arguments)
+        safe_name = _safe_attachment_name(name)
+        object_path = f"{tenant_id}/private/{uuid4()}/{safe_name}"
+        bucket_name = _upload_customer_file(data, object_path, content_type)
+        body = {
+            "parentCompanyId": tenant_id,
+            "elementType": "companies",
+            "elementId": customer_id,
+            "fileType": file_type,
+            "userId": user_id,
+            "userName": user_name,
+            "file": {
+                "name": safe_name,
+                "mimeType": content_type,
+                "size": size,
+                "path": object_path,
+            },
+        }
+        logger.info(
+            "[add_customer_attachment] uploaded %s bytes to gs://%s/%s",
+            size,
+            bucket_name,
+            object_path,
+        )
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                "POST",
+                f"{billing_base}/files",
+                json=body,
+                headers=headers,
+                timeout=60.0,
+            )
+        try:
+            response_data = response.json() if response.content else None
+        except ValueError:
+            response_data = response.text
+        ok = response.status_code in (200, 201)
+        return {
+            "_status_code": response.status_code,
+            "message": (
+                "Customer file added"
+                if ok
+                else f"Error: {response.text or 'Unknown error'}"
+            ),
+            "data": response_data,
+        }
+    except ValueError as error:
+        return {
+            "_status_code": 400,
+            "message": str(error),
+            "data": None,
+        }
+    except Exception as error:
+        logger.error("[add_customer_attachment] %s", error)
+        return {
+            "_status_code": 500,
+            "message": f"Error communicating with Peakflo: {error}",
+            "data": None,
+        }
+
+
 async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
     """
     Build the body for PUT /v1/customers/:customerExternalId/attachments.
@@ -959,6 +1121,8 @@ async def make_peakflo_request(name, arguments, token):
         url = f"{PEAKFLO_V1_BASE_URL}/addTravelRequestTimelineNote"
         message = "Travel request timeline note added"
     elif name == "add_customer_attachment":
+        if _uses_legacy_customer_attachment(arguments):
+            return await _add_legacy_customer_attachment(arguments, headers, tenantId)
         try:
             customer_external_id, arguments = await _prepare_customer_attachment(
                 arguments

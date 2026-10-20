@@ -96,6 +96,8 @@ update_customer_schema = {
 
 # PUT /v1/customers/{customerExternalId}/attachments. The body matches the
 # invoice attachment route: raw base64 in `data`, not a data URI.
+# A previous caller may still send customerId, the internal companies
+# document id, and omit externalId. That call keeps the billing registration.
 add_customer_attachment_schema = {
     "type": "object",
     "properties": {
@@ -107,12 +109,25 @@ add_customer_attachment_schema = {
             "type": "string",
             "description": (
                 "Customer external id, the same value passed to create_customer. "
-                "This is not the internal companies document id."
+                "Required unless customerId is sent. This is not the internal "
+                "companies document id."
+            ),
+        },
+        "customerId": {
+            "type": "string",
+            "description": (
+                "Previous argument: the internal companies document id. "
+                "Accepted when customerExternalId is omitted. externalId is "
+                "not required for this call."
             ),
         },
         "externalId": {
             "type": "string",
-            "description": "External id for this file. Repeating it for the same customer is rejected.",
+            "description": (
+                "External id for this file. Required with customerExternalId. "
+                "Repeating it for the same customer is rejected. Not required "
+                "when customerId is sent."
+            ),
         },
         "name": {
             "type": "string",
@@ -162,12 +177,14 @@ add_customer_attachment_schema = {
             "type": "integer",
             "description": "Decoded byte size. Required when base64 is sent. Not forwarded to the API.",
         },
+        "userId": {
+            "type": "string",
+            "description": "Previous argument. Stored on the file when customerId is sent. Defaults to workflow.",
+        },
+        "userName": {
+            "type": "string",
+            "description": "Previous argument. Stored on the file when customerId is sent. Defaults to Workflow.",
+        },
     },
-    "required": [
-        "tenantId",
-        "customerExternalId",
-        "externalId",
-        "name",
-        "contentType",
-    ],
+    "required": ["tenantId", "name", "contentType"],
 }

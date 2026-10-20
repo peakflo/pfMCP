@@ -74,12 +74,17 @@ def test_tool_is_registered():
     assert "add_customer_attachment" in names
 
 
-def test_schema_uses_the_customer_external_id():
+def test_schema_accepts_the_current_and_previous_customer_arguments():
     Draft7Validator(add_customer_attachment_schema).validate(_args())
     required = add_customer_attachment_schema["required"]
-    assert "customerExternalId" in required
-    assert "externalId" in required
-    assert "customerId" not in add_customer_attachment_schema["properties"]
+    assert "customerExternalId" not in required
+    assert "externalId" not in required
+    assert "customerId" in add_customer_attachment_schema["properties"]
+    previous = _args()
+    previous.pop("customerExternalId")
+    previous.pop("externalId")
+    previous["customerId"] = "internal-customer"
+    Draft7Validator(add_customer_attachment_schema).validate(previous)
     Draft7Validator(add_customer_attachment_schema).validate(
         _args(fileType="transaction")
     )
@@ -87,6 +92,34 @@ def test_schema_uses_the_customer_external_id():
         Draft7Validator(add_customer_attachment_schema).validate(
             _args(fileType="statement")
         )
+
+
+async def test_previous_customer_id_call_registers_through_billing():
+    arguments = _args()
+    arguments.pop("customerExternalId")
+    arguments.pop("externalId")
+    arguments["customerId"] = "internal-customer"
+    with patch.object(
+        peakflo_main, "_upload_customer_file", return_value="peakflo.appspot.com"
+    ), patch.dict(
+        os.environ,
+        {
+            "PEAKFLO_BILLING_API_BASE_URL": "https://billing.example/v1",
+            "PEAKFLO_STORAGE_BUCKET": "peakflo.appspot.com",
+        },
+    ):
+        result, client = await _call(arguments)
+
+    assert result["_status_code"] == 201
+    assert result["message"] == "Customer file added"
+    method, url = client.request.call_args.args[:2]
+    body = client.request.call_args.kwargs["json"]
+    assert method == "POST"
+    assert url == "https://billing.example/v1/files"
+    assert body["elementId"] == "internal-customer"
+    assert body["elementType"] == "companies"
+    assert body["file"]["name"] == "274.pdf"
+    assert "externalId" not in body
 
 
 async def test_puts_raw_base64_on_the_customer_attachment_route():
