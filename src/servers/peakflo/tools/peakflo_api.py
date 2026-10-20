@@ -105,8 +105,12 @@ customer_tools = [
             "not the internal companies document id. externalId identifies the "
             "file. Accepts exactly one file source: a signed file URL (file_url), "
             "which the server downloads, or base64 (fileSize is required with "
-            "base64) — not both. The API receives raw base64 in data. Files over "
-            "10MB are rejected. fileType is optional and defaults to other."
+            "base64) — not both. The API receives standard padded base64 in data. "
+            "name must use letters, numbers, spaces, dots, hyphens, and "
+            "underscores, with an extension. contentType must match that "
+            "extension, such as application/pdf for .pdf. dateCreated, when set, "
+            "must be ISO 8601. Files over 10MB are rejected. fileType is "
+            "optional and defaults to other."
         ),
         inputSchema=add_customer_attachment_schema,
     ),

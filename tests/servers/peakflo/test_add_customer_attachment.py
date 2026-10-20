@@ -6,6 +6,7 @@ Peakflo API key as create_customer. The body matches the invoice attachment
 route: raw base64 in `data`.
 """
 
+import base64
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -163,3 +164,63 @@ async def test_uses_the_file_name_without_a_directory():
     _result, client = await _call(_args(name="nested/274.pdf"))
     body = client.request.call_args.kwargs["json"]
     assert body["name"] == "274.pdf"
+
+
+async def test_pads_unpadded_base64_before_sending():
+    arguments = _args()
+    arguments.pop("file_url")
+    arguments["base64"] = "aGVsbG8"
+    arguments["fileSize"] = 5
+    _result, client = await _call(arguments)
+    body = client.request.call_args.kwargs["json"]
+    assert body["data"] == "aGVsbG8="
+
+
+async def test_converts_url_safe_base64_to_the_standard_alphabet():
+    raw = b"\xfb\xff\xef"
+    arguments = _args()
+    arguments.pop("file_url")
+    arguments["base64"] = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+    arguments["fileSize"] = len(raw)
+    _result, client = await _call(arguments)
+    body = client.request.call_args.kwargs["json"]
+    assert body["data"] == base64.b64encode(raw).decode()
+
+
+async def test_strips_ids_before_the_request():
+    _result, client = await _call(
+        _args(customerExternalId=" cust-ext ", externalId=" letter-1 ")
+    )
+    _method, url = client.request.call_args.args[:2]
+    body = client.request.call_args.kwargs["json"]
+    assert url == BASE + "/customers/cust-ext/attachments"
+    assert body["externalId"] == "letter-1"
+
+
+async def test_rejects_a_file_name_the_api_schema_rejects():
+    result, client = await _call(_args(name="Invoice (1).pdf"))
+    assert result["_status_code"] == 400
+    assert "invalid file name" in result["message"]
+    client.request.assert_not_called()
+
+
+async def test_rejects_a_content_type_that_does_not_match_the_extension():
+    result, client = await _call(_args(contentType="application/octet-stream"))
+    assert result["_status_code"] == 400
+    assert "contentType must be application/pdf" in result["message"]
+    client.request.assert_not_called()
+
+
+async def test_rejects_a_date_that_is_not_iso_8601():
+    result, client = await _call(_args(dateCreated="01/02/2026"))
+    assert result["_status_code"] == 400
+    assert "ISO 8601" in result["message"]
+    client.request.assert_not_called()
+
+
+async def test_sends_an_iso_timestamp():
+    _result, client = await _call(
+        _args(dateCreated=" 2026-01-02T00:00:00.000Z ")
+    )
+    body = client.request.call_args.kwargs["json"]
+    assert body["dateCreated"] == "2026-01-02T00:00:00.000Z"

@@ -116,11 +116,19 @@ add_customer_attachment_schema = {
         },
         "name": {
             "type": "string",
-            "description": "File name shown on the Files tab, including the extension",
+            "description": (
+                "File name shown on the Files tab. The directory is removed. "
+                "What remains must be letters, numbers, spaces, dots, hyphens, "
+                "and underscores, with an extension such as .pdf. Parentheses "
+                "and # are rejected."
+            ),
         },
         "contentType": {
             "type": "string",
-            "description": "MIME type of the file (e.g. application/pdf). It must match the file name.",
+            "description": (
+                "MIME type for the file name extension. .pdf is application/pdf. "
+                ".jpg and .jpeg are image/jpeg."
+            ),
         },
         "fileType": {
             "type": "string",
@@ -129,7 +137,10 @@ add_customer_attachment_schema = {
         },
         "dateCreated": {
             "type": "string",
-            "description": "Optional ISO 8601 timestamp for when the file was created",
+            "description": (
+                "Optional ISO 8601 date, for example 2026-01-02 or "
+                "2026-01-02T00:00:00.000Z."
+            ),
         },
         "file_url": {
             "type": "string",
@@ -140,7 +151,11 @@ add_customer_attachment_schema = {
         },
         "base64": {
             "type": "string",
-            "description": "Raw base64 or a data URI. Use this or file_url, not both. fileSize is required with base64.",
+            "description": (
+                "Standard or URL-safe base64, with or without padding, or a data "
+                "URI. The server sends standard padded base64. Use this or "
+                "file_url, not both. fileSize is required with base64."
+            ),
         },
         "fileSize": {
             "type": "integer",

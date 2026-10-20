@@ -4,6 +4,7 @@ import base64
 import httpx
 import logging
 import json
+import re
 from typing import Any
 from urllib.parse import quote, urlencode
 from pathlib import Path
@@ -514,11 +515,84 @@ def _safe_attachment_name(name: str) -> str:
 
 _CUSTOMER_ATTACHMENT_FILE_TYPES = {"invoice", "transaction", "other"}
 
+# attachmentInputSchema fileNameSchema. JavaScript \w is ASCII only.
+_CUSTOMER_FILE_NAME = re.compile(r"^[A-Za-z0-9_\-. ]{1,128}\.[A-Za-z0-9]{1,16}$")
 
-def _raw_base64(value: str) -> str:
-    """Strip a data-URI prefix and whitespace. The customer API wants raw base64."""
+# Joi.string().isoDate(), from joi 17 common.js.
+_CUSTOMER_ISO_DATE = re.compile(
+    r"^(?:[-+]\d{2})?(?:\d{4}(?!\d{2}\b))(?:(-?)(?:(?:0[1-9]|1[0-2])"
+    r"(?:\1(?:[12]\d|0[1-9]|3[01]))?|W(?:[0-4]\d|5[0-2])(?:-?[1-7])?|"
+    r"(?:00[1-9]|0[1-9]\d|[12]\d{2}|3(?:[0-5]\d|6[1-6])))"
+    r"(?![T]$|[T][\d]+Z$)(?:[T\s](?:(?:(?:[01]\d|2[0-3])(?:(:?)[0-5]\d)?|24:?00)"
+    r"(?:[.,]\d+(?!:))?)(?:\2[0-5]\d(?:[.,]\d+)?)?"
+    r"(?:[Z]|(?:[+-])(?:[01]\d|2[0-3])(?::?[0-5]\d)?)?)?)?$"
+)
+
+# Resolved mime.lookup map from mime-types 2.1.35, the API's attachment schema.
+with Path(__file__).with_name("attachment_content_types.json").open() as _mime_file:
+    _CUSTOMER_CONTENT_TYPES: dict[str, str] = json.load(_mime_file)
+
+
+def _customer_content_type(name: str) -> str:
+    """Return mime.lookup(name). The API requires contentType to equal this."""
+    extension = name.rsplit(".", 1)[-1].lower()
+    return _CUSTOMER_CONTENT_TYPES.get(extension, "")
+
+
+def _customer_attachment_name(name: str, content_type: str) -> str:
+    """Keep the basename only when it passes fileNameSchema."""
+    safe = _safe_attachment_name(name)
+    if not _CUSTOMER_FILE_NAME.fullmatch(safe):
+        raise ValueError(
+            "name is an invalid file name. Use letters, numbers, spaces, dots, "
+            "hyphens, and underscores, with an extension."
+        )
+    expected = _customer_content_type(safe)
+    if not expected:
+        raise ValueError("name has an invalid file extension")
+    if content_type != expected:
+        raise ValueError(f"contentType must be {expected} for {safe}")
+    return safe
+
+
+def _standard_base64(value: str) -> tuple[str, int]:
+    """
+    Return standard padded base64 and its decoded size.
+
+    attachmentInputSchema uses Joi.string().base64(), which requires padding
+    and the standard alphabet. Callers may send a data URI, URL-safe
+    characters, or omitted padding.
+    """
     payload = value.split(",", 1)[1] if value.startswith("data:") else value
-    return "".join(payload.split())
+    payload = "".join(payload.split()).replace("-", "+").replace("_", "/")
+    if not payload:
+        raise ValueError("base64 is empty")
+    padding_at = payload.find("=")
+    if padding_at != -1:
+        padding = payload[padding_at:]
+        if padding.strip("=") or len(payload) % 4 != 0:
+            raise ValueError("base64 must be a valid base64 string")
+        body = payload[:padding_at]
+    else:
+        body = payload
+    if not body or len(body) % 4 == 1:
+        raise ValueError("base64 must be a valid base64 string")
+    padded = body + ("=" * (-len(body) % 4))
+    try:
+        decoded = base64.b64decode(padded, validate=True)
+    except Exception as error:
+        raise ValueError("base64 must be a valid base64 string") from error
+    return padded, len(decoded)
+
+
+def _customer_attachment_date(value) -> str | None:
+    """Keep a date only when Joi.string().isoDate() would accept it."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    date_created = value.strip()
+    if not _CUSTOMER_ISO_DATE.fullmatch(date_created):
+        raise ValueError("dateCreated must be an ISO 8601 date")
+    return date_created
 
 
 async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
@@ -526,23 +600,28 @@ async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
     Build the body for PUT /v1/customers/:customerExternalId/attachments.
 
     Same file source rules as the bill attachment tool: exactly one of
-    file_url or base64. The Peakflo API field is `data`, and it must be raw
-    base64 rather than a data URI.
+    file_url or base64. The Peakflo API field is `data`, and it must be
+    standard padded base64 rather than a data URI.
     """
     customer_external_id = arguments.get("customerExternalId")
     if not isinstance(customer_external_id, str) or not customer_external_id.strip():
         raise ValueError(
             "customerExternalId is required and must be the customer external id"
         )
+    customer_external_id = customer_external_id.strip()
     external_id = arguments.get("externalId")
     if not isinstance(external_id, str) or not external_id.strip():
         raise ValueError("externalId is required")
+    external_id = external_id.strip()
     name = arguments.get("name")
     if not isinstance(name, str) or not name.strip():
         raise ValueError("name is required")
     content_type = arguments.get("contentType")
     if not isinstance(content_type, str) or not content_type.strip():
         raise ValueError("contentType is required")
+    content_type = content_type.strip()
+    safe_name = _customer_attachment_name(name, content_type)
+    date_created = _customer_attachment_date(arguments.get("dateCreated"))
 
     file_url = arguments.get("file_url")
     raw_base64 = arguments.get("base64")
@@ -562,10 +641,8 @@ async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
         if not isinstance(declared, int) or isinstance(declared, bool):
             raise ValueError("fileSize is required when base64 is provided")
         _ensure_within_attachment_size_limit(declared)
-        _ensure_within_attachment_size_limit(_decoded_base64_size(raw_base64))
-        data = _raw_base64(raw_base64)
-        if not data:
-            raise ValueError("base64 is empty")
+        data, size = _standard_base64(raw_base64)
+        _ensure_within_attachment_size_limit(size)
     else:
         raise ValueError(
             "Either file_url or base64 is required for add_customer_attachment"
@@ -573,7 +650,7 @@ async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
 
     body = {
         "externalId": external_id,
-        "name": _safe_attachment_name(name),
+        "name": safe_name,
         "contentType": content_type,
         "data": data,
     }
@@ -582,8 +659,7 @@ async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
         if file_type not in _CUSTOMER_ATTACHMENT_FILE_TYPES:
             raise ValueError("fileType must be invoice, transaction, or other")
         body["fileType"] = file_type
-    date_created = arguments.get("dateCreated")
-    if isinstance(date_created, str) and date_created.strip():
+    if date_created:
         body["dateCreated"] = date_created
     return customer_external_id, body
 
