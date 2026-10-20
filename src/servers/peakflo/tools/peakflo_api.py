@@ -99,14 +99,14 @@ customer_tools = [
     Tool(
         name="add_customer_attachment",
         description=(
-            "Add a file to an existing customer's Files tab. customerId must be "
-            "the internal customer id (companies document id), not externalId. "
-            "Accepts exactly one file source: a signed file URL (file_url), "
-            "which the server downloads, or a base64-encoded file (fileSize is "
-            "required with base64) — not both. Files over 10MB are rejected. "
-            "The bytes are stored in the Peakflo storage bucket and registered "
-            "with billing POST /v1/files (elementType companies). fileType "
-            "defaults to other."
+            "Add a file to an existing customer's Files tab "
+            "(PUT /v1/customers/:customerExternalId/attachments). "
+            "customerExternalId is the same external id used by create_customer, "
+            "not the internal companies document id. externalId identifies the "
+            "file. Accepts exactly one file source: a signed file URL (file_url), "
+            "which the server downloads, or base64 (fileSize is required with "
+            "base64) — not both. The API receives raw base64 in data. Files over "
+            "10MB are rejected. fileType is optional and defaults to other."
         ),
         inputSchema=add_customer_attachment_schema,
     ),

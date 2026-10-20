@@ -94,60 +94,64 @@ update_customer_schema = {
     "required": _customer_required,
 }
 
-# Registers a file on the customer Files tab (billing POST /v1/files,
-# elementType "companies"). customerId is the companies document id.
+# PUT /v1/customers/{customerExternalId}/attachments. The body matches the
+# invoice attachment route: raw base64 in `data`, not a data URI.
 add_customer_attachment_schema = {
     "type": "object",
     "properties": {
         "tenantId": {
             "type": "string",
-            "description": (
-                "Peakflo issuer id (parentCompanyId). The file is stored under "
-                "this tenant in the Peakflo storage bucket."
-            ),
+            "description": "Peakflo tenant id. Used to select the API credential; it is not sent in the body.",
         },
-        "customerId": {
+        "customerExternalId": {
             "type": "string",
             "description": (
-                "Internal customer id (the companies document id). "
-                "externalId does not work here."
+                "Customer external id, the same value passed to create_customer. "
+                "This is not the internal companies document id."
             ),
+        },
+        "externalId": {
+            "type": "string",
+            "description": "External id for this file. Repeating it for the same customer is rejected.",
         },
         "name": {
             "type": "string",
-            "description": "File name shown on the Files tab",
+            "description": "File name shown on the Files tab, including the extension",
         },
         "contentType": {
             "type": "string",
-            "description": "MIME type of the file (e.g. application/pdf)",
+            "description": "MIME type of the file (e.g. application/pdf). It must match the file name.",
         },
         "fileType": {
             "type": "string",
-            "description": "Peakflo file type. Defaults to other, which is what the customer Files tab uses.",
+            "enum": ["invoice", "transaction", "other"],
+            "description": "Optional. Stored as other when omitted.",
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": "Optional ISO 8601 timestamp for when the file was created",
         },
         "file_url": {
             "type": "string",
             "description": (
-                "Signed URL of the file. The server downloads it, stores the "
-                "bytes in the Peakflo storage bucket, then registers the path."
+                "Signed URL of the file. The server downloads it and sends raw "
+                "base64 in data. Use this or base64, not both."
             ),
         },
         "base64": {
             "type": "string",
-            "description": "Base64 file contents. Use this or file_url, not both. fileSize is required with base64.",
+            "description": "Raw base64 or a data URI. Use this or file_url, not both. fileSize is required with base64.",
         },
         "fileSize": {
             "type": "integer",
-            "description": "Decoded byte size. Required when base64 is sent.",
-        },
-        "userId": {
-            "type": "string",
-            "description": "User id stored on the file record. Defaults to workflow.",
-        },
-        "userName": {
-            "type": "string",
-            "description": "User name stored on the file record. Defaults to Workflow.",
+            "description": "Decoded byte size. Required when base64 is sent. Not forwarded to the API.",
         },
     },
-    "required": ["tenantId", "customerId", "name", "contentType"],
+    "required": [
+        "tenantId",
+        "customerExternalId",
+        "externalId",
+        "name",
+        "contentType",
+    ],
 }
