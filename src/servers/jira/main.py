@@ -19,7 +19,7 @@ from mcp.types import (
     ImageContent,
     EmbeddedResource,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.jira.util import (

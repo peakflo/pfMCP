@@ -21,6 +21,12 @@ DEBUG_MODE = os.environ.get("DEBUG", "false").lower() == "true"
 from mcp.server.lowlevel import Server
 from mcp.server import streamable_http_manager
 
+# Maximum request body accepted by the Streamable HTTP transport. mcp 1.12.3 had no
+# limit; mcp 2.x defaults to 4 MiB, which is smaller than the base64 attachment
+# payloads accepted by the gmail, docusign and xero tools. Cloud Run caps HTTP/1
+# request bodies at 32 MiB, so the same ceiling is used here.
+MAX_REQUEST_BODY_SIZE = 32 * 1024 * 1024
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -184,6 +190,7 @@ def create_starlette_app():
                         event_store=None,
                         json_response=False,
                         stateless=True,
+                        max_request_body_size=MAX_REQUEST_BODY_SIZE,
                     )
                 return None
 

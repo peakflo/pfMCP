@@ -16,7 +16,12 @@ _SERVERS_PATH = os.path.join(
 )
 sys.path.insert(0, _SERVERS_PATH)
 
-from peakflo.schemas.bill import add_bill_attachment_schema
+from peakflo.schemas.bill import (
+    add_bill_attachment_schema,
+    add_expense_report_attachment_schema,
+    add_bill_payment_attachment_schema,
+    normalize_multifile_custom_field_type,
+)
 from peakflo.schemas.purchase_order import ap_attachment_file_types, to_data_uri
 
 
@@ -160,3 +165,169 @@ def test_attachment_rejects_file_url_and_base64_without_file_size():
     payload["base64"] = "aGVsbG8="
     with pytest.raises(ValidationError):
         Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_attachment_accepts_custom_field_details():
+    payload = _valid_attachment()
+    payload["fileType"] = "customFieldFile"
+    payload["customFieldDetails"] = {
+        "customFieldId": "cf-1",
+        "customFieldNumber": "10",
+        "customFieldName": "Journal Entry",
+        "customFieldType": "multiFile",
+    }
+    Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_attachment_rejects_incomplete_custom_field_details():
+    payload = _valid_attachment()
+    payload["customFieldDetails"] = {
+        "customFieldId": "cf-1",
+        # missing required customFieldNumber
+    }
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_expense_report_and_payment_schemas_share_cf_contract():
+    for schema, id_field in (
+        (add_expense_report_attachment_schema, "externalId"),
+        (add_bill_payment_attachment_schema, "externalId"),
+    ):
+        assert id_field in schema["required"]
+        assert "customFieldDetails" in schema["properties"]
+        assert schema["additionalProperties"] is False
+        payload = {
+            id_field: "doc-1",
+            "tenantId": "tenant-1",
+            "id": "att-1",
+            "name": "file.xlsx",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "fileType": "customFieldFile",
+            "file_url": "https://example.com/signed.xlsx",
+            "customFieldDetails": {
+                "customFieldId": "cf-1",
+                "customFieldNumber": "10",
+                "customFieldName": "DV",
+                "customFieldType": "multiFile",
+            },
+        }
+        Draft7Validator(schema).validate(payload)
+
+
+def test_normalize_multifile_custom_field_type_returns_canonical_value():
+    # Canonical CustomFieldType.MultiFile value per the real peakflo-schema
+    # package; the api repo's mocked "MUltifile" value and other casing
+    # variants are normalized so the API persists a value that strict
+    # downstream consumers recognize.
+    assert normalize_multifile_custom_field_type("multiFile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MUltifile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MultiFile") == "multiFile"
+    assert normalize_multifile_custom_field_type("MULTIFILE") == "multiFile"
+    assert normalize_multifile_custom_field_type(" multifile ") == "multiFile"
+
+
+def test_normalize_multifile_custom_field_type_passes_others_through():
+    assert normalize_multifile_custom_field_type("") == ""
+    assert normalize_multifile_custom_field_type("Text") == "Text"
+    assert normalize_multifile_custom_field_type("not-a-multifile") == "not-a-multifile"
+
+
+def test_attachment_requires_custom_field_details_for_custom_field_file():
+    # Mirrors the api Joi rule: customFieldDetails is required when
+    # fileType is customFieldFile.
+    for schema, id_field in (
+        (add_bill_attachment_schema, "billExternalId"),
+        (add_expense_report_attachment_schema, "externalId"),
+        (add_bill_payment_attachment_schema, "externalId"),
+    ):
+        payload = _valid_attachment()
+        payload[id_field] = payload.pop("billExternalId")
+        payload["fileType"] = "customFieldFile"
+        with pytest.raises(ValidationError):
+            Draft7Validator(schema).validate(payload)
+
+
+def test_attachment_rejects_empty_custom_field_details_values():
+    payload = _valid_attachment()
+    payload["customFieldDetails"] = {
+        "customFieldId": "",
+        "customFieldNumber": "10",
+        "customFieldName": "Journal Entry",
+        "customFieldType": "multiFile",
+    }
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_single_file_attachment_without_custom_field_details_still_valid():
+    # Backward compatibility: pre-existing single-file bill callers that do
+    # not use customFieldDetails keep validating.
+    Draft7Validator(add_bill_attachment_schema).validate(_valid_attachment())
+
+
+def _cf_payload(details):
+    payload = _valid_attachment()
+    payload["fileType"] = "customFieldFile"
+    payload["customFieldDetails"] = details
+    return payload
+
+
+def test_number_only_custom_field_details_are_valid():
+    # customFieldNumber is the only required key; the API resolves the field.
+    for schema, id_field in (
+        (add_bill_attachment_schema, "billExternalId"),
+        (add_expense_report_attachment_schema, "externalId"),
+        (add_bill_payment_attachment_schema, "externalId"),
+    ):
+        assert schema["properties"]["customFieldDetails"]["required"] == [
+            "customFieldNumber"
+        ]
+        payload = _cf_payload({"customFieldNumber": "10"})
+        payload[id_field] = payload.pop("billExternalId")
+        Draft7Validator(schema).validate(payload)
+
+
+def test_custom_field_details_without_number_is_rejected():
+    payload = _cf_payload(
+        {
+            "customFieldId": "cf-1",
+            "customFieldName": "Journal Entry",
+            "customFieldType": "multiFile",
+            "customFieldSourceId": "src-1",
+        }
+    )
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(payload)
+
+
+def test_custom_field_details_empty_number_is_rejected():
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(
+            _cf_payload({"customFieldNumber": ""})
+        )
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["customFieldId", "customFieldName", "customFieldType", "customFieldSourceId"],
+)
+def test_empty_optional_custom_field_value_is_rejected(key):
+    with pytest.raises(ValidationError):
+        Draft7Validator(add_bill_attachment_schema).validate(
+            _cf_payload({"customFieldNumber": "10", key: ""})
+        )
+
+
+def test_full_custom_field_details_with_source_id_are_valid():
+    Draft7Validator(add_bill_attachment_schema).validate(
+        _cf_payload(
+            {
+                "customFieldId": "cf-1",
+                "customFieldNumber": "10",
+                "customFieldName": "Journal Entry",
+                "customFieldType": "multiFile",
+                "customFieldSourceId": "src-1",
+            }
+        )
+    )
