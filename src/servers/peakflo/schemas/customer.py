@@ -94,60 +94,100 @@ update_customer_schema = {
     "required": _customer_required,
 }
 
-# Registers a file on the customer Files tab (billing POST /v1/files,
-# elementType "companies"). customerId is the companies document id.
+# PUT /v1/customers/{customerExternalId}/attachments. The body matches the
+# invoice attachment route: raw base64 in `data`, not a data URI.
+# A previous caller may still send customerId, the internal companies
+# document id, and omit externalId. That call keeps the billing registration.
 add_customer_attachment_schema = {
     "type": "object",
     "properties": {
         "tenantId": {
             "type": "string",
+            "description": "Peakflo tenant id. Used to select the API credential; it is not sent in the body.",
+        },
+        "customerExternalId": {
+            "type": "string",
             "description": (
-                "Peakflo issuer id (parentCompanyId). The file is stored under "
-                "this tenant in the Peakflo storage bucket."
+                "Customer external id, the same value passed to create_customer. "
+                "Required unless customerId is sent. This is not the internal "
+                "companies document id."
             ),
         },
         "customerId": {
             "type": "string",
             "description": (
-                "Internal customer id (the companies document id). "
-                "externalId does not work here."
+                "Previous argument: the internal companies document id. "
+                "Accepted when customerExternalId is omitted. externalId is "
+                "not required for this call."
+            ),
+        },
+        "externalId": {
+            "type": "string",
+            "description": (
+                "External id for this file. Required with customerExternalId. "
+                "Repeating it for the same customer is rejected. Not required "
+                "when customerId is sent."
             ),
         },
         "name": {
             "type": "string",
-            "description": "File name shown on the Files tab",
+            "description": (
+                "File name shown on the Files tab. The directory is removed. "
+                "What remains may include letters, numbers, spaces, dots, "
+                "hyphens, underscores, parentheses, #, apostrophes, ampersands, "
+                "plus, commas, and brackets, and must contain a letter or digit "
+                "plus an extension such as .pdf."
+            ),
         },
         "contentType": {
             "type": "string",
-            "description": "MIME type of the file (e.g. application/pdf)",
+            "description": (
+                "MIME type for the file name extension. .pdf is application/pdf. "
+                ".jpg and .jpeg are image/jpeg."
+            ),
         },
         "fileType": {
             "type": "string",
-            "description": "Peakflo file type. Defaults to other, which is what the customer Files tab uses.",
+            "description": (
+                "Optional. Stored as other when omitted. With customerExternalId, "
+                "must be invoice, transaction, or other. Legacy customerId calls "
+                "retain their existing file types."
+            ),
+        },
+        "dateCreated": {
+            "type": "string",
+            "description": (
+                "Optional ISO 8601 date, for example 2026-01-02 or "
+                "2026-01-02T00:00:00.000Z."
+            ),
         },
         "file_url": {
             "type": "string",
             "description": (
-                "Signed URL of the file. The server downloads it, stores the "
-                "bytes in the Peakflo storage bucket, then registers the path."
+                "Signed URL of the file. The server downloads it and sends raw "
+                "base64 in data. Use this or base64, not both."
             ),
         },
         "base64": {
             "type": "string",
-            "description": "Base64 file contents. Use this or file_url, not both. fileSize is required with base64.",
+            "description": (
+                "Standard or URL-safe base64, with or without padding, or a data "
+                "URI. The server sends standard padded base64. Use this or "
+                "file_url, not both. fileSize is required with base64."
+            ),
         },
         "fileSize": {
             "type": "integer",
-            "description": "Decoded byte size. Required when base64 is sent.",
+            "description": "Decoded byte size. Required when base64 is sent. Not forwarded to the API.",
         },
         "userId": {
             "type": "string",
-            "description": "User id stored on the file record. Defaults to workflow.",
+            "description": "Previous argument. Stored on the file when customerId is sent. Defaults to workflow.",
         },
         "userName": {
             "type": "string",
-            "description": "User name stored on the file record. Defaults to Workflow.",
+            "description": "Previous argument. Stored on the file when customerId is sent. Defaults to Workflow.",
         },
     },
-    "required": ["tenantId", "customerId", "name", "contentType"],
+    "required": ["tenantId", "name", "contentType"],
 }
