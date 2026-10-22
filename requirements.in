@@ -13,6 +13,7 @@ python-dotenv
 python-quickbooks
 starlette
 uvicorn
+certifi>=2026.10.19
 requests
 google
 google-cloud-firestore
