@@ -908,6 +908,14 @@ create_cash_advance_payment_input_schema = {
                 "approval does not queue a second invoice."
             ),
         },
+        "externalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": (
+                "Peakflo payment UUID previously sent to the source system as "
+                "PeakfloRefId."
+            ),
+        },
     },
     "required": [
         "vendorId",
