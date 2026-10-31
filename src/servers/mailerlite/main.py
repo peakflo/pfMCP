@@ -4,7 +4,6 @@ from pathlib import Path
 import logging
 from typing import List, Optional, Iterable
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 import mailerlite
 import json
@@ -16,13 +15,14 @@ project_root = os.path.abspath(
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+from src.utils.mcp_compat import NotificationOptions, Server
+
 from mcp.types import (
     TextContent,
     Tool,
     ImageContent,
     EmbeddedResource,
     Resource,
-    AnyUrl,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 
@@ -161,7 +161,7 @@ def create_server(user_id, api_key=None):
                 return []
 
         @server.read_resource()
-        async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+        async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
             """Read a resource from MailerLite by URI"""
             logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

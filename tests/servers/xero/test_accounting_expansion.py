@@ -11,7 +11,6 @@ from src.servers.xero import main as xero_main
 async def _invoke(tool_name: str, arguments: dict, api_responses: list):
     """Run the call_tool handler with mocked Xero credentials and API client."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     api_mock = AsyncMock(side_effect=api_responses)
     creds_mock = AsyncMock(return_value=("fake-token", "fake-tenant"))
@@ -23,16 +22,15 @@ async def _invoke(tool_name: str, arguments: dict, api_responses: list):
             method="tools/call",
             params=CallToolRequestParams(name=tool_name, arguments=arguments),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
 
     return result, api_mock
 
 
 async def _get_tool_schema(tool_name: str):
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    return next(t for t in result.root.tools if t.name == tool_name)
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    return next(t for t in result.tools if t.name == tool_name)
 
 
 async def test_schema_new_tools_exist():
@@ -54,7 +52,7 @@ async def test_schema_new_tools_exist():
 
 async def test_list_invoices_schema_exposes_bounded_page_size():
     tool = await _get_tool_schema("list_invoices")
-    page_size = tool.inputSchema["properties"]["pageSize"]
+    page_size = tool.input_schema["properties"]["pageSize"]
 
     assert page_size["type"] == "integer"
     assert page_size["minimum"] == 1
@@ -218,7 +216,7 @@ async def test_update_purchase_order_requires_draft_status():
         ],
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "Only DRAFT purchase orders can be updated" in text
     assert api_mock.call_count == 1
 
@@ -291,7 +289,7 @@ async def test_add_attachment_rejects_invalid_base64():
         api_responses=[],
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "contentBase64" in text
     assert api_mock.call_count == 0
 
@@ -311,7 +309,7 @@ async def test_email_invoice_posts_empty_payload_and_returns_success_message():
     assert api_mock.call_args.kwargs["data"] == {}
     assert api_mock.call_args.kwargs["extra_headers"]["Idempotency-Key"] == "idem-email"
 
-    payload = json.loads(result.root.content[0].text)
+    payload = json.loads(result.content[0].text)
     assert payload["Success"] is True
     assert payload["InvoiceID"] == "inv-789"
 

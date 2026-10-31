@@ -295,7 +295,13 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             return None
 
         # Check cache first (cache operations are fast, no need for async)
-        cached = self._get_cached_credentials(service_name, connection_id)
+        # BigQuery project allowlists live in Nango metadata. Fetch each time so
+        # removing a project takes effect without waiting for the token cache TTL.
+        cached = (
+            self._get_cached_credentials(service_name, connection_id)
+            if service_name != "bigquery"
+            else None
+        )
         if cached is not None:
             return cached
 
@@ -343,7 +349,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     response.json(), service_name, connection_id
                 )
 
-            if result is not None:
+            if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
 
             return result
@@ -372,7 +378,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             return None
 
         # Check cache first
-        cached = self._get_cached_credentials(service_name, connection_id)
+        cached = (
+            self._get_cached_credentials(service_name, connection_id)
+            if service_name != "bigquery"
+            else None
+        )
         if cached is not None:
             return cached
 
@@ -424,7 +434,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     response.json(), service_name, connection_id
                 )
 
-            if result is not None:
+            if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
 
             return result

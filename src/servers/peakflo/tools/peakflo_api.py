@@ -1,5 +1,10 @@
 from mcp.types import Tool
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
+from servers.peakflo.schemas.customer import (
+    add_customer_attachment_schema,
+    create_customer_schema,
+    update_customer_schema,
+)
 from servers.peakflo.schemas.utility import (
     soa_email_input_schema,
     send_message_input_schema,
@@ -17,6 +22,9 @@ from servers.peakflo.schemas.utility import (
     list_whatsapp_templates_input_schema,
     assign_customer_to_workflow_input_schema,
     create_collection_workflow_input_schema,
+    list_unliquidated_cash_advances_input_schema,
+    create_cash_advance_payment_input_schema,
+    add_travel_request_timeline_note_input_schema,
 )
 from servers.peakflo.schemas.invoice import (
     create_invoice_schema,
@@ -28,7 +36,13 @@ from servers.peakflo.schemas.purchase_order import (
     update_purchase_order_schema,
     add_purchase_order_attachment_schema,
 )
-from servers.peakflo.schemas.bill import add_bill_attachment_schema
+from servers.peakflo.schemas.bill import (
+    add_bill_attachment_schema,
+    add_expense_report_attachment_schema,
+    add_bill_payment_attachment_schema,
+    update_bill_attachment_validation_schema,
+    update_ap_attachment_validation_schema,
+)
 
 vendor_tools = [
     Tool(
@@ -62,6 +76,47 @@ vendor_tools = [
 ]
 
 
+customer_tools = [
+    Tool(
+        name="create_customer",
+        description=(
+            "Create a new customer in Peakflo with company information, status, "
+            "currency, contacts, addresses, payment terms, and custom fields. "
+            "Fails if a customer with the same externalId already exists."
+        ),
+        inputSchema=create_customer_schema,
+    ),
+    Tool(
+        name="update_customer",
+        description=(
+            "Update an existing customer in Peakflo by external ID. The API requires "
+            "externalId, companyName, currency and status on every update; other fields "
+            "that are omitted stay unchanged. A non-empty customField list replaces all "
+            "stored custom fields, so send the full set to keep."
+        ),
+        inputSchema=update_customer_schema,
+    ),
+    Tool(
+        name="add_customer_attachment",
+        description=(
+            "Add a file to an existing customer's Files tab "
+            "(PUT /v1/customers/:customerExternalId/attachments). "
+            "customerExternalId is the same external id used by create_customer, "
+            "and externalId identifies the file. A previous caller may still "
+            "send customerId, the internal companies document id, and omit "
+            "externalId. Accepts exactly one file source: a signed file URL "
+            "(file_url), which the server downloads, or base64 (fileSize is "
+            "required with base64) — not both. The API receives standard padded "
+            "base64 in data. name may include parentheses and #, must contain "
+            "a letter or digit, and must have an extension. contentType must "
+            "match that extension, such as application/pdf for .pdf. "
+            "dateCreated, when set, must be ISO 8601. Files over 10MB are "
+            "rejected. fileType is optional and defaults to other."
+        ),
+        inputSchema=add_customer_attachment_schema,
+    ),
+]
+
 invoice_tools = [
     Tool(
         name="create_invoice",
@@ -94,7 +149,7 @@ purchase_order_tools = [
     ),
     Tool(
         name="add_purchase_order_attachment",
-        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        description="Add an attachment to an existing purchase order by its external ID. Accepts exactly one file source: a signed file URL (file_url) which the server downloads and base64-encodes (fileSize is computed automatically), or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned). customFieldFile is not supported for purchase orders.",
         inputSchema=add_purchase_order_attachment_schema,
     ),
 ]
@@ -102,9 +157,75 @@ purchase_order_tools = [
 
 bill_tools = [
     Tool(
+        name="update_ap_attachment_validation",
+        description=(
+            "Save validation warnings and errors on an AP attachment by object "
+            "type and Mongo ID, including standalone My Expenses (expense). "
+            "Use tr plus stable lineIndex for a travel report line voucher. "
+            "Attachments on supported AP objects may receive suggested field changes. This tool "
+            "never applies a field change."
+        ),
+        inputSchema=update_ap_attachment_validation_schema,
+    ),
+    Tool(
+        name="update_bill_attachment_validation",
+        description=(
+            "Save generic validation errors, warnings, and optional proposed "
+            "bill field changes on an existing bill attachment. Line targets "
+            "must use persistent 1-based lineIndex and include currentValue. "
+            "This tool never changes bill fields; a user must approve proposals "
+            "in a separate review action."
+        ),
+        inputSchema=update_bill_attachment_validation_schema,
+    ),
+    Tool(
         name="add_bill_attachment",
-        description="Add an attachment to an existing bill by its external ID (PUT /v1/bill/:billExternalId/attachments). Accepts exactly one file source: a signed file URL (file_url) which the server downloads, base64-encodes and computes fileSize automatically, or a base64-encoded file supplied directly (in which case fileSize must also be provided) — not both. Files over 10MB are rejected. Supports AP attachment file types (transaction, statement, cabinet, invoice, other, paymentProof, incomingFile, customFieldFile, fakturPajak, payerReceipt, whtFile, eStampFile, shippingList, dscSigned).",
+        description=(
+            "Add an attachment to an existing bill by its external ID "
+            "(PUT /v1/bill/:billExternalId/attachments). Accepts exactly one file "
+            "source: a signed file URL (file_url) which the server downloads, "
+            "base64-encodes and computes fileSize automatically, or a base64-encoded "
+            "file supplied directly (in which case fileSize must also be provided) — "
+            "not both. Files over 10MB are rejected. Supports AP attachment file "
+            "types. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
         inputSchema=add_bill_attachment_schema,
+    ),
+    Tool(
+        name="add_expense_report_attachment",
+        description=(
+            "Add an attachment to an existing expense report by its external ID "
+            "(PUT /v1/expense-report/:externalId/attachments). Same file_url / "
+            "base64 contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
+        inputSchema=add_expense_report_attachment_schema,
+    ),
+    Tool(
+        name="add_bill_payment_attachment",
+        description=(
+            "Add an attachment to an existing AP / TnE payment by its external ID "
+            "(PUT /v1/bill-payment/:externalId/attachments). Same file_url / base64 "
+            "contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
+        inputSchema=add_bill_payment_attachment_schema,
     ),
 ]
 
@@ -264,5 +385,25 @@ utility_tools = [
             "route the send through email/SMS instead."
         ),
         inputSchema=list_whatsapp_templates_input_schema,
+    ),
+    Tool(
+        name="list_unliquidated_cash_advances",
+        description="List the employee's open cash advances. blocked is true when one would stop a new cash advance. Pass excludeTravelRequestId so payments already allocated only to this travel request are ignored.",
+        inputSchema=list_unliquidated_cash_advances_input_schema,
+    ),
+    Tool(
+        name="create_cash_advance_payment",
+        description=(
+            "Create one draft cash advance payment for a travel request currency group "
+            "after the source system accepts the invoice. Pass sourceId as that "
+            "external invoice id. If reference already exists, returns that payment "
+            "with created false. This call does not post to the source system."
+        ),
+        inputSchema=create_cash_advance_payment_input_schema,
+    ),
+    Tool(
+        name="add_travel_request_timeline_note",
+        description="Add a note on the travel request timeline. Use when a cash advance payment could not be created.",
+        inputSchema=add_travel_request_timeline_note_input_schema,
     ),
 ]

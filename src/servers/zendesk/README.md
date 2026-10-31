@@ -1,42 +1,24 @@
-# Zendesk Server
+# Zendesk Tickets
 
-pfMCP server implementation for interacting with Zendesk.
+The Zendesk pfMCP server exposes six ticket tools and ticket-view resources.
 
-### Prerequisites
+| Tool | Purpose |
+| --- | --- |
+| `list_tickets` | List recent tickets, with `page_size` and `after_cursor` pagination. |
+| `get_ticket` | Read a ticket by its numeric `ticket_id`. |
+| `search_tickets` | Search tickets with Zendesk query syntax. The server adds `type:ticket`; `page` selects pages 1–10. |
+| `create_ticket` | Create a ticket with a subject and initial comment. |
+| `update_ticket` | Change ticket fields or add a comment. |
+| `add_comment` | Add a public reply or internal note. |
 
-- Python 3.11+
-- A Zendesk account with API access
-- A Zendesk OAuth application with the following scopes:
-  - read
-  - write
+`zendesk://view/{id}` resources list and read Zendesk ticket views and their tickets.
 
-### Local Authentication
+## Nango setup
 
-Local authentication uses an OAuth Configuration JSON file:
+Configure a Nango OAuth2 integration with provider config key `zendesk` and Zendesk `read` and `write` scopes. workflow-builder uses that key to create the connection. Set `ENVIRONMENT=nango`, `NANGO_SECRET_KEY`, and optionally `NANGO_HOST` for pfMCP. The connection ID is passed to pfMCP as the user ID. API calls use Nango's proxy to resolve the account subdomain and OAuth token.
 
-```
-local_auth/oauth_configs/zendesk/oauth.json
-```
+## Local setup
 
-Create the following file with the relevant attributes for your app:
+Local and Gumloop authentication continue to use the existing credential and account-subdomain helpers. For local OAuth, create `local_auth/oauth_configs/zendesk/oauth.json` with `client_id`, `client_secret`, `redirect_uri`, and `custom_subdomain`, then run `python src/servers/zendesk/main.py auth`.
 
-```json
-{
-  "client_id": "xxxxxxxxxxxxxxxxxxxxx",
-  "client_secret": "xxxxxxxxxxxxxxxxxxxxx",
-  "redirect_uri": "https://xxxxxxxxxxxxx",
-  "custom_subdomain": "your-subdomain"
-}
-```
-
-Notes:
-- The `custom_subdomain` is your Zendesk subdomain (e.g., if your Zendesk URL is `example.zendesk.com`, use `example`)
-
-
-To set up and verify authentication, run:
-
-```bash
-python src/servers/zendesk/main.py auth
-```
-
-This will launch a browser-based authentication flow to obtain and save credentials.
+Zendesk Search returns at most 1,000 results per query. Use narrower queries for larger result sets. Search results can take a few minutes to index. A comment on `add_comment` defaults to public; use `public: false` for an internal note.
