@@ -8,8 +8,10 @@ from unittest import mock
 
 import pytest
 import requests
+from mcp.types import CallToolRequest, CallToolRequestParams
 
 from src.servers.netsuite import main as ns
+from src.auth.clients.NangoAuthClient import NangoAuthClient
 
 
 # --------------------------------------------------------------------------- #
@@ -69,6 +71,73 @@ def test_incomplete_credentials_raise():
 def test_account_id_required():
     with pytest.raises(ValueError):
         ns.NetSuiteClient(account_id="")
+
+
+def test_nango_auth_client_preserves_tba_connection_config():
+    payload = {
+        "credentials": {
+            "type": "TBA",
+            "token_id": "ti",
+            "token_secret": "ts",
+            "config_override": {"client_id": "ck", "client_secret": "cs"},
+        },
+        "connection_config": {"accountId": "1234567_SB1"},
+    }
+    client = NangoAuthClient(secret_key="secret", host="https://nango.test")
+    NangoAuthClient._cache.clear()
+    response = mock.Mock()
+    response.json.return_value = payload
+
+    with mock.patch.object(
+        client, "_async_fetch_connection_with_retries", return_value=response
+    ):
+        credentials = _run(client.async_get_user_credentials("netsuite", "conn-1"))
+
+    assert credentials["token_id"] == "ti"
+    assert credentials["config_override"]["client_id"] == "ck"
+    assert credentials["connection_config"]["accountId"] == "1234567_SB1"
+
+
+def test_netsuite_credentials_are_mapped_from_nango_tba():
+    auth_client = mock.Mock()
+    auth_client.async_get_user_credentials = mock.AsyncMock(
+        return_value={
+            "type": "TBA",
+            "token_id": "ti",
+            "token_secret": "ts",
+            "config_override": {"client_id": "ck", "client_secret": "cs"},
+            "connection_config": {"accountId": "1234567_SB1"},
+        }
+    )
+
+    with mock.patch.object(ns, "create_auth_client", return_value=auth_client):
+        credentials = _run(ns.get_netsuite_credentials("conn-1"))
+
+    assert credentials == {
+        "account_id": "1234567_SB1",
+        "consumer_key": "ck",
+        "consumer_secret": "cs",
+        "token_id": "ti",
+        "token_secret": "ts",
+    }
+
+
+def test_netsuite_tool_failure_is_an_mcp_error():
+    async def missing_credentials(user_id, api_key):
+        raise ValueError("credentials unavailable")
+
+    server = ns.create_server("conn-1", credential_resolver=missing_credentials)
+    request = CallToolRequest(
+        method="tools/call",
+        params=CallToolRequestParams(
+            name="execute_suiteql", arguments={"query": "SELECT 1"}
+        ),
+    )
+
+    result = _run(server.dispatch(request))
+
+    assert result.is_error is True
+    assert result.content[0].text == "credentials unavailable"
 
 
 def test_suiteql_escapes_single_quotes():
