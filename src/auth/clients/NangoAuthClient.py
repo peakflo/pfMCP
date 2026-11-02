@@ -5,7 +5,7 @@ import logging
 import requests
 import httpx
 import jwt
-from typing import Optional, Dict, Any, Tuple, TypeVar, Generic, TypedDict
+from typing import Optional, Dict, Any, Tuple, TypedDict
 from requests.exceptions import ConnectionError, Timeout
 
 from auth.constants import (
@@ -13,6 +13,7 @@ from auth.constants import (
     AUTH_TYPE_OAUTH2,
     AUTH_TYPE_UNAUTHENTICATED,
     AUTH_TYPE_API_KEY,
+    AUTH_TYPE_TBA,
 )
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
@@ -140,6 +141,57 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             f"[_resolve_jwt_from_metadata] generating JWT for tenant {tenant_id}"
         )
         return self._get_jwt_token(service_name, tenant_id, private_key, access_token)
+
+    def _extract_connection_credentials(
+        self,
+        response_json: dict,
+        auth_type: str,
+        service_name: str,
+        connection_id: str,
+    ) -> Optional[dict]:
+        """Return the credential payload needed by an MCP integration.
+
+        Nango stores TBA secrets in ``credentials`` while connection-specific
+        fields such as the NetSuite account ID live in ``connection_config``.
+        Preserve both so the integration can construct a complete signer.
+        """
+        if auth_type == AUTH_TYPE_OAUTH2:
+            credentials = dict(response_json.get("credentials") or {})
+            credentials["metadata"] = response_json.get("metadata", {})
+            return credentials
+
+        if auth_type == AUTH_TYPE_TBA:
+            credentials = dict(response_json.get("credentials") or {})
+            credentials["connection_config"] = response_json.get(
+                "connection_config", response_json.get("connectionConfig", {})
+            )
+            credentials["metadata"] = response_json.get("metadata", {})
+            return credentials
+
+        if auth_type == AUTH_TYPE_API_KEY:
+            credentials = dict(response_json.get("credentials") or {})
+            if credentials.get("apiKey"):
+                return credentials
+            # Fallback: legacy connection migrated from UNAUTHENTICATED.
+            return (
+                self._resolve_jwt_from_metadata(
+                    response_json, service_name, connection_id
+                )
+                or credentials
+            )
+
+        if auth_type == AUTH_TYPE_UNAUTHENTICATED:
+            return self._resolve_jwt_from_metadata(
+                response_json, service_name, connection_id
+            )
+
+        logger.error(
+            "Unsupported auth type %s for %s connection %s",
+            auth_type,
+            service_name,
+            connection_id,
+        )
+        return None
 
     def _get_cached_credentials(
         self, service_name: str, connection_id: str
@@ -295,7 +347,13 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             return None
 
         # Check cache first (cache operations are fast, no need for async)
-        cached = self._get_cached_credentials(service_name, connection_id)
+        # BigQuery project allowlists live in Nango metadata. Fetch each time so
+        # removing a project takes effect without waiting for the token cache TTL.
+        cached = (
+            self._get_cached_credentials(service_name, connection_id)
+            if service_name != "bigquery"
+            else None
+        )
         if cached is not None:
             return cached
 
@@ -315,35 +373,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             if response is None:
                 return None
 
-            result = None
+            result = self._extract_connection_credentials(
+                response.json(), auth_type, service_name, connection_id
+            )
 
-            if auth_type == AUTH_TYPE_OAUTH2:
-                credentials: NangoStandardConnectionCredentials = response.json().get(
-                    "credentials"
-                )
-                metadata = response.json().get("metadata", {})
-                credentials["metadata"] = metadata
-                result = credentials
-            elif auth_type == AUTH_TYPE_API_KEY:
-                credentials: NangoApiKeyConnectionCredentials = (
-                    response.json().get("credentials") or {}
-                )
-                if credentials.get("apiKey"):
-                    result = credentials
-                else:
-                    # Fallback: legacy connection migrated from UNAUTHENTICATED
-                    result = (
-                        self._resolve_jwt_from_metadata(
-                            response.json(), service_name, connection_id
-                        )
-                        or credentials
-                    )
-            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
-                result = self._resolve_jwt_from_metadata(
-                    response.json(), service_name, connection_id
-                )
-
-            if result is not None:
+            if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
 
             return result
@@ -372,7 +406,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             return None
 
         # Check cache first
-        cached = self._get_cached_credentials(service_name, connection_id)
+        cached = (
+            self._get_cached_credentials(service_name, connection_id)
+            if service_name != "bigquery"
+            else None
+        )
         if cached is not None:
             return cached
 
@@ -394,37 +432,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             if response is None:
                 return None
 
-            result = None
+            result = self._extract_connection_credentials(
+                response.json(), auth_type, service_name, connection_id
+            )
 
-            if auth_type == AUTH_TYPE_OAUTH2:
-                # Return the credentials data as a dictionary
-                # The caller is responsible for converting to the appropriate credentials type
-                credentials: NangoStandardConnectionCredentials = response.json().get(
-                    "credentials"
-                )
-                metadata = response.json().get("metadata", {})
-                credentials["metadata"] = metadata
-                result = credentials
-            elif auth_type == AUTH_TYPE_API_KEY:
-                credentials: NangoApiKeyConnectionCredentials = (
-                    response.json().get("credentials") or {}
-                )
-                if credentials.get("apiKey"):
-                    result = credentials
-                else:
-                    # Fallback: legacy connection migrated from UNAUTHENTICATED
-                    result = (
-                        self._resolve_jwt_from_metadata(
-                            response.json(), service_name, connection_id
-                        )
-                        or credentials
-                    )
-            elif auth_type == AUTH_TYPE_UNAUTHENTICATED:
-                result = self._resolve_jwt_from_metadata(
-                    response.json(), service_name, connection_id
-                )
-
-            if result is not None:
+            if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
 
             return result

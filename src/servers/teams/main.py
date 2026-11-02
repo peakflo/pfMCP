@@ -14,14 +14,13 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from src.utils.microsoft.util import (
     get_credentials,
     authenticate_and_save_credentials,
 )
 from mcp.types import (
-    AnyUrl,
     Resource,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
@@ -182,7 +181,7 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read messages from a Teams channel"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

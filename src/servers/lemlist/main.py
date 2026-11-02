@@ -6,7 +6,6 @@ import logging
 from typing import List
 import requests
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 # Add both project root and src directory to Python path
@@ -15,6 +14,8 @@ project_root = os.path.abspath(
 )
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
+
+from src.utils.mcp_compat import NotificationOptions, Server
 
 from mcp.types import (
     TextContent,

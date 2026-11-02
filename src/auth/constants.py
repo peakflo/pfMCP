@@ -22,6 +22,10 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "google-firestore",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    "bigquery": {
+        "nango_service_name": "google",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     "notion": {"nango_service_name": "notion", "auth_type": AUTH_TYPE_OAUTH2},
     "tldv": {"nango_service_name": "tldv", "auth_type": AUTH_TYPE_API_KEY},
     "peakflo": {
@@ -48,6 +52,10 @@ SERVICE_NAME_MAP = {
     # Google Analytics 4
     "ga4": {
         "nango_service_name": "google-analytics",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
+    "zendesk": {
+        "nango_service_name": "zendesk",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
     # Slack user-level token integration (xoxp- tokens for posting as the user)

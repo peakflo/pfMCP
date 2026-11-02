@@ -18,7 +18,6 @@ from pathlib import Path
 import aiohttp
 
 from mcp.types import (
-    AnyUrl,
     Resource,
     TextContent,
     Tool,
@@ -26,7 +25,7 @@ from mcp.types import (
     EmbeddedResource,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.airtable.util import (
@@ -181,7 +180,7 @@ def create_server(user_id, api_key=None):
             return resources
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read records from an Airtable table by URI"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

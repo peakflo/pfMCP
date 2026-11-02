@@ -26,7 +26,7 @@ import json
 from pathlib import Path
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from google.oauth2.credentials import Credentials

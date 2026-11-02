@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 from mcp.types import Resource, TextContent, Tool, ImageContent, EmbeddedResource
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.webflow.utils import authenticate_and_save_credentials, get_credentials

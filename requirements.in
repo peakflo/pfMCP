@@ -5,7 +5,7 @@ google-api-python-client
 google-auth
 google-auth-httplib2
 google-auth-oauthlib
-mcp==1.12.3
+mcp==2.2.0
 notion-client
 slack-sdk
 prometheus-client
@@ -13,6 +13,7 @@ python-dotenv
 python-quickbooks
 starlette
 uvicorn
+certifi>=2026.10.19
 requests
 google
 google-cloud-firestore

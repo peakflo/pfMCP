@@ -198,7 +198,6 @@ async def _invoke_tool(mock_service, arguments=None):
         from src.servers.gmail.main import create_server
 
         server_instance = create_server("test_user", api_key="test_key")
-        handler = server_instance.request_handlers[CallToolRequest]
 
         request = CallToolRequest(
             method="tools/call",
@@ -207,8 +206,8 @@ async def _invoke_tool(mock_service, arguments=None):
                 arguments=merged,
             ),
         )
-        result = await handler(request)
-        text = result.root.content[0].text
+        result = await server_instance.dispatch(request)
+        text = result.content[0].text
         return json.loads(text)
 
 
@@ -226,7 +225,6 @@ async def _invoke_tool_raw(mock_service, arguments=None):
         from src.servers.gmail.main import create_server
 
         server_instance = create_server("test_user", api_key="test_key")
-        handler = server_instance.request_handlers[CallToolRequest]
 
         request = CallToolRequest(
             method="tools/call",
@@ -235,8 +233,8 @@ async def _invoke_tool_raw(mock_service, arguments=None):
                 arguments=merged,
             ),
         )
-        result = await handler(request)
-        return result.root.content[0].text
+        result = await server_instance.dispatch(request)
+        return result.content[0].text
 
 
 @pytest.mark.asyncio
@@ -426,8 +424,7 @@ async def test_get_attachment_returns_machine_readable_resource_link():
         from src.servers.gmail.main import create_server
 
         server_instance = create_server("test_user", api_key="test_key")
-        handler = server_instance.request_handlers[CallToolRequest]
-        result = await handler(
+        result = await server_instance.dispatch(
             CallToolRequest(
                 method="tools/call",
                 params=CallToolRequestParams(
@@ -442,11 +439,11 @@ async def test_get_attachment_returns_machine_readable_resource_link():
         )
 
     resource_link = next(
-        content for content in result.root.content if content.type == "resource_link"
+        content for content in result.content if content.type == "resource_link"
     )
     assert str(resource_link.uri) == "https://storage.test/attachment"
     assert resource_link.name == "invoice.pdf"
-    assert resource_link.mimeType == "application/octet-stream"
+    assert resource_link.mime_type == "application/octet-stream"
     assert resource_link.size == 11
 
 
@@ -479,7 +476,6 @@ async def test_output_is_valid_json(single_email_service):
         from src.servers.gmail.main import create_server
 
         server_instance = create_server("test_user", api_key="test_key")
-        handler = server_instance.request_handlers[CallToolRequest]
 
         request = CallToolRequest(
             method="tools/call",
@@ -488,8 +484,8 @@ async def test_output_is_valid_json(single_email_service):
                 arguments={"query": "in:inbox", "output_format": "structured"},
             ),
         )
-        result = await handler(request)
-        raw_text = result.root.content[0].text
+        result = await server_instance.dispatch(request)
+        raw_text = result.content[0].text
         parsed = json.loads(raw_text)
         assert isinstance(parsed, dict)
         assert isinstance(parsed["emails"], list)

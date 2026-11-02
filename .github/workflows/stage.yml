@@ -31,6 +31,8 @@ jobs:
           echo "PF_MCP_CREDENTIAL_BROKER_SECRET: ${{ secrets.INT_PF_MCP_CREDENTIAL_BROKER_SECRET }}" >> .envstage.yaml
           echo "NANGO_HOST: ${{ vars.INT_NANGO_HOST || 'https://api.nango.dev' }}" >> .envstage.yaml
           echo 'PEAKFLO_API_BASE_URL: "https://stage-api.peakflo.co/v1"' >> .envstage.yaml
+          echo 'PEAKFLO_BILLING_API_BASE_URL: "https://stage-billing-api.peakflo.co/v1"' >> .envstage.yaml
+          echo 'PEAKFLO_STORAGE_BUCKET: "peakflo.appspot.com"' >> .envstage.yaml
           echo "GCS_BUCKET_NAME: ${{ vars.INT_GCS_BUCKET_NAME }}" >> .envstage.yaml
           echo "GMAIL_PUBSUB_TOPIC: ${{ vars.INT_GMAIL_PUBSUB_TOPIC }}" >> .envstage.yaml
           echo "OUTLOOK_WEBHOOK_URL: ${{ vars.INT_OUTLOOK_WEBHOOK_URL }}" >> .envstage.yaml
@@ -48,4 +50,9 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --memory=1Gi --min-instances=0 --no-allow-unauthenticated
+          # A previous service setting delayed the first probe by 240 seconds even
+          # though pfMCP opened port 8080 in about 28 seconds. Set the probe on
+          # every deploy so a cold instance can serve requests when it is ready.
+          gcloud run deploy pf-mcp --source . --env-vars-file .envstage.yaml --region=us-central1 --memory=1Gi --min-instances=0 --no-allow-unauthenticated \
+            --port=8080 \
+            --startup-probe=tcpSocket.port=8080,initialDelaySeconds=0,timeoutSeconds=5,periodSeconds=5,failureThreshold=48

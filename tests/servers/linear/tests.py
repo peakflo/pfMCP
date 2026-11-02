@@ -12,7 +12,7 @@ async def test_list_resources(client):
 
     print("Resources found:")
     for resource in response.resources:
-        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mimeType}")
+        print(f"  - {resource.name} ({resource.uri}) - Type: {resource.mime_type}")
 
     print("✅ Successfully listed resources")
 
@@ -39,7 +39,9 @@ async def test_read_team(client):
     print("RESPONSE", response)
 
     assert response.contents, "Response should contain team data"
-    assert response.contents[0].mimeType == "application/json", "Expected JSON response"
+    assert (
+        response.contents[0].mime_type == "application/json"
+    ), "Expected JSON response"
 
     print("Team data read:")
     print(f"\t{response.contents[0].text}")

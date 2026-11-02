@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 
 from typing import Optional, Dict, Any, List
 
-from mcp.types import AnyUrl, ListResourcesResult, ReadResourceResult
+from mcp.types import ListResourcesResult, ReadResourceResult
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -69,7 +69,7 @@ class LocalMCPTestClient:
         except Exception as e:
             print(f"Error listing resources: {e}")
 
-    async def read_resource(self, uri: AnyUrl) -> ReadResourceResult:
+    async def read_resource(self, uri: str) -> ReadResourceResult:
         """Read a specific resource from the server
 
         Args:
@@ -92,7 +92,7 @@ class LocalMCPTestClient:
             {
                 "name": tool.name,
                 "description": tool.description,
-                "input_schema": tool.inputSchema,
+                "input_schema": tool.input_schema,
             }
             for tool in response.tools
         ]

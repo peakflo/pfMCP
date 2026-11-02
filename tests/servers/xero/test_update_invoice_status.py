@@ -29,7 +29,6 @@ def _authorised_invoice_response():
 async def _invoke(tool_name: str, arguments: dict, api_responses: list):
     """Run the call_tool handler with mocked Xero + Nango."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     # Mock the Xero HTTP layer: each call returns the next item in api_responses.
     api_mock = AsyncMock(side_effect=api_responses)
@@ -42,19 +41,18 @@ async def _invoke(tool_name: str, arguments: dict, api_responses: list):
             method="tools/call",
             params=CallToolRequestParams(name=tool_name, arguments=arguments),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
     return result, api_mock
 
 
 async def test_schema_exposes_status():
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    tool = next(t for t in result.root.tools if t.name == "update_invoice")
-    status = tool.inputSchema["properties"]["status"]
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    tool = next(t for t in result.tools if t.name == "update_invoice")
+    status = tool.input_schema["properties"]["status"]
     assert status["type"] == "string"
     assert status["enum"] == ["DRAFT", "SUBMITTED", "AUTHORISED", "DELETED"]
-    assert "status" not in tool.inputSchema["required"]
+    assert "status" not in tool.input_schema["required"]
     print("PASS  schema exposes status with correct enum and is optional")
 
 
@@ -97,7 +95,7 @@ async def test_draft_guard_still_blocks_non_draft():
         api_responses=[non_draft],
     )
     # Handler catches the ValueError and returns an Error TextContent
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "Only DRAFT invoices can be updated" in text, text
     assert api_mock.call_count == 1  # never reached the POST
     print("PASS  non-DRAFT invoice rejected before POST:", text.strip())

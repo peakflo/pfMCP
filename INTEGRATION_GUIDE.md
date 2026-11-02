@@ -242,7 +242,6 @@ from pathlib import Path
 
 import aiohttp
 from mcp.types import (
-    AnyUrl,
     Resource,
     TextContent,
     Tool,
@@ -250,7 +249,9 @@ from mcp.types import (
     EmbeddedResource,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+# pfMCP servers use the decorator API (@server.list_tools(), @server.call_tool(), ...)
+# provided by src/utils/mcp_compat.py on top of the mcp 2.x low-level Server.
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.your_service_name.util import authenticate_and_save_credentials, get_credentials

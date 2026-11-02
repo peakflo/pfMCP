@@ -52,7 +52,6 @@ async def _invoke(
 ):
     """Run the call_tool handler with mocked Xero + Nango + storage."""
     srv = xero_main.create_server(user_id="test-user")
-    handler = srv.request_handlers[CallToolRequest]
 
     creds_mock = AsyncMock(return_value=("fake-token", "fake-tenant"))
 
@@ -90,7 +89,7 @@ async def _invoke(
             method="tools/call",
             params=CallToolRequestParams(name=tool_name, arguments=arguments),
         )
-        result = await handler(request)
+        result = await srv.dispatch(request)
     finally:
         for p in patches:
             p.stop()
@@ -104,31 +103,29 @@ async def _invoke(
 async def test_schema_list_attachments():
     """list_attachments tool appears in schema with correct required params."""
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    tool = next(t for t in result.root.tools if t.name == "list_attachments")
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    tool = next(t for t in result.tools if t.name == "list_attachments")
 
-    assert "entityType" in tool.inputSchema["properties"]
-    assert "entityId" in tool.inputSchema["properties"]
-    assert tool.inputSchema["required"] == ["entityType", "entityId"]
-    assert "enum" in tool.inputSchema["properties"]["entityType"]
-    assert "Invoices" in tool.inputSchema["properties"]["entityType"]["enum"]
+    assert "entityType" in tool.input_schema["properties"]
+    assert "entityId" in tool.input_schema["properties"]
+    assert tool.input_schema["required"] == ["entityType", "entityId"]
+    assert "enum" in tool.input_schema["properties"]["entityType"]
+    assert "Invoices" in tool.input_schema["properties"]["entityType"]["enum"]
     print("PASS  list_attachments schema is correct")
 
 
 async def test_schema_get_attachment():
     """get_attachment tool appears in schema with correct required params."""
     srv = xero_main.create_server(user_id="test-user")
-    list_handler = srv.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
-    tool = next(t for t in result.root.tools if t.name == "get_attachment")
+    result = await srv.dispatch(ListToolsRequest(method="tools/list"))
+    tool = next(t for t in result.tools if t.name == "get_attachment")
 
-    props = tool.inputSchema["properties"]
+    props = tool.input_schema["properties"]
     assert "entityType" in props
     assert "entityId" in props
     assert "filename" in props
     assert "mime_type" in props
-    assert tool.inputSchema["required"] == ["entityType", "entityId", "filename"]
+    assert tool.input_schema["required"] == ["entityType", "entityId", "filename"]
     assert "enum" in props["entityType"]
     print("PASS  get_attachment schema is correct")
 
@@ -147,7 +144,7 @@ async def test_list_attachments_calls_correct_endpoint():
     call_args = api_mock.call_args_list[0]
     endpoint = call_args.args[0]  # First positional arg is the endpoint
     assert "/Invoices/inv-123/Attachments" in endpoint
-    text = result.root.content[0].text
+    text = result.content[0].text
     parsed = json.loads(text)
     assert len(parsed["Attachments"]) == 2
     assert parsed["Attachments"][0]["FileName"] == "invoice-scan.pdf"
@@ -173,7 +170,7 @@ async def test_list_attachments_unsupported_entity_type():
         {"entityType": "BadType", "entityId": "id-123"},
         api_responses=[],
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     # MCP framework validates the enum before the handler runs
     assert "BadType" in text
     print("PASS  list_attachments rejects unsupported entity type:", text.strip())
@@ -204,7 +201,7 @@ async def test_get_attachment_downloads_and_returns_url():
         "Invoices", "inv-123", "receipt.png", "fake-token", "fake-tenant"
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "receipt.png" in text
     assert "image/png" in text
     assert fake_url in text
@@ -228,7 +225,7 @@ async def test_get_attachment_default_mime_type():
         storage_url=fake_url,
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "application/octet-stream" in text
     assert fake_url in text
     print("PASS  get_attachment defaults mime_type to application/octet-stream")
@@ -244,7 +241,7 @@ async def test_get_attachment_unsupported_entity_type():
             "filename": "file.pdf",
         },
     )
-    text = result.root.content[0].text
+    text = result.content[0].text
     # MCP framework validates the enum before the handler runs
     assert "InvalidType" in text
     print("PASS  get_attachment rejects unsupported entity type")
@@ -263,7 +260,7 @@ async def test_get_attachment_download_failure():
         storage_url="https://storage.example.com/unused",
     )
     # When download returns None (empty bytes), the handler checks for it
-    text = result.root.content[0].text
+    text = result.content[0].text
     # download_xero_attachment returns None → handler should report failure
     # But our mock returns None directly, not bytes. The handler checks `if not att_data:`
     assert "Failed to download" in text or "missing.pdf" in text or "Error" in text
@@ -287,7 +284,7 @@ async def test_get_attachment_reports_size():
         storage_url=fake_url,
     )
 
-    text = result.root.content[0].text
+    text = result.content[0].text
     assert "2.0 KB" in text
     print("PASS  get_attachment reports correct file size")
 

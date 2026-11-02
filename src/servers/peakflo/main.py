@@ -4,13 +4,19 @@ import base64
 import httpx
 import logging
 import json
+import re
+from uuid import uuid4
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from pathlib import Path
 
 from servers.peakflo.factories.peakflo_api_factory import PeakfloApiToolFactory
 from servers.peakflo.credential_broker import PeakfloCredentialBrokerClient
-from servers.peakflo.schemas.purchase_order import to_data_uri
+from servers.peakflo.schemas.purchase_order import (
+    CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS,
+    to_data_uri,
+)
+from servers.peakflo.schemas.bill import normalize_multifile_custom_field_type
 
 # Add project root and src directory to Python path
 project_root = os.path.abspath(
@@ -26,7 +32,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
@@ -295,8 +301,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
     if not integration:
         return []
     inner_server = integration["module"].create_server("tool-discovery")
-    list_handler = inner_server.request_handlers[ListToolsRequest]
-    result = await list_handler(ListToolsRequest(method="tools/list"))
+    result = await inner_server.dispatch(ListToolsRequest(method="tools/list"))
     prefix = integration["prefix"]
     label = integration["label"]
     return [
@@ -305,7 +310,7 @@ async def _get_prefixed_source_system_tools(source_system: str) -> list[Tool]:
             name=f"{prefix}{tool.name}",
             description=f"[{label}] {tool.description or tool.name}",
         )
-        for tool in result.root.tools
+        for tool in result.tools
     ]
 
 
@@ -348,8 +353,7 @@ async def _call_source_system_tool_via_peakflo_connection(
         api_key=server.api_key,
         credential_resolver=credential_resolver,
     )
-    call_handler = inner_server.request_handlers[CallToolRequest]
-    result = await call_handler(
+    result = await inner_server.dispatch(
         CallToolRequest(
             method="tools/call",
             params=CallToolRequestParams(
@@ -358,7 +362,7 @@ async def _call_source_system_tool_via_peakflo_connection(
             ),
         )
     )
-    return result.root.content
+    return result.content
 
 
 # Peakflo's attachment size limit; base64 inflates the encoded payload by
@@ -385,7 +389,27 @@ async def _download_and_encode(file_url: str) -> tuple[str, int]:
     return base64.b64encode(content).decode("utf-8"), len(content)
 
 
-_SENSITIVE_ARG_KEYS = {"base64", "data", "file_url"}
+def _decoded_base64_size(value: str) -> int:
+    """
+    Estimate the decoded byte length of a raw base64 string or data URI.
+
+    No strict decode: the Peakflo API decodes with Node Buffer.from, which
+    accepts unpadded and URL-safe base64, so such input must not be rejected
+    here. The data-URI prefix and whitespace are stripped, then the size is
+    estimated from the character count.
+    """
+    payload = value.split(",", 1)[1] if "," in value else value
+    payload = "".join(payload.split())
+    return len(payload.rstrip("=")) * 3 // 4
+
+
+_SENSITIVE_ARG_KEYS = {
+    "base64",
+    "data",
+    "file_url",
+    "validationDetails",
+    "suggestedFieldOverwrites",
+}
 
 
 def _redact_for_log(arguments: dict) -> dict:
@@ -394,6 +418,418 @@ def _redact_for_log(arguments: dict) -> dict:
         key: ("<redacted>" if key in _SENSITIVE_ARG_KEYS else value)
         for key, value in arguments.items()
     }
+
+
+def _is_blank(value) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _normalize_custom_field_details(details, *, tool_name: str) -> dict:
+    """
+    Validate and clean customFieldDetails for the AP attach tools.
+
+    customFieldNumber is required (non-empty string). The API resolves the
+    custom field by number and checks any optional value that is given, so
+    optional keys (customFieldId, customFieldName, customFieldType,
+    customFieldSourceId) are forwarded only when they have a value: None or
+    empty strings are dropped, never sent. customFieldType, when given, is
+    normalized to the canonical "multiFile"; when absent it is not invented.
+    Returns a new dict so the caller's nested dict is never mutated.
+    """
+    if not isinstance(details, dict):
+        raise ValueError(f"customFieldDetails must be an object for {tool_name}")
+    number = details.get("customFieldNumber")
+    if not isinstance(number, str) or _is_blank(number):
+        raise ValueError(
+            f"customFieldDetails.customFieldNumber is required (non-empty "
+            f"string) to link the file to the custom field for {tool_name}"
+        )
+    cleaned = {"customFieldNumber": number}
+    for key in CUSTOM_FIELD_DETAILS_OPTIONAL_KEYS:
+        value = details.get(key)
+        if _is_blank(value):
+            continue
+        if key == "customFieldType":
+            # Persist the canonical CustomFieldType.MultiFile value
+            # ("multiFile"); the API stores customFieldType verbatim.
+            value = normalize_multifile_custom_field_type(value)
+        cleaned[key] = value
+    return cleaned
+
+
+async def _prepare_ap_attachment_body(arguments: dict, *, tool_name: str) -> dict:
+    """
+    Shared file_url / base64 prep for bill, ER, and payment attach tools.
+    Also coerces fileType to customFieldFile when customFieldDetails is present
+    (matches api createAttachment behaviour).
+    """
+    file_url = arguments.pop("file_url", None)
+    if file_url:
+        try:
+            raw_base64, byte_size = await _download_and_encode(file_url)
+            arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
+            arguments["fileSize"] = byte_size
+            logger.info(
+                f"[{tool_name}] Downloaded file from URL "
+                f"({byte_size} bytes) and base64-encoded"
+            )
+        except Exception as dl_err:
+            raise ValueError(
+                f"Failed to download file from file_url: {dl_err}"
+            ) from dl_err
+    elif "base64" not in arguments:
+        raise ValueError(f"Either file_url or base64 is required for {tool_name}")
+    else:
+        _ensure_within_attachment_size_limit(arguments["fileSize"])
+        # Do not trust the caller-declared fileSize alone: enforce the limit
+        # on the real decoded byte length too.
+        _ensure_within_attachment_size_limit(_decoded_base64_size(arguments["base64"]))
+        arguments["base64"] = to_data_uri(
+            arguments["base64"],
+            arguments.get("contentType", "application/octet-stream"),
+        )
+
+    if arguments.get("customFieldDetails") is not None:
+        arguments["customFieldDetails"] = _normalize_custom_field_details(
+            arguments["customFieldDetails"], tool_name=tool_name
+        )
+        arguments["fileType"] = "customFieldFile"
+    elif arguments.get("fileType") == "customFieldFile":
+        # The API requires customFieldDetails for customFieldFile uploads;
+        # fail fast with a clear message instead of a downstream 400.
+        raise ValueError(
+            f"customFieldDetails is required when fileType is customFieldFile "
+            f"for {tool_name}"
+        )
+    else:
+        arguments.pop("customFieldDetails", None)
+
+    return arguments
+
+
+def _safe_attachment_name(name: str) -> str:
+    base = os.path.basename(str(name).replace("\\", "/")).strip()
+    if not base or base in {".", ".."}:
+        raise ValueError("A file name is required")
+    return base
+
+
+_CUSTOMER_ATTACHMENT_FILE_TYPES = {"invoice", "transaction", "other"}
+
+# customerAttachmentInputSchema. JavaScript \w is ASCII [A-Za-z0-9_].
+# The captured base name must also contain a letter or digit.
+_CUSTOMER_FILE_NAME = re.compile(
+    r"^([A-Za-z0-9_. ()#,'&+\[\]-]{1,128})\.([A-Za-z0-9]{1,16})$"
+)
+
+# Joi.string().isoDate(), from joi 17 common.js.
+_CUSTOMER_ISO_DATE = re.compile(
+    r"^(?:[-+]\d{2})?(?:\d{4}(?!\d{2}\b))(?:(-?)(?:(?:0[1-9]|1[0-2])"
+    r"(?:\1(?:[12]\d|0[1-9]|3[01]))?|W(?:[0-4]\d|5[0-2])(?:-?[1-7])?|"
+    r"(?:00[1-9]|0[1-9]\d|[12]\d{2}|3(?:[0-5]\d|6[1-6])))"
+    r"(?![T]$|[T][\d]+Z$)(?:[T\s](?:(?:(?:[01]\d|2[0-3])(?:(:?)[0-5]\d)?|24:?00)"
+    r"(?:[.,]\d+(?!:))?)(?:\2[0-5]\d(?:[.,]\d+)?)?"
+    r"(?:[Z]|(?:[+-])(?:[01]\d|2[0-3])(?::?[0-5]\d)?)?)?)?$"
+)
+
+# Resolved mime.lookup map from mime-types 2.1.35, the API's attachment schema.
+with Path(__file__).with_name("attachment_content_types.json").open() as _mime_file:
+    _CUSTOMER_CONTENT_TYPES: dict[str, str] = json.load(_mime_file)
+
+
+def _customer_content_type(name: str) -> str:
+    """Return mime.lookup(name). The API requires contentType to equal this."""
+    extension = name.rsplit(".", 1)[-1].lower()
+    return _CUSTOMER_CONTENT_TYPES.get(extension, "")
+
+
+def _customer_attachment_name(name: str, content_type: str) -> str:
+    """Keep the basename only when it passes the customer file-name rule."""
+    safe = _safe_attachment_name(name)
+    match = _CUSTOMER_FILE_NAME.fullmatch(safe)
+    if not match or not re.search(r"[A-Za-z0-9]", match.group(1)):
+        raise ValueError(
+            "name is an invalid file name. Use letters, numbers, spaces, dots, "
+            "hyphens, underscores, parentheses, #, apostrophes, ampersands, "
+            "plus, commas, and brackets, with an extension. The name must "
+            "contain a letter or digit."
+        )
+    expected = _customer_content_type(safe)
+    if not expected:
+        raise ValueError("name has an invalid file extension")
+    if content_type != expected:
+        raise ValueError(f"contentType must be {expected} for {safe}")
+    return safe
+
+
+def _standard_base64(value: str) -> tuple[str, int]:
+    """
+    Return standard padded base64 and its decoded size.
+
+    attachmentInputSchema uses Joi.string().base64(), which requires padding
+    and the standard alphabet. Callers may send a data URI, URL-safe
+    characters, or omitted padding.
+    """
+    payload = value.split(",", 1)[1] if value.startswith("data:") else value
+    payload = "".join(payload.split()).replace("-", "+").replace("_", "/")
+    if not payload:
+        raise ValueError("base64 is empty")
+    padding_at = payload.find("=")
+    if padding_at != -1:
+        padding = payload[padding_at:]
+        if padding.strip("=") or len(payload) % 4 != 0:
+            raise ValueError("base64 must be a valid base64 string")
+        body = payload[:padding_at]
+    else:
+        body = payload
+    if not body or len(body) % 4 == 1:
+        raise ValueError("base64 must be a valid base64 string")
+    padded = body + ("=" * (-len(body) % 4))
+    try:
+        decoded = base64.b64decode(padded, validate=True)
+    except Exception as error:
+        raise ValueError("base64 must be a valid base64 string") from error
+    return padded, len(decoded)
+
+
+def _customer_attachment_date(value) -> str | None:
+    """Keep a date only when Joi.string().isoDate() would accept it."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    date_created = value.strip()
+    if not _CUSTOMER_ISO_DATE.fullmatch(date_created):
+        raise ValueError("dateCreated must be an ISO 8601 date")
+    return date_created
+
+
+def _uses_legacy_customer_attachment(arguments: dict) -> bool:
+    """True for the previous call shape: internal customerId, no external id."""
+    external_id = arguments.get("customerExternalId")
+    if isinstance(external_id, str) and external_id.strip():
+        return False
+    customer_id = arguments.get("customerId")
+    return isinstance(customer_id, str) and bool(customer_id.strip())
+
+
+async def _read_customer_attachment_bytes(arguments: dict) -> tuple[bytes, int]:
+    """Return the file bytes from exactly one of file_url or base64."""
+    file_url = arguments.get("file_url")
+    raw_base64 = arguments.get("base64")
+    if file_url and raw_base64:
+        raise ValueError("Provide file_url or base64, not both")
+    if file_url:
+        try:
+            encoded, size = await _download_and_encode(file_url)
+        except Exception as error:
+            raise ValueError(
+                f"Failed to download file from file_url: {error}"
+            ) from error
+        return base64.b64decode(encoded), size
+    if not raw_base64:
+        raise ValueError(
+            "Either file_url or base64 is required for add_customer_attachment"
+        )
+    if not isinstance(raw_base64, str):
+        raise ValueError("base64 must be a string")
+    declared = arguments.get("fileSize")
+    if not isinstance(declared, int) or isinstance(declared, bool):
+        raise ValueError("fileSize is required when base64 is provided")
+    _ensure_within_attachment_size_limit(declared)
+    size = _decoded_base64_size(raw_base64)
+    _ensure_within_attachment_size_limit(size)
+    payload = (
+        raw_base64.split(",", 1)[1] if raw_base64.startswith("data:") else raw_base64
+    )
+    payload = "".join(payload.split())
+    payload += "=" * (-len(payload) % 4)
+    return base64.b64decode(payload), size
+
+
+def _upload_customer_file(data: bytes, object_path: str, content_type: str) -> str:
+    """Write the file into the Peakflo storage bucket the Files tab signs from."""
+    bucket_name = os.environ.get("PEAKFLO_STORAGE_BUCKET", "").strip()
+    if not bucket_name:
+        raise ValueError(
+            "PEAKFLO_STORAGE_BUCKET is not set. Customer files must be written "
+            "to the Peakflo storage bucket (stage: peakflo.appspot.com)."
+        )
+    from google.cloud import storage as gcs_storage
+
+    client = gcs_storage.Client()
+    blob = client.bucket(bucket_name).blob(object_path)
+    blob.upload_from_string(
+        data, content_type=content_type or "application/octet-stream"
+    )
+    return bucket_name
+
+
+async def _add_legacy_customer_attachment(
+    arguments: dict, headers: dict, tenant_id: str | None
+):
+    """
+    Register a file for a caller that still sends the internal customerId.
+
+    That id is the companies document id. The public attachment route cannot
+    look it up, so this keeps the previous billing POST /v1/files registration.
+    """
+    try:
+        if not isinstance(tenant_id, str) or not tenant_id.strip():
+            raise ValueError("tenantId is required")
+        customer_id = str(arguments.get("customerId", "")).strip()
+        name = arguments.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name is required")
+        content_type = arguments.get("contentType") or "application/octet-stream"
+        if not isinstance(content_type, str) or not content_type.strip():
+            raise ValueError("contentType must be a string")
+        file_type = arguments.get("fileType") or "other"
+        user_id = arguments.get("userId") or "workflow"
+        user_name = arguments.get("userName") or "Workflow"
+
+        if "/" in tenant_id or "\\" in tenant_id or ".." in tenant_id:
+            raise ValueError("tenantId is invalid")
+        billing_base = (
+            os.environ.get("PEAKFLO_BILLING_API_BASE_URL", "").strip().rstrip("/")
+        )
+        if not billing_base:
+            raise ValueError(
+                "PEAKFLO_BILLING_API_BASE_URL is not set. It must be the billing "
+                "API base used by POST /files (stage: https://stage-billing-api.peakflo.co/v1)."
+            )
+        if not os.environ.get("PEAKFLO_STORAGE_BUCKET", "").strip():
+            raise ValueError(
+                "PEAKFLO_STORAGE_BUCKET is not set. Customer files must be written "
+                "to the Peakflo storage bucket (stage: peakflo.appspot.com)."
+            )
+
+        data, size = await _read_customer_attachment_bytes(arguments)
+        safe_name = _safe_attachment_name(name)
+        object_path = f"{tenant_id}/private/{uuid4()}/{safe_name}"
+        bucket_name = _upload_customer_file(data, object_path, content_type)
+        body = {
+            "parentCompanyId": tenant_id,
+            "elementType": "companies",
+            "elementId": customer_id,
+            "fileType": file_type,
+            "userId": user_id,
+            "userName": user_name,
+            "file": {
+                "name": safe_name,
+                "mimeType": content_type,
+                "size": size,
+                "path": object_path,
+            },
+        }
+        logger.info(
+            "[add_customer_attachment] uploaded %s bytes to gs://%s/%s",
+            size,
+            bucket_name,
+            object_path,
+        )
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                "POST",
+                f"{billing_base}/files",
+                json=body,
+                headers=headers,
+                timeout=60.0,
+            )
+        try:
+            response_data = response.json() if response.content else None
+        except ValueError:
+            response_data = response.text
+        ok = response.status_code in (200, 201)
+        return {
+            "_status_code": response.status_code,
+            "message": (
+                "Customer file added"
+                if ok
+                else f"Error: {response.text or 'Unknown error'}"
+            ),
+            "data": response_data,
+        }
+    except ValueError as error:
+        return {
+            "_status_code": 400,
+            "message": str(error),
+            "data": None,
+        }
+    except Exception as error:
+        logger.error("[add_customer_attachment] %s", error)
+        return {
+            "_status_code": 500,
+            "message": f"Error communicating with Peakflo: {error}",
+            "data": None,
+        }
+
+
+async def _prepare_customer_attachment(arguments: dict) -> tuple[str, dict]:
+    """
+    Build the body for PUT /v1/customers/:customerExternalId/attachments.
+
+    Same file source rules as the bill attachment tool: exactly one of
+    file_url or base64. The Peakflo API field is `data`, and it must be
+    standard padded base64 rather than a data URI.
+    """
+    customer_external_id = arguments.get("customerExternalId")
+    if not isinstance(customer_external_id, str) or not customer_external_id.strip():
+        raise ValueError(
+            "customerExternalId is required and must be the customer external id"
+        )
+    customer_external_id = customer_external_id.strip()
+    external_id = arguments.get("externalId")
+    if not isinstance(external_id, str) or not external_id.strip():
+        raise ValueError("externalId is required")
+    external_id = external_id.strip()
+    name = arguments.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("name is required")
+    content_type = arguments.get("contentType")
+    if not isinstance(content_type, str) or not content_type.strip():
+        raise ValueError("contentType is required")
+    content_type = content_type.strip()
+    safe_name = _customer_attachment_name(name, content_type)
+    date_created = _customer_attachment_date(arguments.get("dateCreated"))
+
+    file_url = arguments.get("file_url")
+    raw_base64 = arguments.get("base64")
+    if file_url and raw_base64:
+        raise ValueError("Provide file_url or base64, not both")
+    if file_url:
+        try:
+            data, _size = await _download_and_encode(file_url)
+        except Exception as error:
+            raise ValueError(
+                f"Failed to download file from file_url: {error}"
+            ) from error
+    elif raw_base64:
+        if not isinstance(raw_base64, str):
+            raise ValueError("base64 must be a string")
+        declared = arguments.get("fileSize")
+        if not isinstance(declared, int) or isinstance(declared, bool):
+            raise ValueError("fileSize is required when base64 is provided")
+        _ensure_within_attachment_size_limit(declared)
+        data, size = _standard_base64(raw_base64)
+        _ensure_within_attachment_size_limit(size)
+    else:
+        raise ValueError(
+            "Either file_url or base64 is required for add_customer_attachment"
+        )
+
+    body = {
+        "externalId": external_id,
+        "name": safe_name,
+        "contentType": content_type,
+        "data": data,
+    }
+    file_type = arguments.get("fileType")
+    if file_type not in (None, ""):
+        if file_type not in _CUSTOMER_ATTACHMENT_FILE_TYPES:
+            raise ValueError("fileType must be invoice, transaction, or other")
+        body["fileType"] = file_type
+    if date_created:
+        body["dateCreated"] = date_created
+    return customer_external_id, body
 
 
 async def make_peakflo_request(name, arguments, token):
@@ -430,6 +866,15 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/vendors/{external_id}"
         message = "Vendor updated successfully"
+    elif name == "create_customer":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/customers"
+        message = "Customer created successfully"
+    elif name == "update_customer":
+        # externalId stays in the body: the API checks it matches the path parameter
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/customers/{arguments['externalId']}"
+        message = "Customer updated successfully"
     elif name == "add_invoice_attachment":
         invoice_external_id = arguments.pop("invoiceExternalId")
         file_url = arguments.pop("file_url", None)
@@ -493,38 +938,61 @@ async def make_peakflo_request(name, arguments, token):
         message = "Attachment added to purchase order successfully"
     elif name == "add_bill_attachment":
         bill_external_id = arguments.pop("billExternalId")
-        file_url = arguments.pop("file_url", None)
-        if file_url:
-            try:
-                raw_base64, byte_size = await _download_and_encode(file_url)
-                # The bill attachment endpoint decodes base64.split(",")[1], so
-                # forward a data-URI string and derive fileSize from the
-                # downloaded bytes.
-                arguments["base64"] = to_data_uri(raw_base64, arguments["contentType"])
-                arguments["fileSize"] = byte_size
-                logger.info(
-                    f"[add_bill_attachment] Downloaded file from URL "
-                    f"({byte_size} bytes) and base64-encoded"
-                )
-            except Exception as dl_err:
-                raise ValueError(
-                    f"Failed to download file from file_url: {dl_err}"
-                ) from dl_err
-        elif "base64" not in arguments:
-            raise ValueError(
-                "Either file_url or base64 is required for " "add_bill_attachment"
-            )
-        else:
-            # Normalize a raw base64 payload (no data-URI prefix) so the
-            # endpoint's base64.split(",")[1] decode yields the file content.
-            _ensure_within_attachment_size_limit(arguments["fileSize"])
-            arguments["base64"] = to_data_uri(
-                arguments["base64"],
-                arguments.get("contentType", "application/octet-stream"),
-            )
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_attachment"
+        )
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/attachments"
         message = "Attachment added to bill successfully"
+    elif name == "update_ap_attachment_validation":
+        object_type_raw = arguments.pop("objectType")
+        object_type = quote(object_type_raw, safe="")
+        object_id = quote(arguments.pop("objectId"), safe="")
+        attachment_id = quote(arguments.pop("attachmentId"), safe="")
+        line_index = arguments.pop("lineIndex", None)
+        method = "PUT"
+        if line_index is not None:
+            if object_type_raw != "tr":
+                raise ValueError("lineIndex is only valid for a travel report voucher")
+            if (
+                not isinstance(line_index, int)
+                or isinstance(line_index, bool)
+                or line_index < 1
+            ):
+                raise ValueError(
+                    "Travel report voucher requires persistent 1-based lineIndex"
+                )
+            arguments["lineIndex"] = line_index
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/ap/{object_type}/{object_id}/"
+            f"attachments/{attachment_id}/validation"
+        )
+        message = "AP attachment validation details updated successfully"
+    elif name == "update_bill_attachment_validation":
+        bill_external_id = quote(arguments.pop("billExternalId"), safe="")
+        attachment_id = quote(arguments.pop("attachmentId"), safe="")
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/bill/{bill_external_id}/"
+            f"attachments/{attachment_id}/validation"
+        )
+        message = "Bill attachment validation details updated successfully"
+    elif name == "add_expense_report_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_expense_report_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/expense-report/{external_id}/attachments"
+        message = "Attachment added to expense report successfully"
+    elif name == "add_bill_payment_attachment":
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_bill_payment_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/bill-payment/{external_id}/attachments"
+        message = "Attachment added to bill payment successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -640,6 +1108,37 @@ async def make_peakflo_request(name, arguments, token):
             f"{customer_external_id}/assign-workflow"
         )
         message = "Customer workflow assigned successfully"
+    elif name == "list_unliquidated_cash_advances":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/listUnliquidatedCashAdvances"
+        message = "Unliquidated cash advances listed"
+    elif name == "create_cash_advance_payment":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/createCashAdvancePayment"
+        message = "Cash advance payment created"
+    elif name == "add_travel_request_timeline_note":
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/addTravelRequestTimelineNote"
+        message = "Travel request timeline note added"
+    elif name == "add_customer_attachment":
+        if _uses_legacy_customer_attachment(arguments):
+            return await _add_legacy_customer_attachment(arguments, headers, tenantId)
+        try:
+            customer_external_id, arguments = await _prepare_customer_attachment(
+                arguments
+            )
+        except ValueError as error:
+            return {
+                "_status_code": 400,
+                "message": str(error),
+                "data": None,
+            }
+        method = "PUT"
+        url = (
+            f"{PEAKFLO_V1_BASE_URL}/customers/"
+            f"{quote(customer_external_id, safe='')}/attachments"
+        )
+        message = "Customer attachment added successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
@@ -660,11 +1159,16 @@ async def make_peakflo_request(name, arguments, token):
             logger.info(
                 f"[make_peakflo_request] status_code: {status_code} response: {response.text}"
             )
-
             try:
                 response_data = response.json() if response.content else None
             except ValueError:
                 response_data = response.text
+            if name in {
+                "list_unliquidated_cash_advances",
+                "create_cash_advance_payment",
+                "add_travel_request_timeline_note",
+            } and isinstance(response_data, dict):
+                response_data = response_data.get("data", response_data)
             return {
                 "_status_code": status_code,
                 "message": (status_code == 200 or status_code == 201)

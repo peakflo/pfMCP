@@ -14,7 +14,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from src.utils.klaviyo.util import (
     get_credentials,
@@ -23,7 +23,6 @@ from src.utils.klaviyo.util import (
 from mcp.types import (
     Tool,
     Resource,
-    AnyUrl,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 
@@ -213,7 +212,7 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read a resource from Klaviyo by URI"""
         logger.info(f"Reading resource: {uri} for user: {server.user_id}")
 

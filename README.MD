@@ -127,6 +127,7 @@ The following table provides an overview of the current servers implemented in p
 | Google Maps | ⚠️ Coming soon | [GMaps Docs](/src/servers/gmaps/README.md) |
 | Google Meet | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [GMeet Docs](/src/servers/gmeet/README.md) |
 | Google Firestore | ✅ Seamless with Nango auth | [Firestore Docs](/src/servers/firestore/README.md) |
+| Google BigQuery | ✅ Seamless with Nango auth | [BigQuery Docs](/src/servers/bigquery/README.md) |
 | Google Search Console | ✅ Seamless with Nango auth | [GSC Docs](/src/servers/gsc/README.md) |
 | Google Analytics 4 | ✅ Seamless with Nango auth | [GA4 Docs](/src/servers/ga4/README.md) |
 | YouTube | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [YouTube Docs](/src/servers/youtube/README.md) |
@@ -181,6 +182,7 @@ The following table provides an overview of the current servers implemented in p
 | DocuSign | ⚠️ Coming soon | [DocuSign Docs](/src/servers/docusign/README.md) |
 | Patreon | ⚠️ Coming soon | [Patreon Docs](/src/servers/patreon/README.md) |
 | PostHog | ✅ Seamless with Nango auth | [PostHog Docs](/src/servers/posthog/README.md) |
+| Zendesk Tickets | ✅ Nango OAuth | [Zendesk Tickets Docs](/src/servers/zendesk/README.md) |
 | Salesforce | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Salesforce Docs](/src/servers/salesforce/README.md) |
 | NetSuite | ✅ Seamless with Nango auth | [NetSuite Docs](/src/servers/netsuite/README.md) |
 | **Search Tools** |  |  |

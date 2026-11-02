@@ -21,7 +21,7 @@ from mcp.types import (
     ImageContent,
     EmbeddedResource,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from src.utils.microsoft.util import authenticate_and_save_credentials, get_credentials
 

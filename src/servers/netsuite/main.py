@@ -17,7 +17,8 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import mcp.types as types
-from mcp.server import Server, NotificationOptions
+from src.utils.mcp_compat import NotificationOptions, Server
+from src.auth.factory import create_auth_client
 from mcp.server.models import InitializationOptions
 
 SERVICE_NAME = Path(__file__).parent.name
@@ -208,14 +209,57 @@ async def get_netsuite_credentials(
     Returns:
         Dict[str, str]: Dictionary containing NetSuite credentials.
     """
-    # In a real implementation, you would retrieve these from a secure credential store
-    # For now, we'll use environment variables as a fallback
+    auth_client = create_auth_client(api_key=api_key)
+    if hasattr(auth_client, "async_get_user_credentials"):
+        credential_data = await auth_client.async_get_user_credentials(
+            SERVICE_NAME, user_id
+        )
+    else:
+        credential_data = auth_client.get_user_credentials(SERVICE_NAME, user_id)
+
+    credential_data = credential_data or {}
+    config_override = credential_data.get("config_override") or credential_data.get(
+        "configOverride", {}
+    )
+    connection_config = credential_data.get("connection_config") or credential_data.get(
+        "connectionConfig", {}
+    )
+
+    # Nango TBA keeps the token pair in credentials, the consumer pair in
+    # config_override, and the account ID in connection_config. Accept direct
+    # fields too for compatibility with local and older connection payloads.
     credentials = {
-        "account_id": os.getenv("NETSUITE_ACCOUNT_ID"),
-        "consumer_key": os.getenv("NETSUITE_CONSUMER_KEY"),
-        "consumer_secret": os.getenv("NETSUITE_CONSUMER_SECRET"),
-        "token_id": os.getenv("NETSUITE_TOKEN_ID"),
-        "token_secret": os.getenv("NETSUITE_TOKEN_SECRET"),
+        "account_id": (
+            credential_data.get("account_id")
+            or credential_data.get("accountId")
+            or connection_config.get("account_id")
+            or connection_config.get("accountId")
+            or os.getenv("NETSUITE_ACCOUNT_ID")
+        ),
+        "consumer_key": (
+            credential_data.get("consumer_key")
+            or credential_data.get("consumerKey")
+            or config_override.get("client_id")
+            or config_override.get("clientId")
+            or os.getenv("NETSUITE_CONSUMER_KEY")
+        ),
+        "consumer_secret": (
+            credential_data.get("consumer_secret")
+            or credential_data.get("consumerSecret")
+            or config_override.get("client_secret")
+            or config_override.get("clientSecret")
+            or os.getenv("NETSUITE_CONSUMER_SECRET")
+        ),
+        "token_id": (
+            credential_data.get("token_id")
+            or credential_data.get("tokenId")
+            or os.getenv("NETSUITE_TOKEN_ID")
+        ),
+        "token_secret": (
+            credential_data.get("token_secret")
+            or credential_data.get("tokenSecret")
+            or os.getenv("NETSUITE_TOKEN_SECRET")
+        ),
     }
 
     # Validate that all required credentials are present
@@ -444,12 +488,7 @@ def create_server(
 
         except Exception as e:
             logger.error(f"Error executing tool {name}: {e}")
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"Error executing {name}: {str(e)}",
-                )
-            ]
+            raise
 
     return server
 

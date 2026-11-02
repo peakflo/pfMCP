@@ -24,7 +24,7 @@ from mcp.types import (
     PromptMessage,
     GetPromptResult,
 )
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client

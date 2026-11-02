@@ -20,10 +20,9 @@ from mcp.types import (
     Tool,
     ImageContent,
     EmbeddedResource,
-    AnyUrl,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.utils.microsoft.util import authenticate_and_save_credentials, get_credentials
@@ -171,7 +170,7 @@ def create_server(user_id, api_key=None):
             return []
 
     @server.read_resource()
-    async def handle_read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+    async def handle_read_resource(uri: str) -> Iterable[ReadResourceContents]:
         """Read an Excel workbook from OneDrive"""
         access_token = await get_microsoft_client()
         uri_str = str(uri)

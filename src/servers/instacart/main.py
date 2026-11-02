@@ -13,7 +13,6 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 from mcp.types import (
-    AnyUrl,
     Resource,
     TextContent,
     Tool,
@@ -21,7 +20,7 @@ from mcp.types import (
     EmbeddedResource,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.server import NotificationOptions, Server
+from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from src.auth.factory import create_auth_client
