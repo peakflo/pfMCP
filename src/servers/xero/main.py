@@ -28,6 +28,13 @@ from mcp.server.lowlevel.helper_types import ReadResourceContents
 from src.utils.mcp_compat import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
+from src.auth.credential_errors import (
+    CredentialError,
+    EXPIRED,
+    MISSING,
+    SETUP_INCOMPLETE,
+    credential_error_from_last,
+)
 from src.auth.factory import create_auth_client
 from src.utils.storage.factory import get_storage_service
 
@@ -59,10 +66,7 @@ async def get_xero_credentials(user_id: str, api_key: str = None) -> tuple:
     credentials = auth_client.get_user_credentials(SERVICE_NAME, user_id)
 
     if not credentials:
-        raise ValueError(
-            f"No Xero credentials found for user {user_id}. "
-            "Please authenticate via Nango first."
-        )
+        raise credential_error_from_last(SERVICE_NAME)
 
     access_token = (
         credentials.get("access_token")
@@ -74,6 +78,9 @@ async def get_xero_credentials(user_id: str, api_key: str = None) -> tuple:
     tenant_id = None
     if isinstance(credentials, dict):
         tenant_id = credentials.get("metadata", {}).get("tenantId")
+
+    if not access_token:
+        raise CredentialError(SERVICE_NAME, MISSING)
 
     if not tenant_id:
         # Fallback: call Xero /connections to discover tenant ID
@@ -91,17 +98,27 @@ async def get_xero_credentials(user_id: str, api_key: str = None) -> tuple:
                         logger.info(
                             f"Discovered tenant ID from /connections: {tenant_id}"
                         )
+                elif resp.status_code in (401, 403):
+                    # Xero refused the stored token: it expired or was revoked.
+                    raise CredentialError(SERVICE_NAME, EXPIRED)
                 else:
                     logger.error(
                         f"Failed to get Xero connections: {resp.status_code} - {resp.text}"
                     )
+        except CredentialError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching Xero connections: {e}")
 
-    if not access_token or not tenant_id:
-        raise ValueError(
-            "Invalid Xero credentials: missing access_token or tenantId. "
-            "Ensure Nango connection metadata includes tenantId."
+    if not access_token:
+        raise CredentialError(SERVICE_NAME, MISSING)
+
+    if not tenant_id:
+        raise CredentialError(
+            SERVICE_NAME,
+            SETUP_INCOMPLETE,
+            "No Xero organisation is connected. "
+            "Reconnect Xero and choose an organisation.",
         )
 
     return access_token, tenant_id
