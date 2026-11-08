@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Any, Callable
 
 from auth.constants import AUTH_TYPE_UNAUTHENTICATED
 from auth.clients.NangoAuthClient import JWTTokenResponse
+from src.auth.credential_errors import credential_error_from_last
 from src.auth.factory import create_auth_client, get_auth_type
 
 logger = logging.getLogger(__name__)
@@ -266,11 +267,13 @@ async def refresh_token_if_needed(
     credentials_data = auth_client.get_user_credentials(service_name, user_id)
 
     def handle_missing_credentials():
-        error_str = f"Credentials not found for user {user_id}."
+        # Say exactly which case it is. The message holds no connection id.
+        error = credential_error_from_last(service_name)
         if os.environ.get("ENVIRONMENT", "local") == "local":
-            error_str += " Please run with 'auth' argument first."
-        logging.error(error_str)
-        raise ValueError(f"Credentials not found for user {user_id}")
+            logging.error("%s Please run with 'auth' argument first.", error)
+        else:
+            logging.error("%s", error)
+        raise error
 
     if not credentials_data:
         handle_missing_credentials()

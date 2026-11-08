@@ -17,6 +17,7 @@ from auth.constants import (
 )
 
 from .BaseAuthClient import BaseAuthClient, CredentialsT
+from auth import credential_errors as cred_err
 
 logger = logging.getLogger("nango-auth-client")
 
@@ -244,6 +245,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     logger.info(
                         f"No connection found for {service_name} connection {connection_id}"
                     )
+                    cred_err.record_failure(service_name, cred_err.MISSING)
                     return None
 
                 if response.status_code in _RETRYABLE_STATUS_CODES:
@@ -257,6 +259,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     logger.error(
                         f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
                     )
+                    reason = cred_err.classify_nango_failure(
+                        response.status_code, response.text
+                    )
+                    if reason:
+                        cred_err.record_failure(service_name, reason)
                     return None
 
             except (ConnectionError, Timeout) as e:
@@ -301,6 +308,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     logger.info(
                         f"No connection found for {service_name} connection {connection_id}"
                     )
+                    cred_err.record_failure(service_name, cred_err.MISSING)
                     return None
 
                 if response.status_code in _RETRYABLE_STATUS_CODES:
@@ -314,6 +322,11 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
                     logger.error(
                         f"Failed to get connection details for {service_name} connection {connection_id}: {response.text}"
                     )
+                    reason = cred_err.classify_nango_failure(
+                        response.status_code, response.text
+                    )
+                    if reason:
+                        cred_err.record_failure(service_name, reason)
                     return None
 
             except (httpx.ConnectError, httpx.TimeoutException) as e:
@@ -342,6 +355,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         to avoid blocking the Python event loop, which would stall concurrent
         SSE streams and cause Cloud Run to truncate responses.
         """
+        cred_err.clear_failure()
         if not self.secret_key:
             logger.error("Nango secret key is required to get user credentials")
             return None
@@ -371,11 +385,18 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             )
 
             if response is None:
+                if cred_err.last_failure() is None:
+                    cred_err.record_failure(service_name, cred_err.MISSING)
                 return None
 
             result = self._extract_connection_credentials(
                 response.json(), auth_type, service_name, connection_id
             )
+            if auth_type == AUTH_TYPE_OAUTH2 and not (
+                result and (result.get("access_token") or result.get("token"))
+            ):
+                # Nango answered, but holds no token for this connection.
+                cred_err.record_failure(service_name, cred_err.MISSING)
 
             if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
@@ -401,6 +422,7 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         Returns:
             Credentials object if found, None otherwise
         """
+        cred_err.clear_failure()
         if not self.secret_key:
             logger.error("Nango secret key is required to get user credentials")
             return None
@@ -430,11 +452,18 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
             )
 
             if response is None:
+                if cred_err.last_failure() is None:
+                    cred_err.record_failure(service_name, cred_err.MISSING)
                 return None
 
             result = self._extract_connection_credentials(
                 response.json(), auth_type, service_name, connection_id
             )
+            if auth_type == AUTH_TYPE_OAUTH2 and not (
+                result and (result.get("access_token") or result.get("token"))
+            ):
+                # Nango answered, but holds no token for this connection.
+                cred_err.record_failure(service_name, cred_err.MISSING)
 
             if result is not None and service_name != "bigquery":
                 self._set_cached_credentials(service_name, connection_id, result)
