@@ -98,10 +98,16 @@ async def get_xero_credentials(user_id: str, api_key: str = None) -> tuple:
         except Exception as e:
             logger.error(f"Error fetching Xero connections: {e}")
 
-    if not access_token or not tenant_id:
+    if not access_token:
         raise ValueError(
-            "Invalid Xero credentials: missing access_token or tenantId. "
-            "Ensure Nango connection metadata includes tenantId."
+            "Xero sign-in is missing or expired. "
+            "Reconnect Xero in Settings > Integrations."
+        )
+
+    if not tenant_id:
+        raise ValueError(
+            "No Xero organisation is connected. "
+            "Reconnect Xero and choose an organisation."
         )
 
     return access_token, tenant_id
