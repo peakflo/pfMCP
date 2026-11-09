@@ -29,7 +29,11 @@ from servers.peakflo.schemas.purchase_order import (
     add_purchase_order_attachment_schema,
 )
 from servers.peakflo.schemas.bill import add_bill_attachment_schema
-
+from servers.peakflo.schemas.soa_expense_payment import (
+    create_soa_expenses_input_schema,
+    create_soa_expense_report_input_schema,
+    create_soa_payment_input_schema,
+)
 vendor_tools = [
     Tool(
         name="read_vendor",
@@ -108,6 +112,42 @@ bill_tools = [
     ),
 ]
 
+
+soa_tools = [
+    Tool(
+        name="create_soa_expenses",
+        description=(
+            "Create one or more General Expenses (My Expenses) in Peakflo from "
+            "corporate-card SOA OCR line items. One POST /expense/myexpenses "
+            "call is made per entry. Created as drafts (not attached to any "
+            "expense report). Use forceSave=true to create drafts even when a "
+            "duplicate is detected. Returns the created expense ids - feed "
+            "them into create_soa_expense_report items[].expense."
+        ),
+        inputSchema=create_soa_expenses_input_schema,
+    ),
+    Tool(
+        name="create_soa_expense_report",
+        description=(
+            "Create a draft Expense Report (bill with type EXPENSE_REPORT) "
+            "for a cardholder, with one bill line per expense. "
+            "items[].expense carries the expense id and is THE join key "
+            "between the ER and its expenses. Returns the created ER bill id "
+            "- feed it into create_soa_payment bills[].bill."
+        ),
+        inputSchema=create_soa_expense_report_input_schema,
+    ),
+    Tool(
+        name="create_soa_payment",
+        description=(
+            "Create a draft AP BillPayment (not tied to a travel request) and "
+            "link it to the Expense Report bill(s) via bills[].bill. Used by "
+            "the SOA OCR flow after Oracle Fusion accepts the payment. "
+            "externalId must be unique per issuer+subsidiary."
+        ),
+        inputSchema=create_soa_payment_input_schema,
+    ),
+]
 
 utility_tools = [
     Tool(
