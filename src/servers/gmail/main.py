@@ -15,6 +15,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
 import logging
+import re
 from pathlib import Path
 
 from mcp.types import (
@@ -154,6 +155,37 @@ def plain_text_to_html(text):
         "</div>"
         "</body></html>"
     )
+
+
+_ADDRESS = re.compile(r"^[^@\s<>\[\]]+@[^@\s<>\[\]]+\.[^@\s<>\[\]]+$")
+
+
+def validate_recipients(field: str, value) -> None:
+    """Refuse an empty, placeholder or malformed recipient BEFORE any mail is built.
+
+    Production showed forward_email called with to='' (the model had been shown a
+    masked address such as [EMAIL] and had nothing to send to). A clear error lets
+    the model ask the person for the address instead of guessing. Accepts
+    "a@b.co", "Name <a@b.co>" and comma-separated lists.
+    """
+    if value is None:
+        return
+    text = str(value).strip()
+    if not text:
+        raise ValueError(
+            f"The '{field}' address is empty. Ask the person for the exact "
+            "address. Do not guess and do not send."
+        )
+    for part in text.split(","):
+        part = part.strip()
+        match = re.search(r"<([^<>]+)>\s*$", part)
+        address = match.group(1).strip() if match else part
+        if not _ADDRESS.match(address):
+            raise ValueError(
+                f"The '{field}' value is not a valid email address "
+                "(for example a placeholder such as [EMAIL]). Ask the person "
+                "for the exact address. Nothing was sent."
+            )
 
 
 def create_message_with_attachments(
@@ -762,6 +794,8 @@ def create_server(user_id, api_key=None):
                 k in arguments for k in ["to", "subject", "body"]
             ):
                 raise ValueError("Missing required parameters: to, subject, body")
+            for _field in ("to", "cc", "bcc"):
+                validate_recipients(_field, arguments.get(_field))
 
             # Create email message with optional attachments
             message = create_message_with_attachments(
@@ -846,6 +880,8 @@ def create_server(user_id, api_key=None):
         elif name == "forward_email":
             if not arguments or not all(k in arguments for k in ["email_id", "to"]):
                 raise ValueError("Missing required parameters: email_id, to")
+            for _field in ("to", "cc", "bcc"):
+                validate_recipients(_field, arguments.get(_field))
 
             email_id = arguments["email_id"]
             include_attachments = arguments.get("include_attachments", True)
@@ -945,6 +981,11 @@ def create_server(user_id, api_key=None):
                 if attachments_list:
                     attachment_info = f" with {len(attachments_list)} attachment(s)"
 
+                logger.info(
+                    "forward_email sent (messageId=%s, attachments=%d)",
+                    sent_message["id"],
+                    len(attachments_list),
+                )
                 return [
                     TextContent(
                         type="text",
@@ -952,6 +993,7 @@ def create_server(user_id, api_key=None):
                     )
                 ]
             except Exception as e:
+                logger.error("forward_email failed: %s", e)
                 return [
                     TextContent(type="text", text=f"Failed to forward email: {str(e)}")
                 ]
