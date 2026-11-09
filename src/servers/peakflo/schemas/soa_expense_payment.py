@@ -167,5 +167,12 @@ create_soa_payment_input_schema = {
             "description": "Optional initial status (defaults to draft).",
         },
     },
-    "required": ["externalId", "paymentReference", "externalVendorId", "amount", "baseCurrency", "bills"],
+    "required": [
+        "externalId",
+        "paymentReference",
+        "externalVendorId",
+        "amount",
+        "baseCurrency",
+        "bills",
+    ],
 }
