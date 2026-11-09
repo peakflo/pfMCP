@@ -4,12 +4,12 @@ Input schemas for TSK-17697 SOA OCR creation tools.
 These tools let the SOA OCR workflow create real Peakflo TnE objects through
 the billing-api gateway (the same endpoints the Peakflo UI uses):
 
-  1. create_soa_expenses        -> POST /expense/myexpenses   (one call per line item)
-  2. create_soa_expense_report  -> POST /expense/expenseReport (ER bill, items[].expense = join key)
-  3. create_soa_payment         -> POST /ap/payment            (BillPayment linked to the ER bill)
+  1. create_expense        -> POST /expense/myexpenses   (one call per line item)
+  2. create_expense_report  -> POST /expense/expenseReport (ER bill, items[].expense = join key)
+  3. create_expense_payment         -> POST /ap/payment            (BillPayment linked to the ER bill)
 """
 
-create_soa_expenses_input_schema = {
+create_expense_input_schema = {
     "type": "object",
     "properties": {
         "expenses": {
@@ -44,7 +44,7 @@ create_soa_expenses_input_schema = {
     "required": ["expenses"],
 }
 
-create_soa_expense_report_input_schema = {
+create_expense_report_input_schema = {
     "type": "object",
     "properties": {
         "vendorId": {
@@ -103,7 +103,7 @@ create_soa_expense_report_input_schema = {
     "required": ["vendorId", "vendorName", "currency", "date", "items"],
 }
 
-create_soa_payment_input_schema = {
+create_expense_payment_input_schema = {
     "type": "object",
     "properties": {
         "externalId": {

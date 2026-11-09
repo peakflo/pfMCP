@@ -1139,7 +1139,7 @@ async def make_peakflo_request(name, arguments, token):
             f"{quote(customer_external_id, safe='')}/attachments"
         )
         message = "Customer attachment added successfully"
-    elif name == "create_soa_expenses":
+    elif name == "create_expense":
         # TSK-17697 SOA OCR: one POST /expense/myexpenses per line item,
         # aggregated. forceSave/skipWorkflowValidation default to the OCR
         # draft path (create even on duplicate, skip workflow gates).
@@ -1218,7 +1218,7 @@ async def make_peakflo_request(name, arguments, token):
                 "failures": failures,
             },
         }
-    elif name == "create_soa_expense_report":
+    elif name == "create_expense_report":
         # TSK-17697 SOA OCR: draft Expense Report bill; items[].expense is
         # the join key to the created expenses. Same endpoint the UI's
         # addBill(type=EXPENSE_REPORT, forceSave=true) uses.
@@ -1231,7 +1231,7 @@ async def make_peakflo_request(name, arguments, token):
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/expense/expenseReport?forceSave=true"
         message = "Expense report created successfully"
-    elif name == "create_soa_payment":
+    elif name == "create_expense_payment":
         # TSK-17697 SOA OCR: draft AP BillPayment linked to the ER bill(s)
         # via bills[].bill. Same endpoint the UI's addApPayment uses.
         method = "POST"
