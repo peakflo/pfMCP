@@ -1139,6 +1139,104 @@ async def make_peakflo_request(name, arguments, token):
             f"{quote(customer_external_id, safe='')}/attachments"
         )
         message = "Customer attachment added successfully"
+    elif name == "create_soa_expenses":
+        # TSK-17697 SOA OCR: one POST /expense/myexpenses per line item,
+        # aggregated. forceSave/skipWorkflowValidation default to the OCR
+        # draft path (create even on duplicate, skip workflow gates).
+        expenses = arguments.get("expenses") or []
+        force_save = bool(arguments.get("forceSave", True))
+        skip_wf = bool(arguments.get("skipWorkflowValidation", True))
+        expense_ids: list = []
+        results: list = []
+        failures: list = []
+        async with httpx.AsyncClient() as client:
+            for index, expense in enumerate(expenses):
+                payload = dict(expense or {})
+                payload["skipWorkflowValidation"] = skip_wf
+                if force_save:
+                    payload["forceSave"] = True
+                merchant = payload.get("merchant")
+                try:
+                    resp = await client.post(
+                        f"{PEAKFLO_V1_BASE_URL}/expense/myexpenses",
+                        json=payload,
+                        headers=headers,
+                        timeout=60.0,
+                    )
+                    try:
+                        body = resp.json() if resp.content else None
+                    except ValueError:
+                        body = resp.text
+                    ok = 200 <= resp.status_code < 300
+                    expense_id = None
+                    if ok and isinstance(body, dict):
+                        data = body.get("data")
+                        if isinstance(data, dict):
+                            expense_id = data.get("id") or data.get("_id")
+                    if ok and expense_id:
+                        expense_ids.append(expense_id)
+                        results.append(
+                            {
+                                "index": index,
+                                "ok": True,
+                                "expenseId": expense_id,
+                                "merchant": merchant,
+                            }
+                        )
+                    else:
+                        failures.append(
+                            {
+                                "index": index,
+                                "ok": False,
+                                "status": resp.status_code,
+                                "merchant": merchant,
+                                "error": (
+                                    body.get("errorMessage")
+                                    if isinstance(body, dict)
+                                    else str(body)[:300]
+                                ),
+                            }
+                        )
+                except Exception as exc:  # noqa: BLE001 - aggregate per line
+                    failures.append(
+                        {
+                            "index": index,
+                            "ok": False,
+                            "merchant": merchant,
+                            "error": str(exc),
+                        }
+                    )
+        return {
+            "_status_code": 200 if not failures else 207,
+            "message": (
+                f"Created {len(expense_ids)}/{len(expenses)} expenses"
+                + (f"; {len(failures)} failed" if failures else "")
+            ),
+            "data": {
+                "expenseIds": expense_ids,
+                "results": results,
+                "failures": failures,
+            },
+        }
+    elif name == "create_soa_expense_report":
+        # TSK-17697 SOA OCR: draft Expense Report bill; items[].expense is
+        # the join key to the created expenses. Same endpoint the UI's
+        # addBill(type=EXPENSE_REPORT, forceSave=true) uses.
+        er_payload = dict(arguments)
+        er_payload.setdefault("expenseReportType", "NON_TRAVEL")
+        er_payload["type"] = "EXPENSE_REPORT"
+        er_payload.setdefault("status", "draft")
+        er_payload.setdefault("billNumber", "Auto-sequence")
+        arguments = er_payload
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/expense/expenseReport?forceSave=true"
+        message = "Expense report created successfully"
+    elif name == "create_soa_payment":
+        # TSK-17697 SOA OCR: draft AP BillPayment linked to the ER bill(s)
+        # via bills[].bill. Same endpoint the UI's addApPayment uses.
+        method = "POST"
+        url = f"{PEAKFLO_V1_BASE_URL}/ap/payment"
+        message = "Payment created successfully"
     else:
         raise ValueError(f"Unknown tool call: {name}")
 
