@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 import httpx
 
 from mcp.types import (
@@ -50,7 +51,17 @@ logger = logging.getLogger(SERVICE_NAME)
 def ticket_url(ticket, subdomain):
     if subdomain:
         return f"https://{subdomain}.zendesk.com/agent/tickets/{ticket.get('id')}"
-    return ticket.get("url", "")
+    api_url = ticket.get("url", "")
+    host = urlparse(api_url).hostname
+    if host and host.endswith(".zendesk.com") and ticket.get("id"):
+        return f"https://{host}/agent/tickets/{ticket['id']}"
+    return ""
+
+
+def positive_ticket_id(value):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("ticket_id must be a positive integer")
+    return value
 
 
 async def make_zendesk_request(
@@ -194,7 +205,9 @@ def create_server(user_id, api_key=None):
 
         if uri_str.startswith("zendesk://view/"):
             # Handle view resource
-            view_id = uri_str.replace("zendesk://view/", "")
+            view_id = uri_str.removeprefix("zendesk://view/")
+            if not view_id.isdecimal() or int(view_id) <= 0:
+                raise ValueError("View ID must be a positive integer")
 
             view_data = await request_zendesk(
                 "get", f"views/{view_id}.json", access_token, subdomain
@@ -378,9 +391,7 @@ def create_server(user_id, api_key=None):
         name: str, arguments: dict | None
     ) -> list[TextContent | ImageContent | EmbeddedResource]:
         """Handle tool execution requests for Zendesk"""
-        logger.info(
-            f"User {server.user_id} calling tool: {name} with arguments: {arguments}"
-        )
+        logger.info("User %s calling tool: %s", server.user_id, name)
 
         access_token, subdomain = await get_zendesk_client()
 
@@ -417,13 +428,7 @@ def create_server(user_id, api_key=None):
             ]
 
         elif name == "get_ticket":
-            ticket_id = (arguments or {}).get("ticket_id")
-            if (
-                isinstance(ticket_id, bool)
-                or not isinstance(ticket_id, int)
-                or ticket_id <= 0
-            ):
-                raise ValueError("ticket_id must be a positive integer")
+            ticket_id = positive_ticket_id((arguments or {}).get("ticket_id"))
             result = await request_zendesk(
                 "get", f"tickets/{ticket_id}.json", access_token, subdomain
             )
@@ -445,12 +450,25 @@ def create_server(user_id, api_key=None):
                 or not 1 <= page <= 10
             ):
                 raise ValueError("page must be an integer between 1 and 10")
+            per_page = arguments.get("per_page", 10)
+            if (
+                isinstance(per_page, bool)
+                or not isinstance(per_page, int)
+                or not 1 <= per_page <= 100
+            ):
+                raise ValueError("per_page must be an integer between 1 and 100")
+            sort_by = arguments.get("sort_by", "created_at")
+            if sort_by not in ("created_at", "updated_at", "priority", "status"):
+                raise ValueError("Unsupported sort_by value")
+            sort_order = arguments.get("sort_order", "desc")
+            if sort_order not in ("asc", "desc"):
+                raise ValueError("sort_order must be asc or desc")
 
             params = {
                 "query": f"type:ticket {search_query.strip()}",
-                "sort_by": arguments.get("sort_by", "created_at"),
-                "sort_order": arguments.get("sort_order", "desc"),
-                "per_page": arguments.get("per_page", 10),
+                "sort_by": sort_by,
+                "sort_order": sort_order,
+                "per_page": per_page,
                 "page": page,
             }
 
@@ -497,9 +515,7 @@ def create_server(user_id, api_key=None):
 
             except Exception as e:
                 logger.error(f"Error searching tickets: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error searching tickets: {str(e)}")
-                ]
+                raise
 
         elif name == "create_ticket":
             required_fields = ["subject", "comment"]
@@ -540,24 +556,17 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to create ticket: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the created ticket")
 
             except Exception as e:
                 logger.error(f"Error creating ticket: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error creating ticket: {str(e)}")
-                ]
+                raise
 
         elif name == "update_ticket":
             if not arguments or "ticket_id" not in arguments:
                 raise ValueError("Missing required parameter: ticket_id")
 
-            ticket_id = arguments["ticket_id"]
+            ticket_id = positive_ticket_id(arguments["ticket_id"])
 
             # Start with an empty ticket structure
             ticket_data = {"ticket": {}}
@@ -602,18 +611,11 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to update ticket: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the updated ticket")
 
             except Exception as e:
                 logger.error(f"Error updating ticket: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error updating ticket: {str(e)}")
-                ]
+                raise
 
         elif name == "add_comment":
             required_fields = ["ticket_id", "comment"]
@@ -621,7 +623,7 @@ def create_server(user_id, api_key=None):
                 if not arguments or field not in arguments:
                     raise ValueError(f"Missing required parameter: {field}")
 
-            ticket_id = arguments["ticket_id"]
+            ticket_id = positive_ticket_id(arguments["ticket_id"])
             comment_text = arguments["comment"]
             is_public = arguments.get("public", True)
 
@@ -652,18 +654,11 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to add comment: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the commented ticket")
 
             except Exception as e:
                 logger.error(f"Error adding comment: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error adding comment: {str(e)}")
-                ]
+                raise
 
         raise ValueError(f"Unknown tool: {name}")
 

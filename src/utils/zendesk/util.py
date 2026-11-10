@@ -57,12 +57,25 @@ def process_zendesk_token_response(token_response: Dict[str, Any]) -> Dict[str, 
     if not token_response.get("access_token"):
         raise ValueError("No access token found in response")
 
-    # Zendesk tokens don't expire, use 10 years default
+    # Legacy local clients can issue tokens without an expiry. Global clients
+    # return expires_in and a refresh token; honor the actual expiry.
     token_response["expires_at"] = int(time.time()) + token_response.get(
         "expires_in", 315360000
     )
 
     return token_response
+
+
+def build_zendesk_refresh_token_data(
+    oauth_config: Dict[str, Any], refresh_token: str, credentials: Dict[str, Any]
+) -> Dict[str, str]:
+    """Exchange an expiring Zendesk OAuth token for a fresh one."""
+    return {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": oauth_config["client_id"],
+        "client_secret": oauth_config["client_secret"],
+    }
 
 
 def authenticate_and_save_credentials(
@@ -76,7 +89,9 @@ def authenticate_and_save_credentials(
 
     auth_client = create_auth_client()
     oauth_config = auth_client.get_oauth_config(service_name)
-    subdomain = oauth_config.get("custom_subdomain", "testingmcp")
+    subdomain = oauth_config.get("custom_subdomain", "")
+    if not subdomain:
+        raise ValueError("Zendesk subdomain is required in the local OAuth config")
 
     # Construct the authorization and token URLs
     auth_url = ZENDESK_OAUTH_AUTHORIZE_URL.format(subdomain=subdomain)
@@ -123,40 +138,23 @@ async def get_credentials(
             logger.info(f"Using credentials from {environment} environment")
             return credentials["access_token"]
 
-    # For local environment, refresh token if needed
-    try:
-        # Get the Zendesk subdomain from the oauth config
-        oauth_config = auth_client.get_oauth_config(service_name)
-        subdomain = oauth_config.get("custom_subdomain", "")
-        token_url = ZENDESK_OAUTH_TOKEN_URL.format(subdomain=subdomain)
+    # The shared OAuth helper refreshes expiring local tokens. A failed refresh
+    # must not silently return the expired access token.
+    oauth_config = auth_client.get_oauth_config(service_name)
+    subdomain = oauth_config.get("custom_subdomain", "")
+    if not subdomain:
+        raise ValueError("Zendesk subdomain is required in the local OAuth config")
+    token_url = ZENDESK_OAUTH_TOKEN_URL.format(subdomain=subdomain)
 
-        # Define token data builder for refresh (Zendesk doesn't use refresh tokens)
-        def token_data_builder(
-            oauth_config: Dict[str, Any], redirect_uri: str, credentials: Dict[str, Any]
-        ) -> Dict[str, str]:
-            return {}
-
-        # Get the token
-        access_token = await refresh_token_if_needed(
-            user_id=user_id,
-            service_name=service_name,
-            token_url=token_url,
-            token_data_builder=token_data_builder,
-            process_token_response=process_zendesk_token_response,
-            token_header_builder=build_zendesk_token_header,
-            api_key=api_key,
-        )
-
-        return access_token
-
-    except Exception as e:
-        # If we already have credentials with access_token, use it as fallback
-        if isinstance(credentials, dict) and "access_token" in credentials:
-            logger.warning(
-                f"Error using OAuth config: {str(e)}. Falling back to credentials."
-            )
-            return credentials["access_token"]
-        raise
+    return await refresh_token_if_needed(
+        user_id=user_id,
+        service_name=service_name,
+        token_url=token_url,
+        token_data_builder=build_zendesk_refresh_token_data,
+        process_token_response=process_zendesk_token_response,
+        token_header_builder=build_zendesk_token_header,
+        api_key=api_key,
+    )
 
 
 async def get_service_config(

@@ -13,6 +13,7 @@ from mcp.types import (
 )
 
 from src.servers.zendesk import main
+from src.utils.zendesk import util
 
 
 async def invoke(name, arguments, response):
@@ -217,3 +218,91 @@ async def test_nango_proxy_uses_mapped_provider_key(monkeypatch):
         == "test-provider"
     )
     assert client.get.await_args.kwargs["headers"]["Connection-Id"] == "connection-1"
+
+
+def test_nango_ticket_link_uses_agent_url():
+    ticket = {
+        "id": 42,
+        "url": "https://example.zendesk.com/api/v2/tickets/42.json",
+    }
+    assert (
+        main.ticket_url(ticket, None) == "https://example.zendesk.com/agent/tickets/42"
+    )
+    assert main.ticket_url({**ticket, "url": "https://other.test/ticket"}, None) == ""
+
+
+@pytest.mark.asyncio
+async def test_search_rejects_bad_page_size():
+    result, api = await invoke(
+        "search_tickets", {"query": "status:open", "per_page": 101}, {}
+    )
+    assert result.is_error is True
+    assert "per_page" in result.content[0].text
+    api.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_write_api_failure_is_tool_error():
+    server = main.create_server("connection-1")
+    request = CallToolRequest(
+        method="tools/call",
+        params=CallToolRequestParams(
+            name="add_comment", arguments={"ticket_id": 42, "comment": "Reply"}
+        ),
+    )
+    with (
+        patch.object(
+            main, "get_credentials", new_callable=AsyncMock, return_value="token"
+        ),
+        patch.object(
+            main,
+            "get_service_config",
+            new_callable=AsyncMock,
+            return_value={"custom_subdomain": "example"},
+        ),
+        patch.object(
+            main,
+            "make_zendesk_request",
+            new_callable=AsyncMock,
+            side_effect=ValueError("Zendesk API error: 403"),
+        ),
+    ):
+        result = await server.dispatch(request)
+    assert result.is_error is True
+    assert "403" in result.content[0].text
+
+
+def test_local_refresh_uses_zendesk_refresh_grant():
+    assert util.build_zendesk_refresh_token_data(
+        {"client_id": "client", "client_secret": "secret"},
+        "refresh-token",
+        {},
+    ) == {
+        "grant_type": "refresh_token",
+        "refresh_token": "refresh-token",
+        "client_id": "client",
+        "client_secret": "secret",
+    }
+
+
+@pytest.mark.asyncio
+async def test_local_refresh_failure_does_not_return_expired_token(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "local")
+    auth = MagicMock()
+    auth.get_user_credentials.return_value = {"access_token": "expired-token"}
+    auth.get_oauth_config.return_value = {
+        "custom_subdomain": "example",
+        "client_id": "client",
+        "client_secret": "secret",
+    }
+    with (
+        patch("src.auth.factory.create_auth_client", return_value=auth),
+        patch.object(
+            util,
+            "refresh_token_if_needed",
+            new_callable=AsyncMock,
+            side_effect=ValueError("refresh failed"),
+        ),
+    ):
+        with pytest.raises(ValueError, match="refresh failed"):
+            await util.get_credentials("connection-1", "zendesk")
