@@ -8,6 +8,7 @@ from peakflo.tools.peakflo_api import (
     purchase_order_tools,
     bill_tools,
     utility_tools,
+    soa_tools,
 )
 
 
@@ -22,6 +23,7 @@ class PeakfloApiToolFactory:
             *purchase_order_tools,
             *bill_tools,
             *utility_tools,
+            *soa_tools,
         ]
 
     @staticmethod
