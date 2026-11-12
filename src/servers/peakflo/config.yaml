@@ -7,6 +7,48 @@ resources:
     description: "Peakflo invoices"
     required_scopes: []
 tools:
++  - name: "list_approval_policies"
+    description: "List AP approval policies"
+    required_scopes: []
+  - name: "get_approval_policy"
+    description: "Read one AP approval policy"
+    required_scopes: []
+  - name: "create_approval_policy"
+    description: "Create an AP approval policy"
+    required_scopes: []
+  - name: "update_approval_policy"
+    description: "Update an AP approval policy"
+    required_scopes: []
+  - name: "delete_approval_policy"
+    description: "Delete an AP approval policy"
+    required_scopes: []
+  - name: "list_rules"
+    description: "List Rules Engine rules"
+    required_scopes: []
+  - name: "get_rule"
+    description: "Read one Rules Engine rule"
+    required_scopes: []
+  - name: "create_rule"
+    description: "Create a Rules Engine rule"
+    required_scopes: []
+  - name: "update_rule"
+    description: "Update a Rules Engine rule"
+    required_scopes: []
+  - name: "delete_rule"
+    description: "Delete or archive a Rules Engine rule"
+    required_scopes: []
+  - name: "list_custom_fields"
+    description: "List AP custom field definitions"
+    required_scopes: []
+  - name: "create_custom_field"
+    description: "Create an AP custom field definition"
+    required_scopes: []
+  - name: "update_custom_field"
+    description: "Update an AP custom field definition"
+    required_scopes: []
+  - name: "delete_custom_field"
+    description: "Delete an AP custom field definition"
+    required_scopes: []
   - name: "get_invoices"
     description: "Get invoices"
     required_scopes: []

@@ -17,6 +17,16 @@ python src/servers/peakflo/main.py auth
 
 ### Tools
 
+Tenant configuration tools use the tenant in the API token. Read a record before you update it. The `payload` input is the complete billing API body. The API checks policy levels, rule access, and custom field data.
+
+| Resource | Tools | API route |
+|----------|-------|-----------|
+| AP approval policies | `list_approval_policies`, `get_approval_policy`, `create_approval_policy`, `update_approval_policy`, `delete_approval_policy` | `/v1/ap/policy` |
+| Rules Engine rules | `list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule` | `/v1/field-rules` |
+| AP custom fields | `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field` | `/v1/ap/customfields` |
+
+Approval rule deletion archives the rule. The API rejects deletion while an active policy uses it. Other rule deletion removes the rule. Custom field list results use the API page and limit controls.
+
 | Tool | Description |
 |------|-------------|
 | **read_vendor** | Fetch vendor details by external ID. |

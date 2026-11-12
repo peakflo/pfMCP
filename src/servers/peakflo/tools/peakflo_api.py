@@ -1,4 +1,5 @@
 from mcp.types import Tool
+from servers.peakflo.schemas.configuration import configuration_schemas
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.customer import (
     add_customer_attachment_schema,
@@ -43,6 +44,27 @@ from servers.peakflo.schemas.bill import (
     update_bill_attachment_validation_schema,
     update_ap_attachment_validation_schema,
 )
+
+configuration_descriptions = {
+    "list_approval_policies": "List this tenant's AP approval policies before editing one.",
+    "get_approval_policy": "Read one AP approval policy by ID.",
+    "create_approval_policy": "Create an AP approval policy. Supply its complete API payload, including all ranges and levels.",
+    "update_approval_policy": "Replace an AP approval policy by ID. Read it first and supply all ranges and levels to keep.",
+    "delete_approval_policy": "Delete an AP approval policy by ID.",
+    "list_rules": "List Rules Engine rules for this tenant. Optionally filter by objectType.",
+    "get_rule": "Read one Rules Engine rule by ID.",
+    "create_rule": "Create a Rules Engine rule. Supply displayName, objectType, rank, isActive, and conditions/actions in rule.",
+    "update_rule": "Replace a Rules Engine rule by ID. Read it first and supply its full definition.",
+    "delete_rule": "Delete a Rules Engine rule. Approval rules are archived and cannot be deleted while in use.",
+    "list_custom_fields": "List this tenant's AP custom field definitions with optional page and limit.",
+    "create_custom_field": "Create an AP custom field definition. Supply its full API payload.",
+    "update_custom_field": "Update an AP custom field definition by ID. Supply its full API payload.",
+    "delete_custom_field": "Delete an AP custom field definition by ID.",
+}
+configuration_tools = [
+    Tool(name=name, description=configuration_descriptions[name], inputSchema=input_schema)
+    for name, input_schema in configuration_schemas.items()
+]
 
 vendor_tools = [
     Tool(

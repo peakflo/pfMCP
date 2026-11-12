@@ -845,7 +845,40 @@ async def make_peakflo_request(name, arguments, token):
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
         arguments.pop("tenantId")
-    if name == "create_invoice":
+    configuration_routes = {
+        "list_approval_policies": ("GET", "/ap/policy"),
+        "get_approval_policy": ("GET", "/ap/policy/{id}"),
+        "create_approval_policy": ("POST", "/ap/policy"),
+        "update_approval_policy": ("PUT", "/ap/policy/{id}"),
+        "delete_approval_policy": ("DELETE", "/ap/policy/{id}"),
+        "list_rules": ("GET", "/field-rules"),
+        "get_rule": ("GET", "/field-rules/{id}"),
+        "create_rule": ("POST", "/field-rules"),
+        "update_rule": ("PUT", "/field-rules/{id}"),
+        "delete_rule": ("DELETE", "/field-rules/{id}"),
+        "list_custom_fields": ("GET", "/ap/customfields"),
+        "create_custom_field": ("POST", "/ap/customfields"),
+        "update_custom_field": ("PUT", "/ap/customfields/{id}"),
+        "delete_custom_field": ("DELETE", "/ap/customfields/{id}"),
+    }
+    if name in configuration_routes:
+        method, path = configuration_routes[name]
+        resource_id = arguments.pop("id", None)
+        if "{id}" in path:
+            if not isinstance(resource_id, str) or not resource_id:
+                raise ValueError("id is required")
+            path = path.replace("{id}", quote(resource_id, safe=""))
+        payload = arguments.pop("payload", None)
+        if method in {"POST", "PUT"}:
+            if not isinstance(payload, dict):
+                raise ValueError("payload must be an object")
+            arguments = payload
+        elif arguments:
+            path += "?" + urlencode(arguments)
+            arguments = {}
+        url = f"{PEAKFLO_V1_BASE_URL}{path}"
+        message = f"{name.replace('_', ' ').capitalize()} succeeded"
+    elif name == "create_invoice":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices"
         message = "Invoice created successfully"
