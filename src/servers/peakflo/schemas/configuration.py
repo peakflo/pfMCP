@@ -4,8 +4,15 @@ The billing API validates policy, rule and custom-field payloads. Keep their
 nested structures intact here so new server-side fields remain available.
 """
 
-_id = {"type": "string", "minLength": 1, "description": "ID returned by a list or create tool"}
-_payload = {"type": "object", "description": "Complete resource body accepted by the Peakflo API"}
+_id = {
+    "type": "string",
+    "minLength": 1,
+    "description": "ID returned by a list or create tool",
+}
+_payload = {
+    "type": "object",
+    "description": "Complete resource body accepted by the Peakflo API",
+}
 
 
 def schema(required=(), **properties):
@@ -23,7 +30,12 @@ configuration_schemas = {
     "create_approval_policy": schema(("payload",), payload=_payload),
     "update_approval_policy": schema(("id", "payload"), id=_id, payload=_payload),
     "delete_approval_policy": schema(("id",), id=_id),
-    "list_rules": schema(objectType={"type": "string", "description": "Optional rule object type, such as bill or approval"}),
+    "list_rules": schema(
+        objectType={
+            "type": "string",
+            "description": "Optional rule object type, such as bill or approval",
+        }
+    ),
     "get_rule": schema(("id",), id=_id),
     "create_rule": schema(("payload",), payload=_payload),
     "update_rule": schema(("id", "payload"), id=_id, payload=_payload),

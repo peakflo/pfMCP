@@ -5,7 +5,9 @@ import pytest
 from jsonschema import Draft7Validator, ValidationError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "servers"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "servers")
+)
 
 from servers.peakflo import main
 from servers.peakflo.schemas.configuration import configuration_schemas
@@ -25,17 +27,37 @@ def test_configuration_inputs_need_ids_and_payloads():
         Draft7Validator(configuration_schemas["update_rule"]).validate({"id": "rule-1"})
     with pytest.raises(ValidationError):
         Draft7Validator(configuration_schemas["delete_custom_field"]).validate({})
-    Draft7Validator(configuration_schemas["create_approval_policy"]).validate({"payload": {"ranges": []}})
+    Draft7Validator(configuration_schemas["create_approval_policy"]).validate(
+        {"payload": {"ranges": []}}
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "name,args,method,url,body",
     [
-        ("list_rules", {"objectType": "bill"}, "GET", "/field-rules?objectType=bill", None),
+        (
+            "list_rules",
+            {"objectType": "bill"},
+            "GET",
+            "/field-rules?objectType=bill",
+            None,
+        ),
         ("get_approval_policy", {"id": "a/b"}, "GET", "/ap/policy/a%2Fb", None),
-        ("update_custom_field", {"id": "cf-1", "payload": {"name": "Cost"}}, "PUT", "/ap/customfields/cf-1", {"name": "Cost"}),
-        ("create_rule", {"payload": {"displayName": "Review"}}, "POST", "/field-rules", {"displayName": "Review"}),
+        (
+            "update_custom_field",
+            {"id": "cf-1", "payload": {"name": "Cost"}},
+            "PUT",
+            "/ap/customfields/cf-1",
+            {"name": "Cost"},
+        ),
+        (
+            "create_rule",
+            {"payload": {"displayName": "Review"}},
+            "POST",
+            "/field-rules",
+            {"displayName": "Review"},
+        ),
     ],
 )
 async def test_configuration_route_mapping(monkeypatch, name, args, method, url, body):

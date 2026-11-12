@@ -62,7 +62,11 @@ configuration_descriptions = {
     "delete_custom_field": "Delete an AP custom field definition by ID.",
 }
 configuration_tools = [
-    Tool(name=name, description=configuration_descriptions[name], inputSchema=input_schema)
+    Tool(
+        name=name,
+        description=configuration_descriptions[name],
+        inputSchema=input_schema,
+    )
     for name, input_schema in configuration_schemas.items()
 ]
 
