@@ -1,4 +1,5 @@
 from mcp.types import Tool
+from servers.peakflo.schemas.configuration import configuration_schemas
 from servers.peakflo.schemas.vendor import create_vendor_schema, update_vendor_schema
 from servers.peakflo.schemas.customer import (
     add_customer_attachment_schema,
@@ -43,6 +44,43 @@ from servers.peakflo.schemas.bill import (
     update_bill_attachment_validation_schema,
     update_ap_attachment_validation_schema,
 )
+
+configuration_descriptions = {
+    "list_approval_policies": "List this tenant's AP approval policies before editing one.",
+    "get_approval_policy": "Read one AP approval policy by ID.",
+    "create_approval_policy": "Create an AP approval policy. Supply its complete API payload, including all ranges and levels.",
+    "update_approval_policy": "Replace an AP approval policy by ID. Read it first and supply all ranges and levels to keep.",
+    "delete_approval_policy": "Delete an AP approval policy by ID.",
+    "list_rules": "List Rules Engine rules for this tenant. Optionally filter by objectType.",
+    "get_rule": "Read one Rules Engine rule by ID.",
+    "create_rule": "Create a Rules Engine rule. Supply displayName, objectType, rank, isActive, and conditions/actions in rule.",
+    "update_rule": "Replace a Rules Engine rule by ID. Read it first and supply its full definition.",
+    "delete_rule": "Delete a Rules Engine rule. Approval rules are archived and cannot be deleted while in use.",
+    "list_custom_fields": "List this tenant's AP custom field definitions with optional page and limit.",
+    "create_custom_field": "Create an AP custom field definition. Supply its full API payload.",
+    "update_custom_field": "Update an AP custom field definition by ID. Supply its full API payload.",
+    "delete_custom_field": "Delete an AP custom field definition by ID.",
+    "invite_user": "Queue a Peakflo user invite for this tenant. Requires email and displayName. The tenant's skipUserInvite setting controls whether the invite email is sent.",
+    "list_chart_of_accounts": "Search this tenant's chart of accounts with optional search, page, and limit.",
+    "get_chart_of_account": "Read one chart of account entry by ID.",
+    "create_chart_of_account": "Create a chart of account entry. Account needs name, code, type, and paymentAllowed.",
+    "update_chart_of_account": "Update a Settings-created chart of account entry by ID. Supply all four account fields.",
+    "delete_chart_of_account": "Delete a Settings-created chart of account entry by ID.",
+    "list_role_permissions": "List permission keys that the role API accepts. Read this before changing permissions.",
+    "list_roles": "List roles for the authenticated tenant.",
+    "get_role": "Read one tenant role and its permission flags by ID.",
+    "create_role": "Create a tenant role with name, description, and optional permission flags.",
+    "update_role": "Patch a tenant role's name, description, or permission flags. True grants; false revokes.",
+    "delete_role": "Delete an unassigned non-system tenant role that is not the default user role.",
+}
+configuration_tools = [
+    Tool(
+        name=name,
+        description=configuration_descriptions[name],
+        inputSchema=input_schema,
+    )
+    for name, input_schema in configuration_schemas.items()
+]
 
 vendor_tools = [
     Tool(
