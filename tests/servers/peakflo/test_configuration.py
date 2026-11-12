@@ -38,6 +38,10 @@ def test_configuration_inputs_need_ids_and_payloads():
         Draft7Validator(configuration_schemas["create_chart_of_account"]).validate(
             {"account": {"name": "Office Supplies"}}
         )
+    with pytest.raises(ValidationError):
+        Draft7Validator(configuration_schemas["create_role"]).validate(
+            {"payload": {"name": "Approver"}}
+        )
 
 
 @pytest.mark.asyncio
@@ -133,6 +137,34 @@ def test_configuration_inputs_need_ids_and_payloads():
             "/chartOfAccounts/coa-1",
             None,
         ),
+        ("list_role_permissions", {}, "GET", "/roles/permissions", None),
+        ("list_roles", {}, "GET", "/roles", None),
+        ("get_role", {"id": "role-1"}, "GET", "/roles/role-1", None),
+        (
+            "create_role",
+            {
+                "payload": {
+                    "name": "Approver",
+                    "description": "Reviews bills",
+                    "permissions": {"apViewer": True},
+                }
+            },
+            "POST",
+            "/roles",
+            {
+                "name": "Approver",
+                "description": "Reviews bills",
+                "permissions": {"apViewer": True},
+            },
+        ),
+        (
+            "update_role",
+            {"id": "role-1", "payload": {"permissions": {"apViewer": False}}},
+            "PATCH",
+            "/roles/role-1",
+            {"permissions": {"apViewer": False}},
+        ),
+        ("delete_role", {"id": "role-1"}, "DELETE", "/roles/role-1", None),
     ],
 )
 async def test_configuration_route_mapping(monkeypatch, name, args, method, url, body):

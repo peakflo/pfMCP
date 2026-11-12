@@ -66,6 +66,12 @@ configuration_descriptions = {
     "create_chart_of_account": "Create a chart of account entry. Account needs name, code, type, and paymentAllowed.",
     "update_chart_of_account": "Update a Settings-created chart of account entry by ID. Supply all four account fields.",
     "delete_chart_of_account": "Delete a Settings-created chart of account entry by ID.",
+    "list_role_permissions": "List permission keys that the role API accepts. Read this before changing permissions.",
+    "list_roles": "List roles for the authenticated tenant.",
+    "get_role": "Read one tenant role and its permission flags by ID.",
+    "create_role": "Create a tenant role with name, description, and optional permission flags.",
+    "update_role": "Patch a tenant role's name, description, or permission flags. True grants; false revokes.",
+    "delete_role": "Delete an unassigned non-system tenant role that is not the default user role.",
 }
 configuration_tools = [
     Tool(

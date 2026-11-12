@@ -67,6 +67,24 @@ tools:
   - name: "delete_chart_of_account"
     description: "Delete a Settings chart of account entry"
     required_scopes: []
+  - name: "list_role_permissions"
+    description: "List accepted role permission keys"
+    required_scopes: []
+  - name: "list_roles"
+    description: "List tenant roles"
+    required_scopes: []
+  - name: "get_role"
+    description: "Read one tenant role"
+    required_scopes: []
+  - name: "create_role"
+    description: "Create a tenant role"
+    required_scopes: []
+  - name: "update_role"
+    description: "Update tenant role permissions and details"
+    required_scopes: []
+  - name: "delete_role"
+    description: "Delete an unused tenant role"
+    required_scopes: []
   - name: "get_invoices"
     description: "Get invoices"
     required_scopes: []

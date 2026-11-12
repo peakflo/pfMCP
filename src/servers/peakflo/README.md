@@ -26,12 +26,15 @@ Tenant configuration tools use the tenant in the API token. Read a record before
 | AP custom fields | `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field` | `/v1/ap/customfields` |
 | Users | `invite_user` | `/v1/users/invitations` |
 | Chart of accounts | `list_chart_of_accounts`, `get_chart_of_account`, `create_chart_of_account`, `update_chart_of_account`, `delete_chart_of_account` | `/v1/chartOfAccounts` |
+| Roles and permissions | `list_role_permissions`, `list_roles`, `get_role`, `create_role`, `update_role`, `delete_role` | `/v1/roles` |
 
 Approval rule deletion archives the rule. The API rejects deletion while an active policy uses it. Other rule deletion removes the rule. Custom field list results use the API page and limit controls.
 
 `invite_user` requires `email` and `displayName`. The API uses the tenant's default user role unless a user token with role management authority supplies another role. Tenant API credentials can invite users with the default role only. The API queues user creation; the existing user management worker sends the email unless `skipUserInvite` is set for the tenant.
 
 COA create and update need `name`, `code`, `type`, and `paymentAllowed`. The API checks the same `enableCoaCreation` flag, `createCOA` user permission, and duplicate account number as the Settings page. An API credential can write when the tenant flag is on. Update and delete work only for accounts created in Settings.
+
+Read `list_role_permissions` before changing role flags. Role writes accept only the permission keys used by the web role editor. A user token needs `createRoles` or `editRoles` and cannot grant a permission the user does not hold. The tenant API credential is checked against the tenant's configured access token. System roles cannot be changed. A role cannot be deleted if it is assigned to a user or set as the default user role.
 
 | Tool | Description |
 |------|-------------|

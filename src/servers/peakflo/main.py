@@ -866,6 +866,12 @@ async def make_peakflo_request(name, arguments, token):
         "create_chart_of_account": ("POST", "/chartOfAccounts"),
         "update_chart_of_account": ("PUT", "/chartOfAccounts/{id}"),
         "delete_chart_of_account": ("DELETE", "/chartOfAccounts/{id}"),
+        "list_role_permissions": ("GET", "/roles/permissions"),
+        "list_roles": ("GET", "/roles"),
+        "get_role": ("GET", "/roles/{id}"),
+        "create_role": ("POST", "/roles"),
+        "update_role": ("PATCH", "/roles/{id}"),
+        "delete_role": ("DELETE", "/roles/{id}"),
     }
     if name in configuration_routes:
         method, path = configuration_routes[name]
@@ -883,7 +889,7 @@ async def make_peakflo_request(name, arguments, token):
             arguments = (
                 arguments.pop("account") if "account" in arguments else arguments
             )
-        elif method in {"POST", "PUT"}:
+        elif method in {"POST", "PUT", "PATCH"}:
             if not isinstance(payload, dict):
                 raise ValueError("payload must be an object")
             arguments = payload

@@ -35,6 +35,26 @@ _coa_account = {
     "required": ["name", "code", "type", "paymentAllowed"],
     "additionalProperties": False,
 }
+_role_permissions = {
+    "type": "object",
+    "additionalProperties": {"type": "boolean"},
+    "description": "Permission keys from list_role_permissions; true grants, false revokes",
+}
+_create_role = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 50},
+        "description": {"type": "string", "minLength": 1, "maxLength": 200},
+        "permissions": _role_permissions,
+    },
+    "required": ["name", "description"],
+    "additionalProperties": False,
+}
+_patch_role = {
+    **_create_role,
+    "required": [],
+    "minProperties": 1,
+}
 
 
 def schema(required=(), **properties):
@@ -88,4 +108,10 @@ configuration_schemas = {
     "create_chart_of_account": schema(("account",), account=_coa_account),
     "update_chart_of_account": schema(("id", "account"), id=_id, account=_coa_account),
     "delete_chart_of_account": schema(("id",), id=_id),
+    "list_role_permissions": schema(),
+    "list_roles": schema(),
+    "get_role": schema(("id",), id=_id),
+    "create_role": schema(("payload",), payload=_create_role),
+    "update_role": schema(("id", "payload"), id=_id, payload=_patch_role),
+    "delete_role": schema(("id",), id=_id),
 }
