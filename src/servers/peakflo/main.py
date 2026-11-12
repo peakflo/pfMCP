@@ -860,6 +860,12 @@ async def make_peakflo_request(name, arguments, token):
         "create_custom_field": ("POST", "/ap/customfields"),
         "update_custom_field": ("PUT", "/ap/customfields/{id}"),
         "delete_custom_field": ("DELETE", "/ap/customfields/{id}"),
+        "invite_user": ("POST", "/users/invitations"),
+        "list_chart_of_accounts": ("GET", "/chartOfAccounts"),
+        "get_chart_of_account": ("GET", "/chartOfAccounts/{id}"),
+        "create_chart_of_account": ("POST", "/chartOfAccounts"),
+        "update_chart_of_account": ("PUT", "/chartOfAccounts/{id}"),
+        "delete_chart_of_account": ("DELETE", "/chartOfAccounts/{id}"),
     }
     if name in configuration_routes:
         method, path = configuration_routes[name]
@@ -869,7 +875,15 @@ async def make_peakflo_request(name, arguments, token):
                 raise ValueError("id is required")
             path = path.replace("{id}", quote(resource_id, safe=""))
         payload = arguments.pop("payload", None)
-        if method in {"POST", "PUT"}:
+        if name in {
+            "invite_user",
+            "create_chart_of_account",
+            "update_chart_of_account",
+        }:
+            arguments = (
+                arguments.pop("account") if "account" in arguments else arguments
+            )
+        elif method in {"POST", "PUT"}:
             if not isinstance(payload, dict):
                 raise ValueError("payload must be an object")
             arguments = payload
@@ -1184,7 +1198,7 @@ async def make_peakflo_request(name, arguments, token):
             response = await client.request(
                 method,
                 url,
-                json=arguments if method != "GET" else None,
+                json=arguments if method not in {"GET", "DELETE"} else None,
                 headers=headers,
                 timeout=60.0,
             )
@@ -1204,7 +1218,7 @@ async def make_peakflo_request(name, arguments, token):
                 response_data = response_data.get("data", response_data)
             return {
                 "_status_code": status_code,
-                "message": (status_code == 200 or status_code == 201)
+                "message": (200 <= status_code < 300)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
                 "data": response_data,

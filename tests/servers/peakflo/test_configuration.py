@@ -30,6 +30,14 @@ def test_configuration_inputs_need_ids_and_payloads():
     Draft7Validator(configuration_schemas["create_approval_policy"]).validate(
         {"payload": {"ranges": []}}
     )
+    with pytest.raises(ValidationError):
+        Draft7Validator(configuration_schemas["invite_user"]).validate(
+            {"email": "new@example.com"}
+        )
+    with pytest.raises(ValidationError):
+        Draft7Validator(configuration_schemas["create_chart_of_account"]).validate(
+            {"account": {"name": "Office Supplies"}}
+        )
 
 
 @pytest.mark.asyncio
@@ -57,6 +65,73 @@ def test_configuration_inputs_need_ids_and_payloads():
             "POST",
             "/field-rules",
             {"displayName": "Review"},
+        ),
+        (
+            "invite_user",
+            {"email": "new@example.com", "displayName": "New User"},
+            "POST",
+            "/users/invitations",
+            {"email": "new@example.com", "displayName": "New User"},
+        ),
+        (
+            "list_chart_of_accounts",
+            {"search": "office", "page": 1},
+            "GET",
+            "/chartOfAccounts?search=office&page=1",
+            None,
+        ),
+        (
+            "get_chart_of_account",
+            {"id": "coa-1"},
+            "GET",
+            "/chartOfAccounts/coa-1",
+            None,
+        ),
+        (
+            "create_chart_of_account",
+            {
+                "account": {
+                    "name": "Office",
+                    "code": "6001",
+                    "type": "expense",
+                    "paymentAllowed": False,
+                }
+            },
+            "POST",
+            "/chartOfAccounts",
+            {
+                "name": "Office",
+                "code": "6001",
+                "type": "expense",
+                "paymentAllowed": False,
+            },
+        ),
+        (
+            "update_chart_of_account",
+            {
+                "id": "coa-1",
+                "account": {
+                    "name": "Office",
+                    "code": "6001",
+                    "type": "expense",
+                    "paymentAllowed": False,
+                },
+            },
+            "PUT",
+            "/chartOfAccounts/coa-1",
+            {
+                "name": "Office",
+                "code": "6001",
+                "type": "expense",
+                "paymentAllowed": False,
+            },
+        ),
+        (
+            "delete_chart_of_account",
+            {"id": "coa-1"},
+            "DELETE",
+            "/chartOfAccounts/coa-1",
+            None,
         ),
     ],
 )
@@ -90,3 +165,32 @@ async def test_configuration_route_mapping(monkeypatch, name, args, method, url,
     assert calls[0][1] == "https://api.example/v1" + url
     assert calls[0][2]["json"] == body
     assert calls[0][2]["headers"]["Authorization"] == "Bearer test-token"
+
+
+@pytest.mark.asyncio
+async def test_invite_queue_response_is_success(monkeypatch):
+    class Response:
+        status_code = 202
+        content = b'{"status":"queued"}'
+        text = '{"status":"queued"}'
+
+        def json(self):
+            return {"status": "queued"}
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def request(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setattr(main.httpx, "AsyncClient", Client)
+    monkeypatch.setattr(main, "PEAKFLO_V1_BASE_URL", "https://api.example/v1")
+    result = await main.make_peakflo_request(
+        "invite_user", {"email": "new@example.com", "displayName": "New User"}, "token"
+    )
+    assert result["_status_code"] == 202
+    assert result["message"] == "Invite user succeeded"

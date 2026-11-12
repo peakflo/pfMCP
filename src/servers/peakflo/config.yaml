@@ -7,7 +7,7 @@ resources:
     description: "Peakflo invoices"
     required_scopes: []
 tools:
-+  - name: "list_approval_policies"
+  - name: "list_approval_policies"
     description: "List AP approval policies"
     required_scopes: []
   - name: "get_approval_policy"
@@ -48,6 +48,24 @@ tools:
     required_scopes: []
   - name: "delete_custom_field"
     description: "Delete an AP custom field definition"
+    required_scopes: []
+  - name: "invite_user"
+    description: "Queue a tenant user invitation"
+    required_scopes: []
+  - name: "list_chart_of_accounts"
+    description: "Search the tenant chart of accounts"
+    required_scopes: []
+  - name: "get_chart_of_account"
+    description: "Read one chart of account entry"
+    required_scopes: []
+  - name: "create_chart_of_account"
+    description: "Create a chart of account entry"
+    required_scopes: []
+  - name: "update_chart_of_account"
+    description: "Update a Settings chart of account entry"
+    required_scopes: []
+  - name: "delete_chart_of_account"
+    description: "Delete a Settings chart of account entry"
     required_scopes: []
   - name: "get_invoices"
     description: "Get invoices"

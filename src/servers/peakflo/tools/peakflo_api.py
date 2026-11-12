@@ -60,6 +60,12 @@ configuration_descriptions = {
     "create_custom_field": "Create an AP custom field definition. Supply its full API payload.",
     "update_custom_field": "Update an AP custom field definition by ID. Supply its full API payload.",
     "delete_custom_field": "Delete an AP custom field definition by ID.",
+    "invite_user": "Queue a Peakflo user invite for this tenant. Requires email and displayName. The tenant's skipUserInvite setting controls whether the invite email is sent.",
+    "list_chart_of_accounts": "Search this tenant's chart of accounts with optional search, page, and limit.",
+    "get_chart_of_account": "Read one chart of account entry by ID.",
+    "create_chart_of_account": "Create a chart of account entry. Account needs name, code, type, and paymentAllowed.",
+    "update_chart_of_account": "Update a Settings-created chart of account entry by ID. Supply all four account fields.",
+    "delete_chart_of_account": "Delete a Settings-created chart of account entry by ID.",
 }
 configuration_tools = [
     Tool(
