@@ -41,6 +41,7 @@ from servers.peakflo.schemas.bill import (
     add_bill_attachment_schema,
     add_expense_report_attachment_schema,
     add_bill_payment_attachment_schema,
+    add_purchase_quote_attachment_schema,
     update_bill_attachment_validation_schema,
     update_ap_attachment_validation_schema,
 )
@@ -264,6 +265,21 @@ bill_tools = [
             "customFieldFile; fileType customFieldFile requires customFieldDetails."
         ),
         inputSchema=add_bill_payment_attachment_schema,
+    ),
+    Tool(
+        name="add_purchase_quote_attachment",
+        description=(
+            "Add an attachment to an existing purchase quote by its peakfloId "
+            "(PUT /v1/purchase-quote/:externalId/attachments; path param is peakfloId). "
+            "Same file_url / base64 contract as add_bill_attachment. "
+            "Optional customFieldDetails targets a Pixel multi-file custom field: "
+            "customFieldNumber is REQUIRED inside it (the API finds the field by "
+            "number); customFieldId, customFieldName, customFieldType and "
+            "customFieldSourceId are optional — omit them if unknown, never send "
+            "empty strings. When customFieldDetails is set, fileType is forced to "
+            "customFieldFile; fileType customFieldFile requires customFieldDetails."
+        ),
+        inputSchema=add_purchase_quote_attachment_schema,
     ),
 ]
 
