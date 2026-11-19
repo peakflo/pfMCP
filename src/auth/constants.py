@@ -63,5 +63,11 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "slack-user",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Microsoft SharePoint (Nango provider config key "sharepoint",
+    # template: sharepoint-online)
+    "sharepoint": {
+        "nango_service_name": "sharepoint",
+        "auth_type": AUTH_TYPE_OAUTH2,
+    },
     # # Add more mappings as needed
 }
