@@ -20,6 +20,7 @@ from peakflo.schemas.bill import (
     add_bill_attachment_schema,
     add_expense_report_attachment_schema,
     add_bill_payment_attachment_schema,
+    add_purchase_quote_attachment_schema,
     normalize_multifile_custom_field_type,
 )
 from peakflo.schemas.purchase_order import ap_attachment_file_types, to_data_uri
@@ -189,10 +190,11 @@ def test_attachment_rejects_incomplete_custom_field_details():
         Draft7Validator(add_bill_attachment_schema).validate(payload)
 
 
-def test_expense_report_and_payment_schemas_share_cf_contract():
+def test_expense_report_payment_and_pq_schemas_share_cf_contract():
     for schema, id_field in (
         (add_expense_report_attachment_schema, "externalId"),
         (add_bill_payment_attachment_schema, "externalId"),
+        (add_purchase_quote_attachment_schema, "externalId"),
     ):
         assert id_field in schema["required"]
         assert "customFieldDetails" in schema["properties"]
@@ -240,6 +242,7 @@ def test_attachment_requires_custom_field_details_for_custom_field_file():
         (add_bill_attachment_schema, "billExternalId"),
         (add_expense_report_attachment_schema, "externalId"),
         (add_bill_payment_attachment_schema, "externalId"),
+        (add_purchase_quote_attachment_schema, "externalId"),
     ):
         payload = _valid_attachment()
         payload[id_field] = payload.pop("billExternalId")
@@ -279,6 +282,7 @@ def test_number_only_custom_field_details_are_valid():
         (add_bill_attachment_schema, "billExternalId"),
         (add_expense_report_attachment_schema, "externalId"),
         (add_bill_payment_attachment_schema, "externalId"),
+        (add_purchase_quote_attachment_schema, "externalId"),
     ):
         assert schema["properties"]["customFieldDetails"]["required"] == [
             "customFieldNumber"
