@@ -1,4 +1,4 @@
-aiohttp
+aiohttp>=3.14.4
 anthropic==0.49.0
 beautifulsoup4
 google-api-python-client
