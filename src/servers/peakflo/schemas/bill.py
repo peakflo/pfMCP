@@ -325,3 +325,13 @@ add_bill_payment_attachment_schema = build_ap_attachment_schema(
     entity_label="bill payment",
     route_hint="PUT /v1/bill-payment/:externalId/attachments",
 )
+
+add_purchase_quote_attachment_schema = build_ap_attachment_schema(
+    id_field="externalId",
+    id_description=(
+        "Peakflo ID of the purchase quote to attach the file to "
+        "(PQs have no ERP externalId; this is peakfloId in the URL path)"
+    ),
+    entity_label="purchase quote",
+    route_hint="PUT /v1/purchase-quote/:externalId/attachments",
+)

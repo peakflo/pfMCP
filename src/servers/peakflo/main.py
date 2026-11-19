@@ -993,6 +993,15 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill-payment/{external_id}/attachments"
         message = "Attachment added to bill payment successfully"
+    elif name == "add_purchase_quote_attachment":
+        # Path param is the PQ peakfloId (PQs have no ERP externalId).
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_purchase_quote_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/purchase-quote/{external_id}/attachments"
+        message = "Attachment added to purchase quote successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
