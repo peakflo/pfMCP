@@ -63,5 +63,11 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "slack-user",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Telegram user account (Telethon): apiKey holds the session string;
+    # api_id/api_hash come from connection_config, metadata or the environment.
+    "telegram": {
+        "nango_service_name": "telegram",
+        "auth_type": AUTH_TYPE_API_KEY,
+    },
     # # Add more mappings as needed
 }

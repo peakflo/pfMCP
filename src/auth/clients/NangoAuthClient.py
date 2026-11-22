@@ -172,6 +172,15 @@ class NangoAuthClient(BaseAuthClient[CredentialsT]):
         if auth_type == AUTH_TYPE_API_KEY:
             credentials = dict(response_json.get("credentials") or {})
             if credentials.get("apiKey"):
+                # Some API key integrations (e.g. Telegram's api_id/api_hash)
+                # keep non-secret, connection-specific fields beside the key.
+                credentials.setdefault(
+                    "connection_config",
+                    response_json.get(
+                        "connection_config", response_json.get("connectionConfig", {})
+                    ),
+                )
+                credentials.setdefault("metadata", response_json.get("metadata", {}))
                 return credentials
             # Fallback: legacy connection migrated from UNAUTHENTICATED.
             return (
