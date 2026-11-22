@@ -19,7 +19,6 @@ google
 google-cloud-firestore
 google-cloud-storage
 stripe
-telethon
 PyGithub
 googlemaps
 dropbox

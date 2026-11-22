@@ -254,8 +254,6 @@ protobuf==6.30.2
     #   googleapis-common-protos
     #   grpcio-status
     #   proto-plus
-pyaes==1.6.1
-    # via telethon
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
@@ -345,9 +343,7 @@ rpds-py==0.28.0
     #   jsonschema
     #   referencing
 rsa==4.9
-    # via
-    #   google-auth
-    #   telethon
+    # via google-auth
 simple-salesforce==1.12.6
     # via -r requirements.in
 six==1.17.0
@@ -378,8 +374,6 @@ starlette==0.46.1
 stone==3.3.1
     # via dropbox
 stripe==12.0.0
-    # via -r requirements.in
-telethon==1.46.0
     # via -r requirements.in
 tomlkit==0.13.2
     # via snowflake-connector-python
