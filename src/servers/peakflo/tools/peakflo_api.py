@@ -200,7 +200,7 @@ bill_tools = [
         description=(
             "Save validation warnings and errors on an AP attachment by object "
             "type and Mongo ID, including standalone My Expenses (expense). "
-            "Use tr plus stable lineIndex for a travel report line voucher. "
+            "Use tr plus stable lineIndex for a request line voucher. "
             "Attachments on supported AP objects may receive suggested field changes. This tool "
             "never applies a field change."
         ),
@@ -442,13 +442,13 @@ utility_tools = [
     ),
     Tool(
         name="list_unliquidated_cash_advances",
-        description="List the employee's open cash advances. blocked is true when one would stop a new cash advance. Pass excludeTravelRequestId so payments already allocated only to this travel request are ignored.",
+        description="List the employee's open cash advances. blocked is true when one would stop a new cash advance. Pass excludeTravelRequestId so payments already allocated only to this request are ignored.",
         inputSchema=list_unliquidated_cash_advances_input_schema,
     ),
     Tool(
         name="create_cash_advance_payment",
         description=(
-            "Create one draft cash advance payment for a travel request currency group "
+            "Create one draft cash advance payment for a request currency group "
             "after the source system accepts the invoice. Pass sourceId as that "
             "external invoice id and externalId as the PeakfloRefId already sent "
             "to the source system. If reference already exists, returns that payment "
@@ -458,7 +458,7 @@ utility_tools = [
     ),
     Tool(
         name="add_travel_request_timeline_note",
-        description="Add a note on the travel request timeline. Use when a cash advance payment could not be created.",
+        description="Add a note on the request timeline. Use when a cash advance payment could not be created.",
         inputSchema=add_travel_request_timeline_note_input_schema,
     ),
 ]
