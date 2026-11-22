@@ -892,7 +892,7 @@ create_cash_advance_payment_input_schema = {
         "travelRequestNumber": {"type": "string"},
         "allocationCurrency": {
             "type": "string",
-            "description": "Travel request header currency",
+            "description": "Request header currency",
         },
         "appliedAmount": {
             "type": "number",
