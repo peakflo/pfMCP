@@ -873,7 +873,7 @@ create_cash_advance_payment_input_schema = {
         "vendorId": {"type": "string", "description": "Employee vendor id"},
         "reference": {
             "type": "string",
-            "description": "Idempotency key, <REQ number>_TR_<currency>",
+            "description": "Idempotency key, <Request number>_TR_<currency>",
         },
         "baseCurrency": {
             "type": "string",
