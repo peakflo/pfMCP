@@ -1,6 +1,6 @@
 """
-Offline handler-level tests for the bill / expense-report / bill-payment
-attach tools in the Peakflo server (make_peakflo_request).
+Offline handler-level tests for the bill / expense-report / bill-payment /
+purchase-quote attach tools in the Peakflo server (make_peakflo_request).
 
 Mocks the file download and the Peakflo HTTP call, so no network or
 credentials are needed. Verifies the URL routing, the forwarded payload
@@ -83,6 +83,11 @@ def _args(id_field, **extra):
             "add_bill_payment_attachment",
             "externalId",
             "/bill-payment/doc-1/attachments",
+        ),
+        (
+            "add_purchase_quote_attachment",
+            "externalId",
+            "/purchase-quote/doc-1/attachments",
         ),
     ],
 )
@@ -188,6 +193,7 @@ def test_decoded_base64_size_matches_real_length():
         ("add_bill_attachment", "billExternalId"),
         ("add_expense_report_attachment", "externalId"),
         ("add_bill_payment_attachment", "externalId"),
+        ("add_purchase_quote_attachment", "externalId"),
     ],
 )
 async def test_number_only_details_forwarded_unchanged(tool, id_field):
