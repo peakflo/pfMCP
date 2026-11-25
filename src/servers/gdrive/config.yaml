@@ -5,3 +5,7 @@ documentation_path: "README.md"
 tools:
   - name: "search"
     description: "Search for files in Google Drive"
+  - name: "list_files"
+    description: "Browse files and folders with pagination and shared-drive support"
+  - name: "read_file"
+    description: "Read file contents or export Google documents"
