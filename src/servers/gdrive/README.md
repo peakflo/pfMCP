@@ -1,64 +1,118 @@
 # Google Drive Server
 
-pfMCP server implementation for interacting with Google Drive.
+Drive tools for folder navigation, file contents, discovery and organization.
+Uses pfMCP's existing Google/Nango credential flow.
 
-### Tools
+## Tools
 
-- `search(query, folder_id?, page_size?, page_token?, drive_id?)`: full-text
-  search for files and folders. An optional folder limits results to its direct
-  children. Returns JSON with file IDs, names, MIME types, parents, links,
-  resource URIs and `nextPageToken` when more results exist.
-- `list_files(folder_id="root", folders_only=false, page_size=100,
-  page_token?, drive_id?)`: browse a folder's direct children. Pass a returned
-  folder ID to browse its children; traversal is not recursive. Pass
-  `folders_only=true` to find subfolders. For a shared drive, set `drive_id` and
-  use the drive ID as `folder_id` to browse its root.
-- `read_file(file_id, offset=0, max_chars=50000)`: retrieve file contents.
-  Google Docs export as Markdown, Sheets as CSV (first sheet), Slides as plain
-  text and Drawings as PNG. UTF-8 text is returned in JSON with metadata,
-  `total_chars` and `next_offset`; pass that offset to continue reading. Each
-  continuation reads the file again, so restart if the source changes.
-  Shortcuts resolve to their targets. PDFs, Office files and other binary formats
-  return an embedded MCP blob resource (base64), without text extraction or OCR.
-  Downloads/exports are limited to 10 MiB; a tool error is returned above that
-  limit. Folders must be browsed with `list_files`, not `read_file`.
+- `search(query, folder_id?, page_size=100, page_token?, drive_id?, mime_type?,
+  name_contains?, name_equals?, order_by?)`: literal full-text search with optional
+  direct-parent, MIME and name filters. Query text is escaped, not raw Drive query
+  syntax. Sort examples: `modifiedTime desc` or `folder,name` (no spaces after commas).
+- `list_files(folder_id="root", folders_only=false, page_size=100, page_token?,
+  drive_id?, mime_type?, name_contains?, name_equals?, order_by?)`: browse direct
+  children. Pass returned folder IDs to descend; traversal is not recursive.
+- `list_drives(page_size=100, page_token?)`: discover shared-drive IDs and names.
+  To browse a shared drive's root, pass its ID as both `folder_id` and `drive_id`
+  to `list_files`. Use a subfolder ID as `folder_id` when descending.
+- `get_file_info(file_id)`: metadata, parents, version, links, capabilities,
+  shortcut target and sharing state, without downloading. Returns metadata of
+  the supplied shortcut itself rather than resolving it.
+- `list_permissions(file_id, page_size=100, page_token?)`: inspect sharing roles
+  and inherited permission details. Does not grant or modify access.
+- `read_file(file_id, offset=0, max_chars=50000)`: original contents for regular
+  files; native Docs export as Markdown, Sheets as CSV (first sheet), Slides as
+  plain text, Drawings as PNG. UTF-8 text returns JSON with metadata,
+  `total_chars` and `next_offset`. Binary files return an embedded MCP blob
+  resource (base64). Shortcuts resolve to their targets.
+- `extract_file_text(file_id, offset=0, max_chars=50000)`: readable text from PDF,
+  DOCX, XLSX and PPTX, native Google files and UTF-8 text. Separate from retrieval
+  of original binary bytes. Uses the same text pagination as `read_file`.
+- `export_file(file_id, mime_type)`: export a native Google file to a supported
+  MIME type as an embedded binary resource. Examples: `application/pdf`,
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+  (DOCX), `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+  (XLSX), or `application/vnd.openxmlformats-officedocument.presentationml.presentation`
+  (PPTX). Google validates the source/target format combination. No conversion of
+  regular binary files; use `read_file` to download those.
+- `create_folder(name, parent_folder_id="root")`: create a folder.
+- `copy_file(file_id, name?, parent_folder_id?)`: copy a file with optional name
+  and destination. Google Drive does not recursively copy folders.
+- `update_file(file_id, name?, description?, parent_folder_id?, trashed?)`: rename,
+  change description, move, trash or restore a file/folder. At least one change
+  is required. Moving replaces existing parents with the destination; it does
+  not copy. If given a shortcut ID, updates the shortcut itself. `trashed=false`
+  restores an item; there is no permanent-delete tool.
+- `upload_file(name, mime_type, content? OR content_base64?, parent_folder_id="root",
+  target_mime_type?)`: upload UTF-8 text or strict base64 bytes (exactly one).
+  `mime_type` describes the source content. Optional `target_mime_type` converts
+  to a native Google Doc, Sheet or Slides presentation where Google supports
+  the source format. Does not accept local paths or remote URLs.
 
-Example: call `list_files` with `{"folder_id":"root","folders_only":true}`,
-then `list_files` with the selected folder ID, then `read_file` with a returned
-file ID. To fetch more results, repeat the same list/search arguments with the
-returned `nextPageToken` as `page_token`. An empty page may still have a next
-page token. Search supports literal text, not raw Drive query syntax.
+Search/list results include IDs, names, MIME types, resource URIs, parents, links
+and metadata. Continue with the same arguments and the returned `nextPageToken`
+as `page_token`; an empty page may still have a token. List/search support up to
+1000 items per page; drive/permission listing supports up to 100. A returned
+`incompleteSearch` flag means the search was incomplete.
 
-The existing `resources/list` and `resources/read` API remains available.
-Resources and tools are separate MCP capabilities; clients supporting only
-tools can use the tools above. Resource listing retains its legacy first-page
-behavior; use `list_files` for pagination. These operations are read-only and
-continue using pfMCP's existing credential flow. Hosted access is limited by the
-scopes actually granted to the Nango connection; local scope settings do not
-change existing grants.
+## Examples
 
-### Prerequisites
+1. `list_files` with `{"folders_only":true}` to find My Drive folders.
+2. `list_files` with `{"folder_id":"FOLDER_ID"}` to browse one.
+3. `read_file` with `{"file_id":"FILE_ID"}` for contents, or `extract_file_text`
+   for a PDF/Office file.
+4. `create_folder` with `{"name":"Processed","parent_folder_id":"FOLDER_ID"}`,
+   then `update_file` with `{"file_id":"FILE_ID","parent_folder_id":"NEW_FOLDER_ID"}`
+   to move an item.
+5. `upload_file` with `{"name":"notes.txt","mime_type":"text/plain","content":"Hello"}`.
 
-- Python 3.11+
-- A Google Cloud Project with Google Drive APIs enabled
-- OAuth 2.0 credentials with the following scopes:
-  - https://www.googleapis.com/auth/drive.readonly
+## Limits and content formats
 
-### Local Authentication
+Downloads, uploads and exports are limited to 10 MiB. Text responses contain at
+most 100,000 characters per page. Continuation re-reads the source; compare the
+returned version and restart at offset zero if it changes. Binary content is
+not paginated. Metadata and sharing information remain available without downloads.
 
-1. [Create a new Google Cloud project](https://console.cloud.google.com/projectcreate)
-2. [Enable the Google Drive API and Google Docs API](https://console.cloud.google.com/workspace-api/products)
-3. [Configure an OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) ("internal" is fine for testing)
-4. Add OAuth scopes:
-   - https://www.googleapis.com/auth/drive.readonly
-5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) for application type "Desktop App"
-6. Download the JSON file of your client's OAuth keys
-7. Rename the key file to `oauth.json` and place into the `local_auth/oauth_configs/gdrive/oauth.json`
+Extraction returns document text, not exact layout. DOCX reads body paragraphs
+and tables; PPTX reads slide text in slide-file order; XLSX reads all worksheet
+XML files with cell coordinates, cached values and formulas when no cached value
+exists. It does not evaluate formulas or apply number/date formatting. Text in
+headers, notes, images or embedded objects may not be included. Legacy binary
+DOC/XLS/PPT are unsupported. Encrypted PDFs are unsupported; scanned/image-only
+PDFs require separate OCR. Malformed/unsupported documents return tool errors.
 
-To authenticate and save credentials:
+Office extraction permits at most 20 MiB of expanded ZIP entries and rejects
+DTD/entity declarations. PDF extraction permits at most 1000 pages and 20 MiB
+of decompressed content per page. Extracted PDF/Office text is limited to
+2 Mi characters. These limits reduce resource use; this is not an OCR service.
+
+Existing `resources/list` and `resources/read` remain available. Resource
+listing retains first-page behavior; tools provide pagination. Blocking Google
+API and extraction work runs outside the event loop. Creates/copies/uploads
+are not automatically retried, since retries may duplicate results.
+
+## Authentication
+
+Enable the Google Drive API in a Google Cloud project. Hosted calls continue
+using their configured Nango connection and its actual Google grants.
+
+- Reading/discovery: `https://www.googleapis.com/auth/drive.readonly`.
+- Writing/organizing arbitrary accessible Drive files:
+  `https://www.googleapis.com/auth/drive`.
+- `drive.file` only permits files the app is authorized to access; it does not
+  provide general access to all existing files/folders.
+
+Adding tools does not expand an existing OAuth grant. A read-only connection
+can keep using reads, but write tools will fail until the connection has suitable
+write grants. Reauthorize the hosted connection using its supported Nango flow
+if those grants are needed. File and shared-drive permissions also apply.
+
+For local authentication, configure a Desktop OAuth client, download its JSON
+as `local_auth/oauth_configs/gdrive/oauth.json`, and run:
 
 ```bash
-python src/servers/gdrive/main.py auth
+python src/servers/gdrive/main.py auth          # read-only (default)
+python src/servers/gdrive/main.py auth --write  # full Drive write scope
 ```
 
-This will launch a browser-based authentication flow to obtain and save credentials.
+The authentication command starts Google's browser-based consent flow.
