@@ -2,6 +2,7 @@
 """
 Format the guMCP codebase using black.
 """
+
 import logging
 import os
 import subprocess

@@ -497,9 +497,7 @@ def create_server(user_id, api_key=None):
 
             except Exception as e:
                 logger.error(f"Error searching tickets: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error searching tickets: {str(e)}")
-                ]
+                raise
 
         elif name == "create_ticket":
             required_fields = ["subject", "comment"]
@@ -540,18 +538,11 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to create ticket: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the created ticket")
 
             except Exception as e:
                 logger.error(f"Error creating ticket: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error creating ticket: {str(e)}")
-                ]
+                raise
 
         elif name == "update_ticket":
             if not arguments or "ticket_id" not in arguments:
@@ -602,18 +593,11 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to update ticket: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the updated ticket")
 
             except Exception as e:
                 logger.error(f"Error updating ticket: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error updating ticket: {str(e)}")
-                ]
+                raise
 
         elif name == "add_comment":
             required_fields = ["ticket_id", "comment"]
@@ -652,18 +636,11 @@ def create_server(user_id, api_key=None):
                         )
                     ]
                 else:
-                    return [
-                        TextContent(
-                            type="text",
-                            text=f"Failed to add comment: {result}",
-                        )
-                    ]
+                    raise ValueError("Zendesk did not return the commented ticket")
 
             except Exception as e:
                 logger.error(f"Error adding comment: {str(e)}")
-                return [
-                    TextContent(type="text", text=f"Error adding comment: {str(e)}")
-                ]
+                raise
 
         raise ValueError(f"Unknown tool: {name}")
 

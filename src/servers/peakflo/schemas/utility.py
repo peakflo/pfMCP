@@ -857,11 +857,11 @@ list_unliquidated_cash_advances_input_schema = {
     "properties": {
         "employeeId": {
             "type": "string",
-            "description": "Employee vendor id on the travel request",
+            "description": "Employee vendor id on the request",
         },
         "excludeTravelRequestId": {
             "type": "string",
-            "description": "Travel request id whose own cash advances should not count as unliquidated",
+            "description": "Request id whose own cash advances should not count as unliquidated",
         },
     },
     "required": ["employeeId"],
@@ -873,7 +873,7 @@ create_cash_advance_payment_input_schema = {
         "vendorId": {"type": "string", "description": "Employee vendor id"},
         "reference": {
             "type": "string",
-            "description": "Idempotency key, <TR number>_TR_<currency>",
+            "description": "Idempotency key, <Request number>_TR_<currency>",
         },
         "baseCurrency": {
             "type": "string",
@@ -882,7 +882,7 @@ create_cash_advance_payment_input_schema = {
         "amount": {"type": "number", "description": "Payment amount in baseCurrency"},
         "convertedAmount": {
             "type": "number",
-            "description": "Same group in the travel request header currency",
+            "description": "Same group in the request header currency",
         },
         "fxRate": {
             "type": "number",
@@ -892,11 +892,11 @@ create_cash_advance_payment_input_schema = {
         "travelRequestNumber": {"type": "string"},
         "allocationCurrency": {
             "type": "string",
-            "description": "Travel request header currency",
+            "description": "Request header currency",
         },
         "appliedAmount": {
             "type": "number",
-            "description": "Allocation amount in the travel request header currency",
+            "description": "Allocation amount in the request header currency",
         },
         "date": {"type": "string", "description": "Approval time, ISO string"},
         "userId": {"type": "string"},
@@ -906,6 +906,14 @@ create_cash_advance_payment_input_schema = {
                 "External invoice id from a successful invoice create in the source "
                 "ERP or accounting system. Stored on the Peakflo payment so a later "
                 "approval does not queue a second invoice."
+            ),
+        },
+        "externalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": (
+                "Peakflo payment UUID previously sent to the source system as "
+                "PeakfloRefId."
             ),
         },
     },

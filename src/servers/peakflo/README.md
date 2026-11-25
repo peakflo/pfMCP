@@ -17,6 +17,25 @@ python src/servers/peakflo/main.py auth
 
 ### Tools
 
+Tenant configuration tools use the tenant in the API token. Read a record before you update it. The `payload` input is the complete billing API body. The API checks policy levels, rule access, and custom field data.
+
+| Resource | Tools | API route |
+|----------|-------|-----------|
+| AP approval policies | `list_approval_policies`, `get_approval_policy`, `create_approval_policy`, `update_approval_policy`, `delete_approval_policy` | `/v1/ap/policy` |
+| Rules Engine rules | `list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule` | `/v1/field-rules` |
+| AP custom fields | `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field` | `/v1/ap/customfields` |
+| Users | `invite_user` | `/v1/users/invitations` |
+| Chart of accounts | `list_chart_of_accounts`, `get_chart_of_account`, `create_chart_of_account`, `update_chart_of_account`, `delete_chart_of_account` | `/v1/chartOfAccounts` |
+| Roles and permissions | `list_role_permissions`, `list_roles`, `get_role`, `create_role`, `update_role`, `delete_role` | `/v1/roles` |
+
+Approval rule deletion archives the rule. The API rejects deletion while an active policy uses it. Other rule deletion removes the rule. Custom field list results use the API page and limit controls.
+
+`invite_user` requires `email` and `displayName`. The API uses the tenant's default user role unless a user token with role management authority supplies another role. Tenant API credentials can invite users with the default role only. The API queues user creation; the existing user management worker sends the email unless `skipUserInvite` is set for the tenant.
+
+COA create and update need `name`, `code`, `type`, and `paymentAllowed`. The API checks the same `enableCoaCreation` flag, `createCOA` user permission, and duplicate account number as the Settings page. An API credential can write when the tenant flag is on. Update and delete work only for accounts created in Settings.
+
+Read `list_role_permissions` before changing role flags. Role writes accept only the permission keys used by the web role editor. A user token needs `createRoles` or `editRoles` and cannot grant a permission the user does not hold. The tenant API credential is checked against the tenant's configured access token. System roles cannot be changed. A role cannot be deleted if it is assigned to a user or set as the default user role.
+
 | Tool | Description |
 |------|-------------|
 | **read_vendor** | Fetch vendor details by external ID. |
@@ -30,7 +49,7 @@ python src/servers/peakflo/main.py auth
 | **add_purchase_order_attachment** | Add an attachment to an existing purchase order by its external ID (`PUT /v1/purchase-order/:externalId/attachments`). Supply the file via a signed `file_url` (server downloads, base64-encodes, and computes `fileSize`) or directly via `base64` (with `fileSize`) — not both. Supports AP attachment file types (invoice, statement, cabinet, paymentProof, fakturPajak, whtFile, etc.). Files over 10MB are rejected. |
 | **add_bill_attachment** | Add an attachment to an existing bill by its external ID (`PUT /v1/bill/:billExternalId/attachments`). Supply the file via a signed `file_url` (server downloads, base64-encodes, and computes `fileSize`) or directly via `base64` (with `fileSize`) — not both. Optional `customFieldDetails` targets a Pixel multi-file CF (`fileType` coerced to `customFieldFile`): `customFieldNumber` is required; `customFieldId`, `customFieldName`, `customFieldType`, `customFieldSourceId` are optional and are forwarded only when non-empty (`customFieldType` normalized to `multiFile` when given, omitted otherwise). Files over 10MB are rejected. |
 | **update_bill_attachment_validation** | Save `validationDetails` and optional `suggestedFieldOverwrites` on an existing bill attachment (`PUT /v1/bill/:billExternalId/attachments/:attachmentId/validation`). Each suggestion needs `id`, `ruleId`, `currentValue`, `suggestedValue`, `optional`, `overridable`, and a bill or line target. A line target uses persistent 1-based `lineIndex`. This tool does not apply changes to the bill; the separate user decision route records approval or rejection. |
-| **update_ap_attachment_validation** | Save validation checks and optional proposed field changes by `objectType`, Mongo `objectId`, and `attachmentId`. Supports standalone My Expenses (`expense`), bill (including Expense Reports), PO, PQ, PR, RN, Travel Reports (`tr`), bill payment, and AP credit note. A TR line voucher uses the same `PUT /v1/ap/tr/:objectId/attachments/:attachmentId/validation` route with its persistent 1-based `lineIndex` in the body. A verified user reviews proposals separately. |
+| **update_ap_attachment_validation** | Save validation checks and optional proposed field changes by `objectType`, Mongo `objectId`, and `attachmentId`. Supports standalone My Expenses (`expense`), bill (including Expense Reports), PO, PQ, PR, RN, Requests (`tr`), bill payment, and AP credit note. A request line voucher uses the same `PUT /v1/ap/tr/:objectId/attachments/:attachmentId/validation` route with its persistent 1-based `lineIndex` in the body. A verified user reviews proposals separately. |
 | **add_expense_report_attachment** | Add an attachment to an expense report by external ID (`PUT /v1/expense-report/:externalId/attachments`). Same file source + optional `customFieldDetails` contract as bill attach. |
 | **add_bill_payment_attachment** | Add an attachment to an AP / TnE payment by external ID (`PUT /v1/bill-payment/:externalId/attachments`). Same file source + optional `customFieldDetails` contract as bill attach. |
 | **add_purchase_quote_attachment** | Add an attachment to a purchase quote by peakfloId (`PUT /v1/purchase-quote/:externalId/attachments`; path param is peakfloId). Same file source + optional `customFieldDetails` contract as bill attach. |

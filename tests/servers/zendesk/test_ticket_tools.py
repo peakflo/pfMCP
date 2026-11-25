@@ -33,7 +33,10 @@ async def invoke(name, arguments, response):
         ),
         patch.object(main, "make_zendesk_request", new_callable=AsyncMock) as api,
     ):
-        api.return_value = response
+        if isinstance(response, Exception):
+            api.side_effect = response
+        else:
+            api.return_value = response
         result = await server.dispatch(request)
     return result, api
 
@@ -217,3 +220,18 @@ async def test_nango_proxy_uses_mapped_provider_key(monkeypatch):
         == "test-provider"
     )
     assert client.get.await_args.kwargs["headers"]["Connection-Id"] == "connection-1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("search_tickets", {"query": "status:open"}),
+        ("create_ticket", {"subject": "Help", "comment": "Body"}),
+        ("update_ticket", {"ticket_id": 42, "status": "pending"}),
+        ("add_comment", {"ticket_id": 42, "comment": "Reply"}),
+    ],
+)
+async def test_api_failure_is_tool_error(name, arguments):
+    result, _ = await invoke(name, arguments, ValueError("Zendesk API error: 403"))
+    assert result.is_error is True

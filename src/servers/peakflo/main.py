@@ -845,7 +845,60 @@ async def make_peakflo_request(name, arguments, token):
     # remove tenantId from arguments if present, as it may appear in the payload (to handle vendor portal cases) but not expected by API
     if "tenantId" in arguments:
         arguments.pop("tenantId")
-    if name == "create_invoice":
+    configuration_routes = {
+        "list_approval_policies": ("GET", "/ap/policy"),
+        "get_approval_policy": ("GET", "/ap/policy/{id}"),
+        "create_approval_policy": ("POST", "/ap/policy"),
+        "update_approval_policy": ("PUT", "/ap/policy/{id}"),
+        "delete_approval_policy": ("DELETE", "/ap/policy/{id}"),
+        "list_rules": ("GET", "/field-rules"),
+        "get_rule": ("GET", "/field-rules/{id}"),
+        "create_rule": ("POST", "/field-rules"),
+        "update_rule": ("PUT", "/field-rules/{id}"),
+        "delete_rule": ("DELETE", "/field-rules/{id}"),
+        "list_custom_fields": ("GET", "/ap/customfields"),
+        "create_custom_field": ("POST", "/ap/customfields"),
+        "update_custom_field": ("PUT", "/ap/customfields/{id}"),
+        "delete_custom_field": ("DELETE", "/ap/customfields/{id}"),
+        "invite_user": ("POST", "/users/invitations"),
+        "list_chart_of_accounts": ("GET", "/chartOfAccounts"),
+        "get_chart_of_account": ("GET", "/chartOfAccounts/{id}"),
+        "create_chart_of_account": ("POST", "/chartOfAccounts"),
+        "update_chart_of_account": ("PUT", "/chartOfAccounts/{id}"),
+        "delete_chart_of_account": ("DELETE", "/chartOfAccounts/{id}"),
+        "list_role_permissions": ("GET", "/roles/permissions"),
+        "list_roles": ("GET", "/roles"),
+        "get_role": ("GET", "/roles/{id}"),
+        "create_role": ("POST", "/roles"),
+        "update_role": ("PATCH", "/roles/{id}"),
+        "delete_role": ("DELETE", "/roles/{id}"),
+    }
+    if name in configuration_routes:
+        method, path = configuration_routes[name]
+        resource_id = arguments.pop("id", None)
+        if "{id}" in path:
+            if not isinstance(resource_id, str) or not resource_id:
+                raise ValueError("id is required")
+            path = path.replace("{id}", quote(resource_id, safe=""))
+        payload = arguments.pop("payload", None)
+        if name in {
+            "invite_user",
+            "create_chart_of_account",
+            "update_chart_of_account",
+        }:
+            arguments = (
+                arguments.pop("account") if "account" in arguments else arguments
+            )
+        elif method in {"POST", "PUT", "PATCH"}:
+            if not isinstance(payload, dict):
+                raise ValueError("payload must be an object")
+            arguments = payload
+        elif arguments:
+            path += "?" + urlencode(arguments)
+            arguments = {}
+        url = f"{PEAKFLO_V1_BASE_URL}{path}"
+        message = f"{name.replace('_', ' ').capitalize()} succeeded"
+    elif name == "create_invoice":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/invoices"
         message = "Invoice created successfully"
@@ -953,14 +1006,14 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         if line_index is not None:
             if object_type_raw != "tr":
-                raise ValueError("lineIndex is only valid for a travel report voucher")
+                raise ValueError("lineIndex is only valid for a request voucher")
             if (
                 not isinstance(line_index, int)
                 or isinstance(line_index, bool)
                 or line_index < 1
             ):
                 raise ValueError(
-                    "Travel report voucher requires persistent 1-based lineIndex"
+                    "Request voucher requires persistent 1-based lineIndex"
                 )
             arguments["lineIndex"] = line_index
         url = (
@@ -1128,7 +1181,7 @@ async def make_peakflo_request(name, arguments, token):
     elif name == "add_travel_request_timeline_note":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addTravelRequestTimelineNote"
-        message = "Travel request timeline note added"
+        message = "Request timeline note added"
     elif name == "add_customer_attachment":
         if _uses_legacy_customer_attachment(arguments):
             return await _add_legacy_customer_attachment(arguments, headers, tenantId)
@@ -1160,7 +1213,7 @@ async def make_peakflo_request(name, arguments, token):
             response = await client.request(
                 method,
                 url,
-                json=arguments if method != "GET" else None,
+                json=arguments if method not in {"GET", "DELETE"} else None,
                 headers=headers,
                 timeout=60.0,
             )
@@ -1180,7 +1233,7 @@ async def make_peakflo_request(name, arguments, token):
                 response_data = response_data.get("data", response_data)
             return {
                 "_status_code": status_code,
-                "message": (status_code == 200 or status_code == 201)
+                "message": (200 <= status_code < 300)
                 and message
                 or f"Error: {response.text or 'Unknown error'}",
                 "data": response_data,

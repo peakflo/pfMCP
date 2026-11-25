@@ -266,7 +266,7 @@ update_ap_attachment_validation_schema = {
         "Save validation issues on an AP attachment by its Mongo object ID. "
         "Supported object types are expense, bill, po, pq, pr, rn, tr, billPayment, and "
         "apCreditNote. Standalone My Expenses use expense; Expense Reports use bill. "
-        "For a travel report line voucher, use tr and its persistent 1-based lineIndex. "
+        "For a request line voucher, use tr and its persistent 1-based lineIndex. "
         "Field suggestions require a separate verified user action before "
         "any AP object value changes."
     ),

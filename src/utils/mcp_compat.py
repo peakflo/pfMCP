@@ -43,6 +43,8 @@ from mcp.server.lowlevel import Server as _LowLevelServer
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types.version import LATEST_HANDSHAKE_VERSION
 
+from src.auth.credential_errors import translate_exception
+
 __all__ = ["NotificationOptions", "ReadResourceContents", "Server"]
 
 logger = logging.getLogger(__name__)
@@ -199,7 +201,9 @@ class Server(_LowLevelServer[Any]):
                         is_error=False,
                     )
                 except Exception as e:  # noqa: BLE001 - mirrors mcp 1.x behaviour
-                    return _error_result(str(e))
+                    # Credential problems say exactly which case they are, with
+                    # a stable code, and never hold a token or connection id.
+                    return _error_result(translate_exception(e))
 
             self.add_request_handler("tools/call", types.CallToolRequestParams, handler)
             return func

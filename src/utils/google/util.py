@@ -4,6 +4,7 @@ import logging
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from src.auth.credential_errors import credential_error_from_last
 from src.auth.factory import create_auth_client
 
 
@@ -43,11 +44,13 @@ async def get_credentials(user_id, service_name, api_key=None):
     credentials_data = auth_client.get_user_credentials(service_name, user_id)
 
     def handle_missing_credentials():
-        error_str = f"Credentials not found for user {user_id}."
+        # Say exactly which case it is. The message holds no connection id.
+        error = credential_error_from_last(service_name)
         if os.environ.get("ENVIRONMENT", "local") == "local":
-            error_str += "Please run with 'auth' argument first."
-        logging.error(error_str)
-        raise ValueError(f"Credentials not found for user {user_id}")
+            logging.error("%s Please run with 'auth' argument first.", error)
+        else:
+            logging.error("%s", error)
+        raise error
 
     if not credentials_data:
         handle_missing_credentials()
