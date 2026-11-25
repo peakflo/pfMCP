@@ -1,0 +1,2 @@
+# Shared formatter version for CI and local development.
+black==26.10.1
