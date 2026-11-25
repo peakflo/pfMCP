@@ -76,7 +76,7 @@ This project follows these coding standards:
 
 We use several tools to enforce these standards:
 
-- Black for code formatting
+- Black for code formatting (version pinned in `requirements-format.txt`, shared by CI and development)
 - Flake8 for linting
 - MyPy for type checking
 
@@ -85,8 +85,14 @@ We use several tools to enforce these standards:
 You can run the code quality tools with the following command from the root directory:
 
 ```bash
-# Format code with Black
-python scripts/format_code.py
+# Install the same formatter version used by CI
+python -m pip install -r requirements-format.txt
+
+# Format all Python code
+python -m black src/ tests/ scripts/
+
+# Run the CI formatting check
+python -m black --check src/ tests/ scripts/
 ```
 
 ## Authentication

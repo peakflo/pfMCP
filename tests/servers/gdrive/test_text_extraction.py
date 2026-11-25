@@ -77,14 +77,10 @@ def test_pdf_page_and_stream_limits():
 
 
 def test_docx_paragraphs_and_tables():
-    data = office(
-        {
-            "word/document.xml": """<w:document xmlns:w="urn:test"><w:body>
+    data = office({"word/document.xml": """<w:document xmlns:w="urn:test"><w:body>
     <w:p><w:r><w:t>Hello</w:t><w:tab/><w:t>world</w:t></w:r></w:p>
     <w:tbl><w:tr><w:tc><w:p><w:r><w:t>Cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
-    </w:body></w:document>"""
-        }
-    )
+    </w:body></w:document>"""})
     assert extraction.extract_text(data, DOCX) == "Hello\tworld\nCell"
 
 
