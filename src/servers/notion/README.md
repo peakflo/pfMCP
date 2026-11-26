@@ -39,9 +39,10 @@ This server exposes the following tools for interacting with Notion:
 - `list_all_users` – List all users
 - `search_pages` – Search all pages
 - `list_databases` – List all databases
-- `query_database` – Query a Notion database
-- `get_page` – Retrieve a page by ID
-- `create_page` – Create a new page in a database
+- `query_database` – Query a Notion database (supports optional `filter`, `sorts`, `page_size` 1–100, and `start_cursor` pagination)
+- `get_page` – Retrieve a page by ID or URL
+- `create_page` – Create a new page in a database (supports optional `children` Notion block list for single-call creation with body content/bookmarks)
+- `update_page` – Update a page by ID or URL (`properties`, `archived`, `icon`, and/or `cover`; at least one field required)
 - `append_blocks` – Append content blocks to a page or block
 - `get_block_children` – List content blocks of a page or block
 - `comment_on_page` – Add a top-level comment on a page (page ID or URL + comment text)
