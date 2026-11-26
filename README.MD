@@ -143,6 +143,7 @@ The following table provides an overview of the current servers implemented in p
 | Intercom | ⚠️ Coming soon | [Intercom Docs](/src/servers/intercom/README.md) |
 | Zoom | ⚠️ Coming soon | [Zoom Docs](/src/servers/zoom/README.md) |
 | TLDV | ✅ Seamless with Nango auth | [TLDV Docs](/src/servers/tldv/README.md) |
+| Telegram (Bot) | ✅ Seamless with Nango auth | [Telegram Docs](/src/servers/telegram/README.md) |
 | Twilio | ⚠️ Coming soon | [Twilio Docs](/src/servers/twilio/README.md) |
 | **Productivity Tools** |  |  |
 | Airtable | ✅ Seamless with Nango auth, ✅ Seamless with Gumloop auth | [Airtable Docs](/src/servers/airtable/README.md) |

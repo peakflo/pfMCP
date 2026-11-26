@@ -2,6 +2,7 @@
 """
 Run linting checks on the guMCP codebase.
 """
+
 import argparse
 import logging
 import os

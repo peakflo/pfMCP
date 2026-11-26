@@ -1006,14 +1006,14 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         if line_index is not None:
             if object_type_raw != "tr":
-                raise ValueError("lineIndex is only valid for a travel report voucher")
+                raise ValueError("lineIndex is only valid for a request voucher")
             if (
                 not isinstance(line_index, int)
                 or isinstance(line_index, bool)
                 or line_index < 1
             ):
                 raise ValueError(
-                    "Travel report voucher requires persistent 1-based lineIndex"
+                    "Request voucher requires persistent 1-based lineIndex"
                 )
             arguments["lineIndex"] = line_index
         url = (
@@ -1046,6 +1046,15 @@ async def make_peakflo_request(name, arguments, token):
         method = "PUT"
         url = f"{PEAKFLO_V1_BASE_URL}/bill-payment/{external_id}/attachments"
         message = "Attachment added to bill payment successfully"
+    elif name == "add_purchase_quote_attachment":
+        # Path param is the PQ peakfloId (PQs have no ERP externalId).
+        external_id = arguments.pop("externalId")
+        arguments = await _prepare_ap_attachment_body(
+            arguments, tool_name="add_purchase_quote_attachment"
+        )
+        method = "PUT"
+        url = f"{PEAKFLO_V1_BASE_URL}/purchase-quote/{external_id}/attachments"
+        message = "Attachment added to purchase quote successfully"
     elif name == "raise_invoice_dispute":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/upload-dispute"
@@ -1172,7 +1181,7 @@ async def make_peakflo_request(name, arguments, token):
     elif name == "add_travel_request_timeline_note":
         method = "POST"
         url = f"{PEAKFLO_V1_BASE_URL}/addTravelRequestTimelineNote"
-        message = "Travel request timeline note added"
+        message = "Request timeline note added"
     elif name == "add_customer_attachment":
         if _uses_legacy_customer_attachment(arguments):
             return await _add_legacy_customer_attachment(arguments, headers, tenantId)

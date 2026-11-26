@@ -266,7 +266,7 @@ update_ap_attachment_validation_schema = {
         "Save validation issues on an AP attachment by its Mongo object ID. "
         "Supported object types are expense, bill, po, pq, pr, rn, tr, billPayment, and "
         "apCreditNote. Standalone My Expenses use expense; Expense Reports use bill. "
-        "For a travel report line voucher, use tr and its persistent 1-based lineIndex. "
+        "For a request line voucher, use tr and its persistent 1-based lineIndex. "
         "Field suggestions require a separate verified user action before "
         "any AP object value changes."
     ),
@@ -324,4 +324,14 @@ add_bill_payment_attachment_schema = build_ap_attachment_schema(
     ),
     entity_label="bill payment",
     route_hint="PUT /v1/bill-payment/:externalId/attachments",
+)
+
+add_purchase_quote_attachment_schema = build_ap_attachment_schema(
+    id_field="externalId",
+    id_description=(
+        "Peakflo ID of the purchase quote to attach the file to "
+        "(PQs have no ERP externalId; this is peakfloId in the URL path)"
+    ),
+    entity_label="purchase quote",
+    route_hint="PUT /v1/purchase-quote/:externalId/attachments",
 )

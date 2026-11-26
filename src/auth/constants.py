@@ -63,5 +63,11 @@ SERVICE_NAME_MAP = {
         "nango_service_name": "slack-user",
         "auth_type": AUTH_TYPE_OAUTH2,
     },
+    # Telegram Bot API: Nango built-in "telegram" provider, apiKey is the
+    # bot token from @BotFather.
+    "telegram": {
+        "nango_service_name": "telegram",
+        "auth_type": AUTH_TYPE_API_KEY,
+    },
     # # Add more mappings as needed
 }

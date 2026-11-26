@@ -73,6 +73,8 @@ cryptography==44.0.2
     #   pyjwt
     #   pyopenssl
     #   snowflake-connector-python
+defusedxml==0.7.1
+    # via -r requirements.in
 deprecated==1.2.18
     # via pygithub
 distro==1.9.0
@@ -289,6 +291,8 @@ pyopenssl==25.0.0
     # via snowflake-connector-python
 pyparsing==3.2.3
     # via httplib2
+pypdf==7.1.1
+    # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
     #   mailchimp-marketing
