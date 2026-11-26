@@ -2,6 +2,7 @@ import sys
 import logging
 import json
 import os
+import time
 import requests
 from pathlib import Path
 from typing import Optional, Any
@@ -36,6 +37,32 @@ SHAREPOINT_OAUTH_TOKEN_URL = (
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0/"
 GRAPH_SITES_URL = GRAPH_BASE_URL + "sites/"
 GRAPH_USERS_URL = GRAPH_BASE_URL + "users/"
+
+# Largest file content fetched from a URL before uploading it to Graph.
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+
+
+def _filename_from_url(url: str, headers: Any = None) -> str:
+    """Derive a usable file name for content downloaded from a URL.
+
+    Prefers the Content-Disposition header, then the last path segment of the
+    URL, and falls back to a generated name.
+    """
+    disposition = ""
+    if headers is not None:
+        disposition = headers.get("Content-Disposition") or ""
+    if "filename=" in disposition:
+        candidate = disposition.split("filename=", 1)[1].split(";")[0].strip().strip('"')
+        if candidate:
+            return os.path.basename(candidate)
+
+    path = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    candidate = os.path.basename(path)
+    if candidate and "." in candidate:
+        return candidate
+    if candidate and candidate not in {"content", "download", "file"}:
+        return candidate
+    return f"upload-{int(time.time())}"
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -448,17 +475,21 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             ),
             types.Tool(
                 name="upload_file",
-                description="Upload a file to the current user's OneDrive",
+                description="Upload a file to the current user's OneDrive, either from a local path or from a downloadable URL",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "Local path of the file to upload",
+                            "description": "Local path of the file to upload (use this or file_url)",
+                        },
+                        "file_url": {
+                            "type": "string",
+                            "description": "Downloadable URL of the file to upload (use this or file_path). The server fetches the file content itself.",
                         },
                         "destination_path": {
                             "type": "string",
-                            "description": "Destination path in OneDrive, including filename (e.g., 'Documents/report.docx')",
+                            "description": "Destination path in OneDrive, including filename (e.g., 'Documents/report.docx'). When only a folder is given, the uploaded file's own name is used.",
                         },
                         "conflict_behavior": {
                             "type": "string",
@@ -474,7 +505,6 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                             "description": "ID of the parent folder (optional, use instead of destination_path)",
                         },
                     },
-                    "required": ["file_path"],
                 },
             ),
             types.Tool(
@@ -1422,21 +1452,31 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             elif name == "upload_file":
                 # Extract parameters for uploading a file
                 file_path = arguments.get("file_path")
+                file_url = arguments.get("file_url")
                 destination_path = arguments.get("destination_path")
                 parent_folder_id = arguments.get("parent_folder_id")
                 conflict_behavior = arguments.get("conflict_behavior", "replace")
-                content_type = arguments.get("content_type", "text/plain")
+                content_type = arguments.get("content_type")
 
-                # Validate required parameters
-                if not file_path:
+                # Validate required parameters: exactly one source
+                if not file_path and not file_url:
                     return [
                         types.TextContent(
-                            type="text", text="Error: file_path is required"
+                            type="text",
+                            text="Error: Either file_path or file_url must be provided",
                         )
                     ]
 
-                # Check if file exists
-                if not os.path.isfile(file_path):
+                if file_path and file_url:
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text="Error: Provide either file_path or file_url, not both",
+                        )
+                    ]
+
+                # Check if a local file exists (URL sources are downloaded below)
+                if file_path and not os.path.isfile(file_path):
                     return [
                         types.TextContent(
                             type="text", text=f"Error: File not found: {file_path}"
@@ -1462,14 +1502,61 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     ]
 
                 try:
-                    # Determine file size
-                    file_size = os.path.getsize(file_path)
-                    file_name = os.path.basename(file_path)
+                    if file_url:
+                        # Fetch the file content from the URL (workflow files arrive as
+                        # signed links, not as paths on this host).
+                        download = requests.get(file_url, timeout=120, stream=True)
+                        if download.status_code != 200:
+                            return [
+                                types.TextContent(
+                                    type="text",
+                                    text=f"Error downloading file from URL: {download.status_code} - {download.text[:500]}",
+                                )
+                            ]
+
+                        declared_size = int(
+                            download.headers.get("Content-Length") or 0
+                        )
+                        if declared_size > MAX_UPLOAD_BYTES:
+                            return [
+                                types.TextContent(
+                                    type="text",
+                                    text=f"Error: File is too large ({declared_size} bytes). Maximum is {MAX_UPLOAD_BYTES} bytes.",
+                                )
+                            ]
+
+                        file_content = download.content
+                        if len(file_content) > MAX_UPLOAD_BYTES:
+                            return [
+                                types.TextContent(
+                                    type="text",
+                                    text=f"Error: File is too large ({len(file_content)} bytes). Maximum is {MAX_UPLOAD_BYTES} bytes.",
+                                )
+                            ]
+
+                        file_size = len(file_content)
+                        file_name = _filename_from_url(file_url, download.headers)
+                        content_type = (
+                            content_type
+                            or download.headers.get("Content-Type")
+                            or "application/octet-stream"
+                        )
+                    else:
+                        file_size = os.path.getsize(file_path)
+                        file_name = os.path.basename(file_path)
+                        file_content = None
+                        content_type = content_type or "application/octet-stream"
 
                     # Build the request URL based on provided parameters
                     if destination_path:
                         # Clean the path and ensure it starts with a / but doesn't end with one
                         clean_path = destination_path.strip("/")
+                        # A folder-only destination keeps the uploaded file's own name
+                        if (
+                            os.path.basename(clean_path) != file_name
+                            and not os.path.splitext(clean_path)[1]
+                        ):
+                            clean_path = f"{clean_path}/{file_name}"
                         url = f"{GRAPH_BASE_URL}me/drive/root:/{clean_path}:/content"
                     else:
                         # Use parent folder ID and include filename
@@ -1484,9 +1571,10 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     upload_headers = sharepoint["headers"].copy()
                     upload_headers["Content-Type"] = content_type
 
-                    # Read the file content
-                    with open(file_path, "rb") as f:
-                        file_content = f.read()
+                    # Read the local file content when it was not downloaded above
+                    if file_content is None:
+                        with open(file_path, "rb") as f:
+                            file_content = f.read()
 
                     # Make the API request to upload the file
                     response = requests.put(
