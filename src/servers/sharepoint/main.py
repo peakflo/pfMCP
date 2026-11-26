@@ -52,7 +52,9 @@ def _filename_from_url(url: str, headers: Any = None) -> str:
     if headers is not None:
         disposition = headers.get("Content-Disposition") or ""
     if "filename=" in disposition:
-        candidate = disposition.split("filename=", 1)[1].split(";")[0].strip().strip('"')
+        candidate = (
+            disposition.split("filename=", 1)[1].split(";")[0].strip().strip('"')
+        )
         if candidate:
             return os.path.basename(candidate)
 
@@ -63,6 +65,7 @@ def _filename_from_url(url: str, headers: Any = None) -> str:
     if candidate and candidate not in {"content", "download", "file"}:
         return candidate
     return f"upload-{int(time.time())}"
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -1514,9 +1517,7 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                                 )
                             ]
 
-                        declared_size = int(
-                            download.headers.get("Content-Length") or 0
-                        )
+                        declared_size = int(download.headers.get("Content-Length") or 0)
                         if declared_size > MAX_UPLOAD_BYTES:
                             return [
                                 types.TextContent(
