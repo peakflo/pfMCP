@@ -3,7 +3,6 @@ import sys
 import logging
 import json
 from pathlib import Path
-from typing import Any
 
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
@@ -21,13 +20,10 @@ from src.auth.factory import create_auth_client
 from src.utils.notion.util import (
     authenticate_and_save_credentials,
     extract_page_id_from_url,
-    validate_notion_id,
 )
 
 SERVICE_NAME = Path(__file__).parent.name
 SCOPES = ["all"]  # Notion doesn't use granular OAuth scopes like Google
-MAX_QUERY_PAGE_SIZE = 100
-MAX_CREATE_PAGE_CHILDREN = 100
 
 # Configure logging
 logging.basicConfig(
@@ -36,144 +32,11 @@ logging.basicConfig(
 logger = logging.getLogger(SERVICE_NAME)
 
 
-def resolve_page_id(page_value: Any) -> str:
-    """Resolve and validate a Notion page ID from either a raw UUID or Notion URL."""
-    if not isinstance(page_value, str) or not page_value.strip():
-        raise ValueError("page must be a non-empty Notion page ID or URL")
-
-    normalized = page_value.strip()
-    lowered = normalized.lower()
-    if (
-        "notion.so" in lowered
-        or "notion.site" in lowered
-        or lowered.startswith(("http://", "https://"))
-    ):
-        return validate_notion_id(extract_page_id_from_url(normalized), "page")
-
-    return validate_notion_id(normalized, "page")
-
-
-def _build_query_database_kwargs(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Validate and build keyword arguments for ``notion.databases.query``."""
-    database_id = validate_notion_id(arguments.get("database_id"), "database_id")
-
-    query_kwargs: dict[str, Any] = {"database_id": database_id}
-
-    if "filter" in arguments and arguments["filter"] is not None:
-        filter_arg = arguments["filter"]
-        if not isinstance(filter_arg, dict) or not filter_arg:
-            raise ValueError("filter must be a non-empty object")
-        query_kwargs["filter"] = filter_arg
-
-    if "sorts" in arguments and arguments["sorts"] is not None:
-        sorts_arg = arguments["sorts"]
-        if not isinstance(sorts_arg, list) or not all(
-            isinstance(item, dict) and bool(item) for item in sorts_arg
-        ):
-            raise ValueError("sorts must be a list of non-empty sort objects")
-        if sorts_arg:
-            query_kwargs["sorts"] = sorts_arg
-
-    if "page_size" in arguments and arguments["page_size"] is not None:
-        page_size = arguments["page_size"]
-        if (
-            isinstance(page_size, bool)
-            or not isinstance(page_size, int)
-            or page_size < 1
-            or page_size > MAX_QUERY_PAGE_SIZE
-        ):
-            raise ValueError(
-                f"page_size must be an integer between 1 and {MAX_QUERY_PAGE_SIZE}"
-            )
-        query_kwargs["page_size"] = page_size
-
-    if "start_cursor" in arguments and arguments["start_cursor"] is not None:
-        start_cursor = arguments["start_cursor"]
-        if not isinstance(start_cursor, str) or not start_cursor.strip():
-            raise ValueError("start_cursor must be a non-empty string")
-        query_kwargs["start_cursor"] = start_cursor.strip()
-
-    return query_kwargs
-
-
-def _format_query_database_result(result: Any) -> Any:
-    """Ensure ``query_database`` responses consistently expose pagination fields."""
-    if not isinstance(result, dict):
-        return result
-    return {
-        **result,
-        "results": result.get("results", []),
-        "has_more": bool(result.get("has_more", False)),
-        "next_cursor": result.get("next_cursor"),
-    }
-
-
-def _build_create_page_kwargs(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Validate and build keyword arguments for ``notion.pages.create``."""
-    database_id = validate_notion_id(arguments.get("database_id"), "database_id")
-
-    properties = arguments.get("properties")
-    if not isinstance(properties, dict):
-        raise ValueError("properties must be an object")
-
-    create_kwargs: dict[str, Any] = {
-        "parent": {"database_id": database_id},
-        "properties": properties,
-    }
-
-    if "children" in arguments and arguments["children"] is not None:
-        children = arguments["children"]
-        if not isinstance(children, list) or not all(
-            isinstance(block, dict) and bool(block) for block in children
-        ):
-            raise ValueError("children must be a list of non-empty block objects")
-        if len(children) > MAX_CREATE_PAGE_CHILDREN:
-            raise ValueError(
-                f"children cannot exceed {MAX_CREATE_PAGE_CHILDREN} blocks; "
-                "use append_blocks for additional blocks"
-            )
-        if children:
-            create_kwargs["children"] = children
-
-    return create_kwargs
-
-
-def _build_update_page_kwargs(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Validate and build keyword arguments for ``notion.pages.update``."""
-    page_id = resolve_page_id(arguments.get("page"))
-
-    update_kwargs: dict[str, Any] = {"page_id": page_id}
-
-    if "properties" in arguments and arguments["properties"] is not None:
-        properties = arguments["properties"]
-        if not isinstance(properties, dict) or not properties:
-            raise ValueError("properties must be a non-empty object")
-        update_kwargs["properties"] = properties
-
-    if "archived" in arguments and arguments["archived"] is not None:
-        archived = arguments["archived"]
-        if not isinstance(archived, bool):
-            raise ValueError("archived must be a boolean")
-        update_kwargs["archived"] = archived
-
-    if "icon" in arguments and arguments["icon"] is not None:
-        icon = arguments["icon"]
-        if not isinstance(icon, dict) or not icon:
-            raise ValueError("icon must be a non-empty object")
-        update_kwargs["icon"] = icon
-
-    if "cover" in arguments and arguments["cover"] is not None:
-        cover = arguments["cover"]
-        if not isinstance(cover, dict) or not cover:
-            raise ValueError("cover must be a non-empty object")
-        update_kwargs["cover"] = cover
-
-    if len(update_kwargs) == 1:
-        raise ValueError(
-            "At least one of 'properties', 'archived', 'icon', or 'cover' must be provided"
-        )
-
-    return update_kwargs
+def resolve_page_id(page_value):
+    """Returns the page ID from a raw Notion page ID or a Notion page URL."""
+    if "notion.so" in page_value or page_value.startswith(("http://", "https://")):
+        return extract_page_id_from_url(page_value)
+    return page_value
 
 
 async def get_credentials(user_id, api_key=None):
@@ -274,10 +137,7 @@ def create_server(user_id, api_key=None):
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "database_id": {
-                            "type": "string",
-                            "description": "The ID of the Notion database to query",
-                        },
+                        "database_id": {"type": "string"},
                         "filter": {
                             "type": "object",
                             "description": "Optional Notion database filter object",
@@ -290,12 +150,11 @@ def create_server(user_id, api_key=None):
                         "page_size": {
                             "type": "integer",
                             "minimum": 1,
-                            "maximum": MAX_QUERY_PAGE_SIZE,
-                            "description": "Optional number of results per page (1-100)",
+                            "maximum": 100,
                         },
                         "start_cursor": {
                             "type": "string",
-                            "description": "Optional pagination cursor returned as next_cursor from a previous query",
+                            "description": "next_cursor from a previous query",
                         },
                     },
                     "required": ["database_id"],
@@ -317,23 +176,17 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="create_page",
-                description="Create a new page in a database in Notion, optionally with initial body blocks",
+                description="Create a new page in a database in Notion, optionally with body blocks",
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "database_id": {
-                            "type": "string",
-                            "description": "The ID of the parent Notion database",
-                        },
-                        "properties": {
-                            "type": "object",
-                            "description": "Notion page property values matching the database schema",
-                        },
+                        "database_id": {"type": "string"},
+                        "properties": {"type": "object"},
                         "children": {
                             "type": "array",
                             "items": {"type": "object"},
-                            "maxItems": MAX_CREATE_PAGE_CHILDREN,
-                            "description": "Optional list of Notion block objects (e.g., paragraphs, headings, bookmark links) to add as initial page content (up to 100 blocks)",
+                            "maxItems": 100,
+                            "description": "Optional Notion block objects for the page body",
                         },
                     },
                     "required": ["database_id", "properties"],
@@ -341,32 +194,20 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="update_page",
-                description="Update a page's properties, archived status, icon, or cover in Notion",
+                description="Update a page's properties in Notion",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "page": {
                             "type": "string",
-                            "description": "The page ID or Notion page URL to update",
+                            "description": "The page ID or Notion page URL",
                         },
                         "properties": {
                             "type": "object",
                             "description": "Notion page property values to update",
                         },
-                        "archived": {
-                            "type": "boolean",
-                            "description": "Set to true to archive (trash) the page, or false to restore it",
-                        },
-                        "icon": {
-                            "type": "object",
-                            "description": "Notion page icon object (e.g., emoji or external URL)",
-                        },
-                        "cover": {
-                            "type": "object",
-                            "description": "Notion page cover object (e.g., external URL)",
-                        },
                     },
-                    "required": ["page"],
+                    "required": ["page", "properties"],
                 },
             ),
             types.Tool(
@@ -443,64 +284,69 @@ def create_server(user_id, api_key=None):
         Raises:
             ValueError: If an unknown tool name is provided.
         """
-        logger.info(f"User {user_id} calling tool: {name} with args: {arguments}")
+        logger.info(f"User {user_id} calling tool: {name}")
+
+        notion = await create_notion_client(server.user_id, server.api_key)
 
         if arguments is None:
             arguments = {}
 
         try:
             if name == "list_all_users":
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.users.list()
             elif name == "search_pages":
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.search(query=arguments["query"])
             elif name == "list_databases":
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.search(
                     filter={"property": "object", "value": "database"}
                 )
             elif name == "query_database":
-                query_kwargs = _build_query_database_kwargs(arguments)
-                notion = await create_notion_client(server.user_id, server.api_key)
-                raw_result = await notion.databases.query(**query_kwargs)
-                result = _format_query_database_result(raw_result)
+                query = {
+                    key: arguments[key]
+                    for key in ("filter", "sorts", "page_size", "start_cursor")
+                    if key in arguments
+                }
+                result = await notion.databases.query(
+                    database_id=arguments["database_id"], **query
+                )
             elif name == "get_page":
-                page_id = resolve_page_id(arguments["page"])
-                notion = await create_notion_client(server.user_id, server.api_key)
-                result = await notion.pages.retrieve(page_id=page_id)
+                result = await notion.pages.retrieve(
+                    page_id=resolve_page_id(arguments["page"])
+                )
             elif name == "create_page":
-                create_kwargs = _build_create_page_kwargs(arguments)
-                notion = await create_notion_client(server.user_id, server.api_key)
-                result = await notion.pages.create(**create_kwargs)
+                body = (
+                    {"children": arguments["children"]}
+                    if arguments.get("children")
+                    else {}
+                )
+                result = await notion.pages.create(
+                    parent={"database_id": arguments["database_id"]},
+                    properties=arguments["properties"],
+                    **body,
+                )
             elif name == "update_page":
-                update_kwargs = _build_update_page_kwargs(arguments)
-                notion = await create_notion_client(server.user_id, server.api_key)
-                result = await notion.pages.update(**update_kwargs)
+                result = await notion.pages.update(
+                    page_id=resolve_page_id(arguments["page"]),
+                    properties=arguments["properties"],
+                )
             elif name == "append_blocks":
-                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.blocks.children.append(
-                    block_id=block_id, children=arguments["children"]
+                    block_id=arguments["block_id"], children=arguments["children"]
                 )
             elif name == "get_block_children":
-                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
-                notion = await create_notion_client(server.user_id, server.api_key)
-                result = await notion.blocks.children.list(block_id=block_id)
+                result = await notion.blocks.children.list(
+                    block_id=arguments["block_id"]
+                )
             elif name == "comment_on_page":
-                page_id = resolve_page_id(arguments["page"])
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.comments.create(
-                    parent={"page_id": page_id},
+                    parent={"page_id": resolve_page_id(arguments["page"])},
                     rich_text=[
                         {"type": "text", "text": {"content": arguments["comment"]}}
                     ],
                 )
             elif name == "comment_on_block":
-                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
-                notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.comments.create(
-                    parent={"block_id": block_id},
+                    parent={"block_id": arguments["block_id"]},
                     rich_text=[
                         {"type": "text", "text": {"content": arguments["comment"]}}
                     ],
@@ -510,8 +356,6 @@ def create_server(user_id, api_key=None):
 
             return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
-        except ValueError:
-            raise
         except Exception as e:
             logger.error(f"Error calling Notion API: {e}")
             raise
