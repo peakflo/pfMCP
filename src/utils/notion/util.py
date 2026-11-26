@@ -2,6 +2,7 @@ import base64
 import logging
 import re
 from typing import Dict, List, Any
+from urllib.parse import parse_qs, urlparse
 
 from src.utils.oauth.util import (
     run_oauth_flow,
@@ -154,24 +155,74 @@ async def get_credentials(user_id: str, service_name: str, api_key: str = None) 
     )
 
 
+_NOTION_ID_PATTERN = re.compile(
+    r"^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+)
+_TRAILING_NOTION_ID_PATTERN = re.compile(
+    r"(?:^|-)([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32})$"
+)
+
+
+def validate_notion_id(value: Any, field_name: str = "id") -> str:
+    """
+    Validate that a Notion resource ID is a 32-character hex or hyphenated UUID.
+
+    Args:
+        value (Any): Candidate Notion ID.
+        field_name (str): Parameter name used in error messages.
+
+    Returns:
+        str: Canonical lowercase Notion UUID string.
+
+    Raises:
+        ValueError: If value is not a valid Notion UUID.
+    """
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a valid Notion UUID")
+    normalized = value.strip()
+    if not _NOTION_ID_PATTERN.fullmatch(normalized):
+        raise ValueError(
+            f"{field_name} must be a valid Notion UUID (32 hex characters or hyphenated UUID)"
+        )
+    return normalized.lower()
+
+
 def extract_page_id_from_url(url: str) -> str:
     """
     Extracts the page ID from a Notion URL.
 
+    Prefers the ``p`` query parameter on database/parent peek URLs (e.g.
+    ``?v=<view_id>&p=<page_id>``); otherwise extracts the trailing UUID/32-hex
+    page ID from the URL path only (ignoring ``?v=`` and ``#block_id`` fragments).
+
     Args:
-        url (str): A Notion page URL
+        url (str): A Notion page URL (with or without scheme).
 
     Returns:
-        str: The page ID extracted from the URL
+        str: The validated page ID extracted from the URL.
 
     Raises:
-        ValueError: If the URL doesn't contain a valid page ID
+        ValueError: If the URL doesn't contain a valid page ID.
     """
-    # Pattern to match Notion page IDs (32 character hex string)
-    page_id_pattern = r"([a-f0-9]{32})"
-    match = re.search(page_id_pattern, url)
-
-    if match:
-        return match.group(1)
-    else:
+    if not isinstance(url, str) or not url.strip():
         raise ValueError("Could not extract page ID from the provided URL")
+
+    candidate = url.strip()
+    if not re.match(r"^https?://", candidate, re.IGNORECASE):
+        candidate = f"https://{candidate}"
+
+    parsed = urlparse(candidate)
+    query_params = parse_qs(parsed.query, keep_blank_values=True)
+    if "p" in query_params:
+        peek_values = [value.strip() for value in query_params["p"] if value.strip()]
+        if not peek_values:
+            raise ValueError("Invalid page ID in 'p' query parameter")
+        return validate_notion_id(peek_values[0], "page")
+
+    path = parsed.path.rstrip("/")
+    last_segment = path.rsplit("/", 1)[-1] if path else ""
+    match = _TRAILING_NOTION_ID_PATTERN.search(last_segment)
+    if match:
+        return validate_notion_id(match.group(1), "page")
+
+    raise ValueError("Could not extract page ID from the provided URL")

@@ -21,6 +21,7 @@ from src.auth.factory import create_auth_client
 from src.utils.notion.util import (
     authenticate_and_save_credentials,
     extract_page_id_from_url,
+    validate_notion_id,
 )
 
 SERVICE_NAME = Path(__file__).parent.name
@@ -36,28 +37,27 @@ logger = logging.getLogger(SERVICE_NAME)
 
 
 def resolve_page_id(page_value: Any) -> str:
-    """Resolve a Notion page ID from either a raw ID or a Notion URL."""
+    """Resolve and validate a Notion page ID from either a raw UUID or Notion URL."""
     if not isinstance(page_value, str) or not page_value.strip():
         raise ValueError("page must be a non-empty Notion page ID or URL")
 
     normalized = page_value.strip()
+    lowered = normalized.lower()
     if (
-        "notion.so" in normalized
-        or "notion.site" in normalized
-        or normalized.startswith(("http://", "https://"))
+        "notion.so" in lowered
+        or "notion.site" in lowered
+        or lowered.startswith(("http://", "https://"))
     ):
-        return extract_page_id_from_url(normalized)
+        return validate_notion_id(extract_page_id_from_url(normalized), "page")
 
-    return normalized
+    return validate_notion_id(normalized, "page")
 
 
 def _build_query_database_kwargs(arguments: dict[str, Any]) -> dict[str, Any]:
     """Validate and build keyword arguments for ``notion.databases.query``."""
-    database_id = arguments.get("database_id")
-    if not isinstance(database_id, str) or not database_id.strip():
-        raise ValueError("database_id must be a non-empty string")
+    database_id = validate_notion_id(arguments.get("database_id"), "database_id")
 
-    query_kwargs: dict[str, Any] = {"database_id": database_id.strip()}
+    query_kwargs: dict[str, Any] = {"database_id": database_id}
 
     if "filter" in arguments and arguments["filter"] is not None:
         filter_arg = arguments["filter"]
@@ -110,16 +110,14 @@ def _format_query_database_result(result: Any) -> Any:
 
 def _build_create_page_kwargs(arguments: dict[str, Any]) -> dict[str, Any]:
     """Validate and build keyword arguments for ``notion.pages.create``."""
-    database_id = arguments.get("database_id")
-    if not isinstance(database_id, str) or not database_id.strip():
-        raise ValueError("database_id must be a non-empty string")
+    database_id = validate_notion_id(arguments.get("database_id"), "database_id")
 
     properties = arguments.get("properties")
     if not isinstance(properties, dict):
         raise ValueError("properties must be an object")
 
     create_kwargs: dict[str, Any] = {
-        "parent": {"database_id": database_id.strip()},
+        "parent": {"database_id": database_id},
         "properties": properties,
     }
 
@@ -480,15 +478,15 @@ def create_server(user_id, api_key=None):
                 notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.pages.update(**update_kwargs)
             elif name == "append_blocks":
+                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
                 notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.blocks.children.append(
-                    block_id=arguments["block_id"], children=arguments["children"]
+                    block_id=block_id, children=arguments["children"]
                 )
             elif name == "get_block_children":
+                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
                 notion = await create_notion_client(server.user_id, server.api_key)
-                result = await notion.blocks.children.list(
-                    block_id=arguments["block_id"]
-                )
+                result = await notion.blocks.children.list(block_id=block_id)
             elif name == "comment_on_page":
                 page_id = resolve_page_id(arguments["page"])
                 notion = await create_notion_client(server.user_id, server.api_key)
@@ -499,9 +497,10 @@ def create_server(user_id, api_key=None):
                     ],
                 )
             elif name == "comment_on_block":
+                block_id = validate_notion_id(arguments.get("block_id"), "block_id")
                 notion = await create_notion_client(server.user_id, server.api_key)
                 result = await notion.comments.create(
-                    parent={"block_id": arguments["block_id"]},
+                    parent={"block_id": block_id},
                     rich_text=[
                         {"type": "text", "text": {"content": arguments["comment"]}}
                     ],

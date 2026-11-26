@@ -1,8 +1,9 @@
 """Offline unit tests for Notion MCP server tools.
 
 Mocks the Notion AsyncClient to verify update_page, query_database filtering/
-sorting/pagination/bounds, create_page with and without children, URL/ID
-resolution, and invalid-input validation without requiring live credentials.
+sorting/pagination/bounds, create_page with and without children, strict UUID
+validation (blocking path traversal / endpoint redirect), URL/peek-URL parsing,
+and invalid-input validation without requiring live credentials.
 """
 
 import json
@@ -12,6 +13,13 @@ import pytest
 from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
 
 from src.servers.notion import main
+from src.utils.notion.util import extract_page_id_from_url, validate_notion_id
+
+VALID_PAGE_ID = "34eef81e112742eab82ba4a3530600c7"
+VALID_PAGE_UUID = "34eef81e-1127-42ea-b82b-a4a3530600c7"
+VALID_DB_ID = "c0343e8e89fa4c0f82466b5c34f3c08a"
+VALID_VIEW_ID = "11111111111111111111111111111111"
+VALID_BLOCK_ID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 
 def _build_mock_notion_client():
@@ -24,16 +32,20 @@ def _build_mock_notion_client():
     client.databases.query = AsyncMock(
         return_value={
             "object": "list",
-            "results": [{"id": "page-1"}],
+            "results": [{"id": VALID_PAGE_UUID}],
             "has_more": False,
             "next_cursor": None,
         }
     )
     client.pages = MagicMock()
-    client.pages.retrieve = AsyncMock(return_value={"id": "page-1", "object": "page"})
-    client.pages.create = AsyncMock(return_value={"id": "new-page-1", "object": "page"})
+    client.pages.retrieve = AsyncMock(
+        return_value={"id": VALID_PAGE_UUID, "object": "page"}
+    )
+    client.pages.create = AsyncMock(
+        return_value={"id": VALID_PAGE_UUID, "object": "page"}
+    )
     client.pages.update = AsyncMock(
-        return_value={"id": "page-1", "object": "page", "archived": False}
+        return_value={"id": VALID_PAGE_UUID, "object": "page", "archived": False}
     )
     client.blocks = MagicMock()
     client.blocks.children = MagicMock()
@@ -116,7 +128,7 @@ async def test_list_tools_includes_update_page_and_updated_schemas():
 async def test_update_page_with_page_id_and_properties():
     mock_client = _build_mock_notion_client()
     mock_client.pages.update.return_value = {
-        "id": "34eef81e-1127-42ea-b82b-a4a3530600c7",
+        "id": VALID_PAGE_UUID,
         "object": "page",
         "properties": {"Status": {"status": {"name": "Resolved"}}},
     }
@@ -124,29 +136,65 @@ async def test_update_page_with_page_id_and_properties():
     props = {"Status": {"status": {"name": "Resolved"}}}
     result, _, _ = await _invoke(
         "update_page",
-        {"page": "34eef81e-1127-42ea-b82b-a4a3530600c7", "properties": props},
+        {"page": VALID_PAGE_UUID, "properties": props},
         mock_client,
     )
 
     assert result.is_error is False
-    assert json.loads(result.content[0].text)["id"] == (
-        "34eef81e-1127-42ea-b82b-a4a3530600c7"
-    )
+    assert json.loads(result.content[0].text)["id"] == VALID_PAGE_UUID
     mock_client.pages.update.assert_awaited_once_with(
-        page_id="34eef81e-1127-42ea-b82b-a4a3530600c7",
+        page_id=VALID_PAGE_UUID,
         properties=props,
     )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "url",
+    ("url", "expected_id"),
     [
-        "https://www.notion.so/peakflo/QA-Bug-Ticket-34eef81e112742eab82ba4a3530600c7",
-        "https://peakflo.notion.site/QA-Bug-34eef81e112742eab82ba4a3530600c7?pvs=4",
+        (
+            f"https://www.notion.so/peakflo/QA-Bug-Ticket-{VALID_PAGE_ID}",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"https://peakflo.notion.site/QA-Bug-{VALID_PAGE_ID}?pvs=4",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"https://www.notion.so/peakflo/QA-Bug-{VALID_PAGE_ID}/",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"https://www.notion.so/peakflo/{VALID_DB_ID}?v={VALID_VIEW_ID}&p={VALID_PAGE_ID}&pm=s",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"https://www.notion.so/peakflo/Page-{VALID_PAGE_ID}#{VALID_BLOCK_ID}",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"https://www.notion.so/{VALID_PAGE_UUID}",
+            VALID_PAGE_UUID,
+        ),
+        (
+            f"https://www.notion.so/peakflo/QA-Bug-{VALID_PAGE_UUID}",
+            VALID_PAGE_UUID,
+        ),
+        (
+            f"HTTPS://WWW.NOTION.SO/peakflo/Page-{VALID_PAGE_ID.upper()}",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"notion.so/peakflo/Page-{VALID_PAGE_ID}",
+            VALID_PAGE_ID,
+        ),
+        (
+            f"www.notion.so/peakflo/{VALID_DB_ID}?v={VALID_VIEW_ID}&p={VALID_PAGE_UUID.upper()}",
+            VALID_PAGE_UUID,
+        ),
     ],
 )
-async def test_update_page_extracts_id_from_notion_url(url):
+async def test_update_page_extracts_id_from_notion_url(url, expected_id):
     mock_client = _build_mock_notion_client()
     result, _, _ = await _invoke(
         "update_page",
@@ -156,7 +204,7 @@ async def test_update_page_extracts_id_from_notion_url(url):
 
     assert result.is_error is False
     mock_client.pages.update.assert_awaited_once_with(
-        page_id="34eef81e112742eab82ba4a3530600c7",
+        page_id=expected_id,
         archived=True,
     )
 
@@ -167,13 +215,13 @@ async def test_update_page_supports_archived_false_alone():
     mock_client = _build_mock_notion_client()
     result, _, _ = await _invoke(
         "update_page",
-        {"page": "page-123", "archived": False},
+        {"page": VALID_PAGE_ID, "archived": False},
         mock_client,
     )
 
     assert result.is_error is False
     mock_client.pages.update.assert_awaited_once_with(
-        page_id="page-123",
+        page_id=VALID_PAGE_ID,
         archived=False,
     )
 
@@ -193,13 +241,13 @@ async def test_update_page_supports_icon_or_cover_alone(field, value):
     mock_client = _build_mock_notion_client()
     result, _, _ = await _invoke(
         "update_page",
-        {"page": "page-123", field: value},
+        {"page": VALID_PAGE_ID, field: value},
         mock_client,
     )
 
     assert result.is_error is False
     mock_client.pages.update.assert_awaited_once_with(
-        page_id="page-123",
+        page_id=VALID_PAGE_ID,
         **{field: value},
     )
 
@@ -214,7 +262,7 @@ async def test_update_page_supports_icon_cover_and_all_fields():
     result, _, _ = await _invoke(
         "update_page",
         {
-            "page": "page-123",
+            "page": VALID_PAGE_ID,
             "properties": props,
             "archived": False,
             "icon": icon,
@@ -225,7 +273,7 @@ async def test_update_page_supports_icon_cover_and_all_fields():
 
     assert result.is_error is False
     mock_client.pages.update.assert_awaited_once_with(
-        page_id="page-123",
+        page_id=VALID_PAGE_ID,
         properties=props,
         archived=False,
         icon=icon,
@@ -237,7 +285,7 @@ async def test_update_page_supports_icon_cover_and_all_fields():
 async def test_update_page_rejects_missing_update_fields():
     result, mock_client, create_client = await _invoke(
         "update_page",
-        {"page": "page-123"},
+        {"page": VALID_PAGE_ID},
     )
 
     assert result.is_error is True
@@ -252,12 +300,29 @@ async def test_update_page_rejects_missing_update_fields():
     [
         {"page": ""},
         {"page": "   "},
+        {"page": "not-a-uuid", "archived": True},
+        {"page": f"../blocks/{VALID_BLOCK_ID}", "archived": True},
+        {"page": "../../v1/users/me", "archived": True},
+        {"page": f"{VALID_PAGE_ID}?foo=bar", "archived": True},
+        {"page": f"{VALID_PAGE_ID}#frag", "archived": True},
         {"page": "https://www.notion.so/peakflo/no-valid-id-here", "archived": True},
-        {"page": "page-123", "properties": {}},
-        {"page": "page-123", "icon": {}},
-        {"page": "page-123", "cover": {}},
-        {"page": "page-123", "archived": "yes"},
-        {"page": "page-123", "properties": ["bad"]},
+        {
+            "page": f"https://www.notion.so/peakflo/no-id?v={VALID_VIEW_ID}#{VALID_BLOCK_ID}",
+            "archived": True,
+        },
+        {
+            "page": f"https://www.notion.so/peakflo/{VALID_DB_ID}?v={VALID_VIEW_ID}&p=not-a-uuid",
+            "archived": True,
+        },
+        {
+            "page": f"https://www.notion.so/peakflo/{VALID_DB_ID}?v={VALID_VIEW_ID}&p=",
+            "archived": True,
+        },
+        {"page": VALID_PAGE_ID, "properties": {}},
+        {"page": VALID_PAGE_ID, "icon": {}},
+        {"page": VALID_PAGE_ID, "cover": {}},
+        {"page": VALID_PAGE_ID, "archived": "yes"},
+        {"page": VALID_PAGE_ID, "properties": ["bad"]},
     ],
 )
 async def test_update_page_rejects_invalid_inputs(arguments):
@@ -281,7 +346,7 @@ async def test_query_database_backward_compatible_minimal_call():
 
     result, _, _ = await _invoke(
         "query_database",
-        {"database_id": "db-123"},
+        {"database_id": VALID_DB_ID},
         mock_client,
     )
 
@@ -291,7 +356,7 @@ async def test_query_database_backward_compatible_minimal_call():
     assert payload["results"] == [{"id": "bug-1"}, {"id": "bug-2"}]
     assert payload["has_more"] is False
     assert payload["next_cursor"] is None
-    mock_client.databases.query.assert_awaited_once_with(database_id="db-123")
+    mock_client.databases.query.assert_awaited_once_with(database_id=VALID_DB_ID)
 
 
 @pytest.mark.asyncio
@@ -301,7 +366,7 @@ async def test_query_database_normalizes_missing_pagination_fields():
 
     result, _, _ = await _invoke(
         "query_database",
-        {"database_id": "db-123"},
+        {"database_id": VALID_DB_ID},
         mock_client,
     )
 
@@ -335,7 +400,7 @@ async def test_query_database_with_filter_sorts_page_size_and_cursor():
     result, _, _ = await _invoke(
         "query_database",
         {
-            "database_id": "db-123",
+            "database_id": VALID_DB_ID,
             "filter": filter_obj,
             "sorts": sorts,
             "page_size": 25,
@@ -350,7 +415,7 @@ async def test_query_database_with_filter_sorts_page_size_and_cursor():
     assert payload["has_more"] is True
     assert payload["next_cursor"] == "cursor-page-2"
     mock_client.databases.query.assert_awaited_once_with(
-        database_id="db-123",
+        database_id=VALID_DB_ID,
         filter=filter_obj,
         sorts=sorts,
         page_size=25,
@@ -364,13 +429,13 @@ async def test_query_database_accepts_page_size_boundaries(page_size):
     mock_client = _build_mock_notion_client()
     result, _, _ = await _invoke(
         "query_database",
-        {"database_id": "db-123", "page_size": page_size},
+        {"database_id": VALID_DB_ID, "page_size": page_size},
         mock_client,
     )
 
     assert result.is_error is False
     mock_client.databases.query.assert_awaited_once_with(
-        database_id="db-123",
+        database_id=VALID_DB_ID,
         page_size=page_size,
     )
 
@@ -381,17 +446,20 @@ async def test_query_database_accepts_page_size_boundaries(page_size):
     [
         {"database_id": ""},
         {"database_id": "   "},
-        {"database_id": "db-123", "page_size": 0},
-        {"database_id": "db-123", "page_size": -5},
-        {"database_id": "db-123", "page_size": 101},
-        {"database_id": "db-123", "page_size": True},
-        {"database_id": "db-123", "page_size": "10"},
-        {"database_id": "db-123", "filter": {}},
-        {"database_id": "db-123", "filter": "invalid"},
-        {"database_id": "db-123", "sorts": ["not-a-dict"]},
-        {"database_id": "db-123", "sorts": [{}]},
-        {"database_id": "db-123", "start_cursor": ""},
-        {"database_id": "db-123", "start_cursor": "   "},
+        {"database_id": "not-a-uuid"},
+        {"database_id": f"../pages/{VALID_PAGE_ID}#"},
+        {"database_id": f"{VALID_DB_ID}?foo=bar"},
+        {"database_id": VALID_DB_ID, "page_size": 0},
+        {"database_id": VALID_DB_ID, "page_size": -5},
+        {"database_id": VALID_DB_ID, "page_size": 101},
+        {"database_id": VALID_DB_ID, "page_size": True},
+        {"database_id": VALID_DB_ID, "page_size": "10"},
+        {"database_id": VALID_DB_ID, "filter": {}},
+        {"database_id": VALID_DB_ID, "filter": "invalid"},
+        {"database_id": VALID_DB_ID, "sorts": ["not-a-dict"]},
+        {"database_id": VALID_DB_ID, "sorts": [{}]},
+        {"database_id": VALID_DB_ID, "start_cursor": ""},
+        {"database_id": VALID_DB_ID, "start_cursor": "   "},
     ],
 )
 async def test_query_database_rejects_invalid_inputs(arguments):
@@ -407,12 +475,12 @@ async def test_query_database_omits_empty_sorts_list():
     mock_client = _build_mock_notion_client()
     result, _, _ = await _invoke(
         "query_database",
-        {"database_id": "db-123", "sorts": []},
+        {"database_id": VALID_DB_ID, "sorts": []},
         mock_client,
     )
 
     assert result.is_error is False
-    mock_client.databases.query.assert_awaited_once_with(database_id="db-123")
+    mock_client.databases.query.assert_awaited_once_with(database_id=VALID_DB_ID)
 
 
 # ----------------------------------------------------------------- create_page
@@ -423,14 +491,14 @@ async def test_create_page_without_children_preserves_existing_behavior():
 
     result, _, _ = await _invoke(
         "create_page",
-        {"database_id": "db-qa", "properties": props},
+        {"database_id": VALID_DB_ID, "properties": props},
         mock_client,
     )
 
     assert result.is_error is False
-    assert json.loads(result.content[0].text)["id"] == "new-page-1"
+    assert json.loads(result.content[0].text)["id"] == VALID_PAGE_UUID
     mock_client.pages.create.assert_awaited_once_with(
-        parent={"database_id": "db-qa"},
+        parent={"database_id": VALID_DB_ID},
         properties=props,
     )
 
@@ -470,14 +538,14 @@ async def test_create_page_with_children_and_bookmark_blocks():
 
     result, _, _ = await _invoke(
         "create_page",
-        {"database_id": "db-qa", "properties": props, "children": children},
+        {"database_id": VALID_DB_ID, "properties": props, "children": children},
         mock_client,
     )
 
     assert result.is_error is False
-    assert json.loads(result.content[0].text)["id"] == "new-page-1"
+    assert json.loads(result.content[0].text)["id"] == VALID_PAGE_UUID
     mock_client.pages.create.assert_awaited_once_with(
-        parent={"database_id": "db-qa"},
+        parent={"database_id": VALID_DB_ID},
         properties=props,
         children=children,
     )
@@ -490,13 +558,13 @@ async def test_create_page_omits_empty_children_list():
 
     result, _, _ = await _invoke(
         "create_page",
-        {"database_id": "db-qa", "properties": props, "children": []},
+        {"database_id": VALID_DB_ID, "properties": props, "children": []},
         mock_client,
     )
 
     assert result.is_error is False
     mock_client.pages.create.assert_awaited_once_with(
-        parent={"database_id": "db-qa"},
+        parent={"database_id": VALID_DB_ID},
         properties=props,
     )
 
@@ -506,12 +574,14 @@ async def test_create_page_omits_empty_children_list():
     "arguments",
     [
         {"database_id": "", "properties": {"Name": {}}},
-        {"database_id": "db-qa", "properties": "not-an-object"},
-        {"database_id": "db-qa", "properties": {}, "children": "not-a-list"},
-        {"database_id": "db-qa", "properties": {}, "children": ["not-a-block"]},
-        {"database_id": "db-qa", "properties": {}, "children": [{}]},
+        {"database_id": "not-a-uuid", "properties": {"Name": {}}},
+        {"database_id": f"../pages/{VALID_PAGE_ID}", "properties": {"Name": {}}},
+        {"database_id": VALID_DB_ID, "properties": "not-an-object"},
+        {"database_id": VALID_DB_ID, "properties": {}, "children": "not-a-list"},
+        {"database_id": VALID_DB_ID, "properties": {}, "children": ["not-a-block"]},
+        {"database_id": VALID_DB_ID, "properties": {}, "children": [{}]},
         {
-            "database_id": "db-qa",
+            "database_id": VALID_DB_ID,
             "properties": {},
             "children": [{"object": "block", "type": "divider", "divider": {}}] * 101,
         },
@@ -533,28 +603,27 @@ async def test_create_page_accepts_max_100_children_blocks():
 
     result, _, _ = await _invoke(
         "create_page",
-        {"database_id": "db-qa", "properties": props, "children": children},
+        {"database_id": VALID_DB_ID, "properties": props, "children": children},
         mock_client,
     )
 
     assert result.is_error is False
     mock_client.pages.create.assert_awaited_once_with(
-        parent={"database_id": "db-qa"},
+        parent={"database_id": VALID_DB_ID},
         properties=props,
         children=children,
     )
 
 
+# ---------------------------------------------- traversal & URL/ID resolution
 @pytest.mark.asyncio
 async def test_get_page_and_comment_on_page_resolve_id_and_url():
     mock_client = _build_mock_notion_client()
-    url = "https://www.notion.so/peakflo/Ticket-34eef81e112742eab82ba4a3530600c7"
+    url = f"https://www.notion.so/peakflo/Ticket-{VALID_PAGE_ID}"
 
     get_result, _, _ = await _invoke("get_page", {"page": url}, mock_client)
     assert get_result.is_error is False
-    mock_client.pages.retrieve.assert_awaited_once_with(
-        page_id="34eef81e112742eab82ba4a3530600c7"
-    )
+    mock_client.pages.retrieve.assert_awaited_once_with(page_id=VALID_PAGE_ID)
 
     comment_result, _, _ = await _invoke(
         "comment_on_page",
@@ -563,9 +632,40 @@ async def test_get_page_and_comment_on_page_resolve_id_and_url():
     )
     assert comment_result.is_error is False
     mock_client.comments.create.assert_awaited_once_with(
-        parent={"page_id": "34eef81e112742eab82ba4a3530600c7"},
+        parent={"page_id": VALID_PAGE_ID},
         rich_text=[{"type": "text", "text": {"content": "Verified fixed in staging"}}],
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    [
+        ("get_page", {"page": "../../v1/users/me"}),
+        ("get_page", {"page": f"../blocks/{VALID_BLOCK_ID}"}),
+        (
+            "comment_on_page",
+            {"page": f"../blocks/{VALID_BLOCK_ID}", "comment": "hi"},
+        ),
+        ("get_block_children", {"block_id": f"../pages/{VALID_PAGE_ID}"}),
+        (
+            "append_blocks",
+            {
+                "block_id": f"../pages/{VALID_PAGE_ID}",
+                "children": [{"type": "divider"}],
+            },
+        ),
+        (
+            "comment_on_block",
+            {"block_id": f"../pages/{VALID_PAGE_ID}", "comment": "hi"},
+        ),
+    ],
+)
+async def test_path_traversal_ids_are_blocked_across_tools(tool_name, arguments):
+    result, _, create_client = await _invoke(tool_name, arguments)
+
+    assert result.is_error is True
+    create_client.assert_not_awaited()
 
 
 # --------------------------------------------------------- error & helper paths
@@ -576,7 +676,7 @@ async def test_notion_api_error_is_returned_as_tool_error():
 
     result, _, _ = await _invoke(
         "update_page",
-        {"page": "page-missing", "archived": True},
+        {"page": VALID_PAGE_ID, "archived": True},
         mock_client,
     )
 
@@ -587,16 +687,28 @@ async def test_notion_api_error_is_returned_as_tool_error():
 def test_python_helpers_reject_bool_page_size_and_empty_update():
     """Direct helper checks verify validation even if schema validation is bypassed."""
     with pytest.raises(ValueError, match="page_size"):
-        main._build_query_database_kwargs({"database_id": "db-1", "page_size": True})
+        main._build_query_database_kwargs(
+            {"database_id": VALID_DB_ID, "page_size": True}
+        )
 
     with pytest.raises(ValueError, match="At least one"):
-        main._build_update_page_kwargs({"page": "page-1", "properties": None})
+        main._build_update_page_kwargs({"page": VALID_PAGE_ID, "properties": None})
 
     with pytest.raises(ValueError, match="100"):
         main._build_create_page_kwargs(
             {
-                "database_id": "db-1",
+                "database_id": VALID_DB_ID,
                 "properties": {},
                 "children": [{"type": "divider"}] * 101,
             }
         )
+
+    with pytest.raises(ValueError, match="Notion UUID"):
+        validate_notion_id("../users/me", "page")
+
+    assert (
+        extract_page_id_from_url(
+            f"https://www.notion.so/peakflo/{VALID_DB_ID}?v={VALID_VIEW_ID}&p={VALID_PAGE_ID}&pm=s"
+        )
+        == VALID_PAGE_ID
+    )
