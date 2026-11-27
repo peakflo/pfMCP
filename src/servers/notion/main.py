@@ -2,9 +2,7 @@ import os
 import sys
 import logging
 import json
-import re
 from pathlib import Path
-from typing import Optional
 
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
@@ -32,6 +30,13 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(SERVICE_NAME)
+
+
+def resolve_page_id(page_value):
+    """Returns the page ID from a raw Notion page ID or a Notion page URL."""
+    if "notion.so" in page_value or page_value.startswith(("http://", "https://")):
+        return extract_page_id_from_url(page_value)
+    return page_value
 
 
 async def get_credentials(user_id, api_key=None):
@@ -128,10 +133,30 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="query_database",
-                description="Query a Notion database",
+                description="Query a Notion database with optional filter, sorts, and pagination",
                 inputSchema={
                     "type": "object",
-                    "properties": {"database_id": {"type": "string"}},
+                    "properties": {
+                        "database_id": {"type": "string"},
+                        "filter": {
+                            "type": "object",
+                            "description": "Optional Notion database filter object",
+                        },
+                        "sorts": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Optional list of Notion sort objects",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                        },
+                        "start_cursor": {
+                            "type": "string",
+                            "description": "next_cursor from a previous query",
+                        },
+                    },
                     "required": ["database_id"],
                 },
             ),
@@ -151,14 +176,38 @@ def create_server(user_id, api_key=None):
             ),
             types.Tool(
                 name="create_page",
-                description="Create a new page in a database in Notion",
+                description="Create a new page in a database in Notion, optionally with body blocks",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "database_id": {"type": "string"},
                         "properties": {"type": "object"},
+                        "children": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "maxItems": 100,
+                            "description": "Optional Notion block objects for the page body",
+                        },
                     },
                     "required": ["database_id", "properties"],
+                },
+            ),
+            types.Tool(
+                name="update_page",
+                description="Update a page's properties in Notion",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "page": {
+                            "type": "string",
+                            "description": "The page ID or Notion page URL",
+                        },
+                        "properties": {
+                            "type": "object",
+                            "description": "Notion page property values to update",
+                        },
+                    },
+                    "required": ["page", "properties"],
                 },
             ),
             types.Tool(
@@ -235,7 +284,7 @@ def create_server(user_id, api_key=None):
         Raises:
             ValueError: If an unknown tool name is provided.
         """
-        logger.info(f"User {user_id} calling tool: {name} with args: {arguments}")
+        logger.info(f"User {user_id} calling tool: {name}")
 
         notion = await create_notion_client(server.user_id, server.api_key)
 
@@ -252,26 +301,32 @@ def create_server(user_id, api_key=None):
                     filter={"property": "object", "value": "database"}
                 )
             elif name == "query_database":
+                query = {
+                    key: arguments[key]
+                    for key in ("filter", "sorts", "page_size", "start_cursor")
+                    if key in arguments
+                }
                 result = await notion.databases.query(
-                    database_id=arguments["database_id"]
+                    database_id=arguments["database_id"], **query
                 )
             elif name == "get_page":
-                # Handle page parameter which can be either page_id or url
-                page_value = arguments["page"]
-
-                # Check if it looks like a URL (contains 'notion.so' or 'http')
-                if "notion.so" in page_value or page_value.startswith(
-                    ("http://", "https://")
-                ):
-                    page_id = extract_page_id_from_url(page_value)
-                else:
-                    # Assume it's a page ID
-                    page_id = page_value
-
-                result = await notion.pages.retrieve(page_id=page_id)
+                result = await notion.pages.retrieve(
+                    page_id=resolve_page_id(arguments["page"])
+                )
             elif name == "create_page":
+                body = (
+                    {"children": arguments["children"]}
+                    if arguments.get("children")
+                    else {}
+                )
                 result = await notion.pages.create(
                     parent={"database_id": arguments["database_id"]},
+                    properties=arguments["properties"],
+                    **body,
+                )
+            elif name == "update_page":
+                result = await notion.pages.update(
+                    page_id=resolve_page_id(arguments["page"]),
                     properties=arguments["properties"],
                 )
             elif name == "append_blocks":
@@ -283,15 +338,8 @@ def create_server(user_id, api_key=None):
                     block_id=arguments["block_id"]
                 )
             elif name == "comment_on_page":
-                page_value = arguments["page"]
-                if "notion.so" in page_value or page_value.startswith(
-                    ("http://", "https://")
-                ):
-                    page_id = extract_page_id_from_url(page_value)
-                else:
-                    page_id = page_value
                 result = await notion.comments.create(
-                    parent={"page_id": page_id},
+                    parent={"page_id": resolve_page_id(arguments["page"])},
                     rich_text=[
                         {"type": "text", "text": {"content": arguments["comment"]}}
                     ],
@@ -310,7 +358,7 @@ def create_server(user_id, api_key=None):
 
         except Exception as e:
             logger.error(f"Error calling Notion API: {e}")
-            return [types.TextContent(type="text", text=str(e))]
+            raise
 
     return server
 
