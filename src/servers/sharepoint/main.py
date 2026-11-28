@@ -2,9 +2,12 @@ import sys
 import logging
 import json
 import os
+import re
+import time
 import requests
 from pathlib import Path
 from typing import Optional, Any
+from urllib.parse import urljoin, urlparse
 
 # Add both project root and src directory to Python path
 project_root = os.path.abspath(
@@ -36,6 +39,146 @@ SHAREPOINT_OAUTH_TOKEN_URL = (
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0/"
 GRAPH_SITES_URL = GRAPH_BASE_URL + "sites/"
 GRAPH_USERS_URL = GRAPH_BASE_URL + "users/"
+
+# Largest file content fetched from a URL before uploading it to Graph.
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+_MAX_DOWNLOAD_REDIRECTS = 3
+_DOWNLOAD_CHUNK_BYTES = 64 * 1024
+# Workflow files arrive as GCS v4 or S3 presigned HTTPS URLs.
+_S3_SIGNED_HOST = re.compile(r"(?:[a-z0-9.-]+\.)?s3(?:[.-][a-z0-9-]+)*\.amazonaws\.com")
+
+
+class _UploadSourceError(Exception):
+    """Caller-facing download failure. The message never includes a response body."""
+
+
+def _is_signed_storage_host(hostname: str) -> bool:
+    host = hostname.lower().rstrip(".")
+    if host == "storage.googleapis.com" or host.endswith(".storage.googleapis.com"):
+        return True
+    return _S3_SIGNED_HOST.fullmatch(host) is not None
+
+
+def _validate_download_url(url: str) -> str:
+    """Accept only https GCS/S3 URLs. Rejects other hosts before any request."""
+    parsed = urlparse(url.strip())
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise _UploadSourceError(
+            "Error: file_url must be an https GCS or S3 signed download URL"
+        )
+    if parsed.username or parsed.password:
+        raise _UploadSourceError("Error: file_url must not include credentials")
+    if parsed.port not in (None, 443):
+        raise _UploadSourceError("Error: file_url must use port 443")
+    if not _is_signed_storage_host(parsed.hostname):
+        raise _UploadSourceError(
+            "Error: file_url host is not an allowed signed-download host"
+        )
+    return url.strip()
+
+
+def _read_capped(response: requests.Response, limit: int) -> bytes:
+    """Read a streamed response, stopping once it exceeds limit."""
+    total = 0
+    chunks = []
+    for chunk in response.iter_content(chunk_size=_DOWNLOAD_CHUNK_BYTES):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > limit:
+            raise _UploadSourceError(
+                f"Error: File is too large. Maximum is {limit} bytes."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _safe_content_type(header_value: Optional[str]) -> Optional[str]:
+    if not header_value:
+        return None
+    mime = header_value.split(";", 1)[0].strip().lower()
+    if re.fullmatch(r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+", mime):
+        return mime
+    return None
+
+
+def _download_file_url(file_url: str) -> tuple[bytes, str, Optional[str]]:
+    """Download a signed storage URL without following redirects off the allowlist.
+
+    The body is read in chunks and never stored past MAX_UPLOAD_BYTES. Failures
+    report only the HTTP status, not the response body.
+    """
+    current = _validate_download_url(file_url)
+    for redirect_count in range(_MAX_DOWNLOAD_REDIRECTS + 1):
+        response = requests.get(
+            current,
+            timeout=120,
+            stream=True,
+            allow_redirects=False,
+        )
+        try:
+            if response.status_code in (301, 302, 303, 307, 308):
+                location = response.headers.get("Location")
+                if not location or redirect_count == _MAX_DOWNLOAD_REDIRECTS:
+                    raise _UploadSourceError(
+                        f"Error downloading file from URL: HTTP {response.status_code}"
+                    )
+                current = _validate_download_url(urljoin(current, location))
+                continue
+
+            if response.status_code != 200:
+                raise _UploadSourceError(
+                    f"Error downloading file from URL: HTTP {response.status_code}"
+                )
+
+            declared = response.headers.get("Content-Length")
+            if declared:
+                try:
+                    declared_size = int(declared)
+                except ValueError:
+                    declared_size = None
+                if declared_size is not None and declared_size > MAX_UPLOAD_BYTES:
+                    raise _UploadSourceError(
+                        f"Error: File is too large ({declared_size} bytes). "
+                        f"Maximum is {MAX_UPLOAD_BYTES} bytes."
+                    )
+
+            file_content = _read_capped(response, MAX_UPLOAD_BYTES)
+            return (
+                file_content,
+                _filename_from_url(current, response.headers),
+                _safe_content_type(response.headers.get("Content-Type")),
+            )
+        finally:
+            response.close()
+
+    raise _UploadSourceError("Error downloading file from URL: too many redirects")
+
+
+def _filename_from_url(url: str, headers: Any = None) -> str:
+    """Derive a usable file name for content downloaded from a URL.
+
+    Prefers the Content-Disposition header, then the last path segment of the
+    URL, and falls back to a generated name.
+    """
+    disposition = ""
+    if headers is not None:
+        disposition = headers.get("Content-Disposition") or ""
+    if "filename=" in disposition:
+        candidate = (
+            disposition.split("filename=", 1)[1].split(";")[0].strip().strip('"')
+        )
+        if candidate:
+            return os.path.basename(candidate)
+
+    path = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    candidate = os.path.basename(path)
+    if candidate and "." in candidate:
+        return candidate
+    if candidate and candidate not in {"content", "download", "file"}:
+        return candidate
+    return f"upload-{int(time.time())}"
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -448,17 +591,21 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             ),
             types.Tool(
                 name="upload_file",
-                description="Upload a file to the current user's OneDrive",
+                description="Upload a file to the current user's OneDrive, either from a local path or from a downloadable URL",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "Local path of the file to upload",
+                            "description": "Local path of the file to upload (use this or file_url)",
+                        },
+                        "file_url": {
+                            "type": "string",
+                            "description": "HTTPS GCS or S3 signed download URL (use this or file_path). The server fetches the file content itself. Other hosts are rejected.",
                         },
                         "destination_path": {
                             "type": "string",
-                            "description": "Destination path in OneDrive, including filename (e.g., 'Documents/report.docx')",
+                            "description": "Destination path in OneDrive, including filename (e.g., 'Documents/report.docx'). When only a folder is given, the uploaded file's own name is used.",
                         },
                         "conflict_behavior": {
                             "type": "string",
@@ -474,7 +621,6 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                             "description": "ID of the parent folder (optional, use instead of destination_path)",
                         },
                     },
-                    "required": ["file_path"],
                 },
             ),
             types.Tool(
@@ -1422,21 +1568,31 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
             elif name == "upload_file":
                 # Extract parameters for uploading a file
                 file_path = arguments.get("file_path")
+                file_url = arguments.get("file_url")
                 destination_path = arguments.get("destination_path")
                 parent_folder_id = arguments.get("parent_folder_id")
                 conflict_behavior = arguments.get("conflict_behavior", "replace")
-                content_type = arguments.get("content_type", "text/plain")
+                content_type = arguments.get("content_type")
 
-                # Validate required parameters
-                if not file_path:
+                # Validate required parameters: exactly one source
+                if not file_path and not file_url:
                     return [
                         types.TextContent(
-                            type="text", text="Error: file_path is required"
+                            type="text",
+                            text="Error: Either file_path or file_url must be provided",
                         )
                     ]
 
-                # Check if file exists
-                if not os.path.isfile(file_path):
+                if file_path and file_url:
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text="Error: Provide either file_path or file_url, not both",
+                        )
+                    ]
+
+                # Check if a local file exists (URL sources are downloaded below)
+                if file_path and not os.path.isfile(file_path):
                     return [
                         types.TextContent(
                             type="text", text=f"Error: File not found: {file_path}"
@@ -1462,14 +1618,34 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     ]
 
                 try:
-                    # Determine file size
-                    file_size = os.path.getsize(file_path)
-                    file_name = os.path.basename(file_path)
+                    if file_url:
+                        # Workflow files arrive as signed GCS/S3 links, not paths
+                        # on this host. The helper rejects every other host.
+                        file_content, file_name, downloaded_type = _download_file_url(
+                            file_url
+                        )
+                        file_size = len(file_content)
+                        content_type = (
+                            content_type
+                            or downloaded_type
+                            or "application/octet-stream"
+                        )
+                    else:
+                        file_size = os.path.getsize(file_path)
+                        file_name = os.path.basename(file_path)
+                        file_content = None
+                        content_type = content_type or "application/octet-stream"
 
                     # Build the request URL based on provided parameters
                     if destination_path:
                         # Clean the path and ensure it starts with a / but doesn't end with one
                         clean_path = destination_path.strip("/")
+                        # A folder-only destination keeps the uploaded file's own name
+                        if (
+                            os.path.basename(clean_path) != file_name
+                            and not os.path.splitext(clean_path)[1]
+                        ):
+                            clean_path = f"{clean_path}/{file_name}"
                         url = f"{GRAPH_BASE_URL}me/drive/root:/{clean_path}:/content"
                     else:
                         # Use parent folder ID and include filename
@@ -1484,9 +1660,10 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                     upload_headers = sharepoint["headers"].copy()
                     upload_headers["Content-Type"] = content_type
 
-                    # Read the file content
-                    with open(file_path, "rb") as f:
-                        file_content = f.read()
+                    # Read the local file content when it was not downloaded above
+                    if file_content is None:
+                        with open(file_path, "rb") as f:
+                            file_content = f.read()
 
                     # Make the API request to upload the file
                     response = requests.put(
@@ -1513,6 +1690,8 @@ def create_server(user_id: str, api_key: Optional[str] = None) -> Server:
                         logger.error(error_message)
                         return [types.TextContent(type="text", text=error_message)]
 
+                except _UploadSourceError as error:
+                    return [types.TextContent(type="text", text=str(error))]
                 except Exception as e:
                     error_message = f"Error during file upload: {str(e)}"
                     logger.error(error_message)
